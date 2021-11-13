@@ -6,8 +6,9 @@ sys.path.append(os.path.abspath("../"))
 try:
     from dbManager import db
     from classes import Anime, AnimeList, Character, CharacterList
+    from logger import log
 except ModuleNotFoundError:
-    print("DB module not found!")
+    log("DB module not found!")
     db = None
 
 
@@ -49,7 +50,7 @@ class APIUtils():
         api_id = self.db.sql(
             "SELECT {} FROM {} WHERE id=?".format(self.apiKey, index), (id,))
         if api_id == []:
-            print("Key not found!", "SELECT {} FROM {} WHERE id={}".format(
+            log("Key not found!", "SELECT {} FROM {} WHERE id={}".format(
                 self.apiKey, index, id))
             return None
             # raise Exception("Wrong api")

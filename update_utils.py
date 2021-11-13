@@ -2,8 +2,9 @@ from datetime import datetime, timedelta
 import os
 import utils
 
+
 class UpdateUtils:
-    def updateAll(self,schedule=True):
+    def updateAll(self, schedule=True):
         self.updateCache()
         self.updateDirs()
         self.updateTag()

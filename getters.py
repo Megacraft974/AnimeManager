@@ -1,6 +1,7 @@
 import threading
 import os
 import hashlib
+import time
 
 import bencoding
 
@@ -11,9 +12,10 @@ from dbManager import db
 from PIL import Image, ImageTk
 from classes import Anime
 
+
 class Getters:
     def getDatabase(self):
-        if threading.main_thread() == threading.current_thread() and hasattr(self,"database"):
+        if threading.main_thread() == threading.current_thread() and hasattr(self, "database"):
             return self.database
         else:
             return db(self.dbPath)
@@ -154,7 +156,7 @@ class Getters:
             anime = database(id=id, table="anime").get()
             self.animeFolder = os.listdir(self.animePath)
         else:
-            if type(anime) != Anime:
+            if not isinstance(anime, Anime):
                 anime = Anime(anime)
             if id is None:
                 id = anime.id

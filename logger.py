@@ -4,22 +4,23 @@ import os
 
 from datetime import date, datetime
 
+
 class Logger:
-    def __init__(self,logs="DEFAULT"):
-        #Not necessary if used as class slave
+    def __init__(self, logs="DEFAULT"):
+        # Not necessary if used as class slave
 
         appdata = os.path.join(os.getenv('APPDATA'), "AnimeManager")
         self.logsPath = os.path.join(appdata, "logs")
         self.maxLogsSize = 50000
         self.logs = ['DB_ERROR', 'DB_UPDATE', 'MAIN_STATE',
                      'NETWORK', 'SERVER', 'SETTINGS', 'TIME']
-        if logs in ("DEFAULT","ALL","NONE"):
+        if logs in ("DEFAULT", "ALL", "NONE"):
             self.log_mode = logs
 
         self.initLogs()
 
     def initLogs(self):
-        if not hasattr(self,"log_mode"):
+        if not hasattr(self, "log_mode"):
             self.log_mode = "DEFAULT"
         if not os.path.exists(self.logsPath):
             os.mkdir(self.logsPath)
@@ -37,22 +38,16 @@ class Logger:
         self.logFile = os.path.normpath(os.path.join(self.logsPath, "log_{}.txt".format(
             datetime.today().strftime("%Y-%m-%dT%H.%M.%S"))))
         with open(self.logFile, "w") as f:
-            f.write(
-                "_" *
-                10 +
-                date.today().strftime("%d/%m/%y") +
-                "_" *
-                10 +
-                "\n")
+            f.write("_" * 10 + date.today().strftime("%d/%m/%y") + "_" * 10 + "\n")
 
-        if hasattr(self,'remote') and self.remote:
+        if hasattr(self, 'remote') and self.remote:
             self.log_mode = "NONE"
 
     def log(self, *text, end="\n"):
         if self.log_mode == "NONE":
             return
         if self.log_mode == "DEFAULT":
-            category,text = text[0],text[1:]
+            category, text = text[0], text[1:]
             if category in self.logs:
                 toLog = "[{}]".format(category.center(13)) + " - "
                 toLog += " ".join([str(t) for t in text])
@@ -64,20 +59,15 @@ class Logger:
             print(toLog, flush=True, end=end)
         else:
             return
-        # if self.loadfen is not None and threading.main_thread() == threading.current_thread():
-        #     try:
-        #         self.loadLabel['text'] = toLog
-        #         self.loadfen.update()
-        #     except Exception:
-        #         pass
         with open(self.logFile, "a", encoding='utf-8') as f:
             timestamp = "[{}]".format(time.strftime("%H:%M:%S"))
             f.write(timestamp + toLog + "\n")
 
-def log(*args,**kwargs):
+
+def log(*args, **kwargs):
     if "logger_instance" in globals().keys():
         logger = globals()["logger_instance"]
     else:
         logger = Logger(logs="ALL")
         globals()["logger_instance"] = logger
-    logger.log(*args,**kwargs)
+    logger.log(*args, **kwargs)

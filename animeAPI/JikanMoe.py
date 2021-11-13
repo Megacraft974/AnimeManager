@@ -157,7 +157,7 @@ class JikanMoeWrapper(APIUtils):
         c_id = self.db.getId("mal_id", int(c["mal_id"]), table="characters")
         keys = {'name': 'name', 'role': 'role', 'picture': 'image_url',
                 'desc': 'about', 'animeography': 'animeography'}
-        out = Character
+        out = Character()
         out.id = c_id
         if anime_id is not None:
             out.anime_id = anime_id

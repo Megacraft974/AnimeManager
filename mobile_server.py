@@ -5,6 +5,7 @@ import os
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from dbManager import db
+from logger import log
 
 
 def startServer(hostName, serverPort, dbPath, manager):
@@ -44,7 +45,7 @@ def GetHandler(dbPath, manager):
             content = "application/json"
 
             self.database = db(dbPath)
-            self.log("SERVER", "Received GET request from address {}".format(
+            log("SERVER", "Received GET request from address {}".format(
                 self.client_address))
             # database = db("D:/Animes/Torrents/Scripts/jikan.moe.db")
             # self.wfile.write(bytes("<p>Request: %s</p>" % self.path, "utf-8"))
@@ -93,7 +94,7 @@ def GetHandler(dbPath, manager):
         def do_POST(self):
             length = int(self.headers['Content-length'])
             rep = json.loads(self.rfile.read(length))
-            self.log("SERVER", "Received sync request (POST) from address {}, {} animes.".format(
+            log("SERVER", "Received sync request (POST) from address {}, {} animes.".format(
                 self.client_address, len(rep)))
             self.saveAnimes(rep)
             self.send_response(200, "OK")
@@ -104,9 +105,6 @@ def GetHandler(dbPath, manager):
             self.send(rep, "application/json")
             # self.wfile.write(bytes(json.dumps(rep),"utf-8"))
 
-        def log(self, *args):
-            print(*args, flush=True)
-
         def saveAnimes(self, rep):
             self.database = db("D:/Animes/Torrents/Scripts/jikan.moe.db")
             self.manager = manager
@@ -114,7 +112,7 @@ def GetHandler(dbPath, manager):
                 id, tag, like = anime.values()
                 if not self.database(id=id, table="anime").exist():
                     try:
-                        self.log("SERVER", "Fetching data for id", id)
+                        log("SERVER", "Fetching data for id", id)
                         data = self.manager.getData(id)
                         self.database(id=id, table="anime").set(
                             data, save=False)

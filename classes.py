@@ -3,6 +3,8 @@ import threading
 import time
 import traceback
 
+from logger import log
+
 
 class Item(dict):
     def __init__(self, data=None):
@@ -29,7 +31,7 @@ class Item(dict):
         if key in self.data_keys:
             self[key] = value
         else:
-            print(type(self), key, value)
+            log(type(self), key, value)
 
     def __add__(self, e):
         if e is None:
@@ -38,7 +40,7 @@ class Item(dict):
             raise TypeError("Cannot merge '{}' and '{}'".format(
                 type(self).__name__, type(e).__name__))
         for k, v in e.items():
-            if not k in self.keys():
+            if k not in self.keys():
                 self[k] = v
         return self
 
@@ -111,12 +113,12 @@ class ItemList(queue.Queue):
         while not self.stop:
             try:
                 e = next(iterator)
-                # print("S {},".format(e))
+                # log("S {},".format(e))
             except StopIteration:
                 self.sources.remove(s)
                 break
             except Exception as e:
-                print("Error on API iterator", s, traceback.format_exc())
+                log("Error on API iterator", s, traceback.format_exc())
                 self.sources.remove(s)
                 break
             else:
@@ -161,7 +163,7 @@ class ItemList(queue.Queue):
     def get_from_sources(self, timeout=None):
         self.new_elem_event["enabled"] = True
         if not self.new_elem_event["event"].wait(timeout=timeout):
-            print("Timed out")
+            log("Timed out")
             return None  # Timed out
 
         if len(self.list) > 0:
@@ -194,15 +196,15 @@ if __name__ == "__main__":
     def slow_iter(msg, t=1, l=10):
         for i in range(l):
             time.sleep(t)
-            # print(msg+str(i))
+            # log(msg+str(i))
             yield msg + str(i)
     items = ItemList(range(5), ('a', 'b', 'c'), slow_iter(
         "haha", 1, 3), slow_iter("hehe", 5, 2))
     for e in items:
-        print(e)
+        log(e)
 
     # a = Anime()
-    # print(a.title)
+    # log(a.title)
     # a.title = "jujutsu"
     # a["synopsis"] = "salut"
-    # print(a.title,a.synopsis)
+    # log(a.title,a.synopsis)

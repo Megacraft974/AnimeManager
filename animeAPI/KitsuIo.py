@@ -1,4 +1,4 @@
-from APIUtils import APIUtils, Anime, Character
+from APIUtils import APIUtils, Anime, Character, log
 from jsonapi_client import Session, Filter, Modifier, Inclusion, relationships
 import json
 
@@ -185,7 +185,7 @@ class KitsuIoWrapper(APIUtils):
         try:
             self.db.save()
         except BaseException:
-            print("Error while saving anime")
+            log("Error while saving anime")
         return data
 
     def _convertCharacter(self, c, anime_id=None):

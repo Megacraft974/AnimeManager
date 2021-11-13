@@ -5,6 +5,7 @@ import json
 import time
 import os
 from ctypes import windll, Structure, c_long, byref
+from logger import log
 
 
 class RoundTopLevel(Frame):
@@ -161,7 +162,7 @@ class RoundTopLevel(Frame):
                     else:
                         c.focus_force()
         except Exception as e:
-            print("Error while moving window", e)
+            log("Error while moving window", e)
 
     def update(self):
         super().update()
@@ -299,10 +300,10 @@ class Timer():
 
     def stats(self):
         nameBracks = "[{}]".format(self.name.center(10))
-        print(nameBracks, "Total:", time.time() - self.startTime)
+        log(nameBracks, "Total:", time.time() - self.startTime)
         if len(self.timeList) > 0:
-            print(nameBracks, "Average:", sum(self.timeList) /
-                  len(self.timeList), "- Loops:", len(self.timeList))
+            log(nameBracks, "Average:", sum(self.timeList) /
+                len(self.timeList), "- Loops:", len(self.timeList))
 
 
 class POINT(Structure):

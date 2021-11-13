@@ -1,4 +1,4 @@
-from APIUtils import APIUtils, Anime, Character
+from APIUtils import APIUtils, Anime, Character, log
 import requests
 import json
 import secrets
@@ -156,13 +156,13 @@ class MyAnimeListNetWrapper(APIUtils):
         user = rep.json()
         rep.close()
 
-        # print(f">>> Greetings {user['name']}! <<<")
+        # log(f">>> Greetings {user['name']}! <<<")
         return True
 
     def getNewToken(self):
         class AuthServer(BaseHTTPRequestHandler):
             def do_GET(self):
-                print(
+                log(
                     "SERVER - Received GET request from address {}".format(self.client_address))
                 req = self.path.split("/")[1]
                 args = {}
@@ -206,7 +206,7 @@ class MyAnimeListNetWrapper(APIUtils):
 
         token = response.json()
         response.close()
-        print('MAL token generated successfully!')
+        log('MAL token generated successfully!')
 
         with open(self.tokenPath, 'w') as file:
             json.dump(token, file, indent=4)
@@ -233,7 +233,7 @@ class MyAnimeListNetWrapper(APIUtils):
 
         token = response.json()
         response.close()
-        print('MAL token refreshed successfully!')
+        log('MAL token refreshed successfully!')
 
         with open(self.tokenPath, 'w') as file:
             json.dump(token, file, indent=4)

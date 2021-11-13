@@ -2,6 +2,7 @@ import sqlite3
 import json
 import os
 from classes import Anime, Character
+from logger import log
 
 
 class db():
@@ -125,8 +126,8 @@ class db():
             e = next(self.sql(sql, (self.id,), iterate=True), ("NONE",))
             return e[0]
         except BaseException:
-            print("", "\nError on id", self.id,
-                  "table", self.table, "sql", sql)
+            log("", "\nError on id", self.id,
+                "table", self.table, "sql", sql)
             raise Exception
         # rows = self.cur.fetchall()
 
@@ -181,14 +182,14 @@ class db():
 
     def get(self):
         if not self.exist():
-            print(self.id, "doesn't exist in table", self.table)
+            log(self.id, "doesn't exist in table", self.table)
             return {}
         sql = "SELECT * FROM {} WHERE id=?".format(self.table)
         try:
             row = self.sql(sql, (self.id,))[0]
         except Exception as e:
-            print("", "\nError on id", self.id,
-                  "table", self.table, "sql", sql)
+            log("", "\nError on id", self.id,
+                "table", self.table, "sql", sql)
             raise e
         # rows = self.cur.fetchall()
         keys = self.keys()
@@ -233,13 +234,13 @@ class db():
             return self.cur.execute(*args)
         except sqlite3.OperationalError as e:
             if e.args == ('database is locked',):
-                print("[ERROR] - Database is locked!", flush=True)
+                log("[ERROR] - Database is locked!", flush=True)
                 raise e
             else:
-                print(args)
+                log(args)
                 raise e
         except sqlite3.InterfaceError as e:
-            print(*args)
+            log(*args)
             raise e
 
     def set(self, data, save=True):
@@ -252,7 +253,7 @@ class db():
                 keys.append(k)
                 if type(v) in (dict, list):
                     values.append(json.dumps(v))
-                elif type(v) == bool:
+                elif isinstance(v, bool):
                     values.append(int(v))
                 else:
                     values.append(v)
@@ -270,9 +271,9 @@ class db():
             try:
                 self.execute(sql, (*values,))
             except Exception as e:
-                print(sql)
+                log(sql)
                 for v in values:
-                    print(v)
+                    log(v)
                 raise e
         if save:
             self.con.commit()
@@ -285,7 +286,7 @@ class db():
                 keys.append(k)
                 if type(v) in (dict, list):
                     values.append(json.dumps(v))
-                elif type(v) == bool:
+                elif isinstance(v, bool):
                     values.append(int(v))
                 else:
                     values.append(v)
@@ -377,12 +378,12 @@ class db():
         def sql_iterate(cur):
             for row in cur:
                 yield row
-        if type(values) != list:
+        if not isinstance(values, list):
             values = list(values)
         try:
             self.execute(sql, values)
         except sqlite3.ProgrammingError as e:
-            print(sql, values, list(map(type, values)))
+            log(sql, values, list(map(type, values)))
             raise e
         if save:
             self.save()

@@ -6,6 +6,7 @@ from tkinter import *
 from PIL import Image, ImageTk
 from dbManager import db
 from utils import queryMousePosition
+from logger import log
 from multiprocessing import Process
 
 try:
@@ -174,10 +175,10 @@ class Player:
         # self.hidingFrame.place(anchor="s",relx=0.5,rely=1,width=500,relheight=0.05)
 
     def keyHandler(self, e):
-        if type(e) == Event:
+        if isinstance(e, Event):
             c = e.keysym
             s = e.state
-        elif type(e) == tuple:
+        elif isinstance(e, tuple):
             c, s = e
             s = {None: 262152, 'ctrl': 262156,
                  'alt': 393224, 'shift': 262153}[s]
@@ -207,7 +208,7 @@ class Player:
         else:
             debug = c
 
-        # print(debug,flush=True)
+        # log(debug,flush=True)
 
         if c in keys.keys():
             opt = map(lambda e: e.strip(), keys[c].split("-"))
@@ -250,7 +251,7 @@ class VlcPlayer(Player):
                         kwargs=kwargs | {'states': states})
             p.start()
             p.join()
-            print(states)
+            log(states)
             # time.sleep(5)
 
     def _start(self, playlist, video=0, id=None, dbPath=None,
@@ -308,7 +309,7 @@ class VlcPlayer(Player):
         self.videoSize = (self.videopanel.winfo_width(),
                           self.videopanel.winfo_height())
 
-        print("Playing")
+        log("Playing")
 
         # if self.stopFlag.value != -1:
         if self.states['running'] != -1:
@@ -342,12 +343,12 @@ class VlcPlayer(Player):
         #         mod = mod.contents
         #         subs.append(mod.id)
         #         mod = mod.next
-        # print(subs)
+        # log(subs)
         # return subs
 
     def getAudioList(self):
         return dict(self.player.audio_get_track_description())
-        # print(mods)
+        # log(mods)
         # if mods:
         #     mod = mods
         #     while mod:
@@ -539,7 +540,7 @@ class VlcPlayer(Player):
         self.titleLock = True
         title = urllib.parse.unquote(self.player.get_media().get_mrl()).rsplit(
             "/", 1)[1].rsplit(".", 1)[0]
-        # print(title)
+        # log(title)
         self.titleLabel['text'] = title
         # lbl.place(anchor="n",relx=0.5,rely=0,relwidth=1,height=50)
         if animations:
@@ -584,7 +585,7 @@ class VlcPlayer(Player):
             cursorX, cursorY = 0, 0
         cursorX, cursorY = cursorX - self.videopanel.winfo_rootx(), cursorY - \
             self.videopanel.winfo_rooty()
-        # print(cursor)
+        # log(cursor)
 
         if 0.95 < cursorY / \
                 self.videoSize[1] < 1 and 0 < cursorX < self.videoSize[0]:
@@ -617,7 +618,7 @@ class VlcPlayer(Player):
         self.soundLbl['text'] = str(self.volume) + "%"
 
     def updateDb(self):
-        # print("Updating last_seen db",flush=True)
+        # log("Updating last_seen db",flush=True)
         def handler(self):
             if self.id is not None and self.database is not None:
                 filename = self.playlist[self.index]
@@ -627,7 +628,7 @@ class VlcPlayer(Player):
         self.thread.start()
 
     def OnClose(self):
-        print("Closing")
+        log("Closing")
         if self.stopped:
             return
         self.stopped = True
@@ -676,7 +677,7 @@ class FFPlayer(Player):
         self.canvas.pack(fill=BOTH, expand=1)
 
         self.player_args = {}  # {'callback':self.playerCallback,'ff_opts':{'sync':'video'}}
-        print(self.playlist[self.index])
+        log(self.playlist[self.index])
         self.player = MediaPlayer(
             self.playlist[self.index], **self.player_args)
 
@@ -694,7 +695,7 @@ class FFPlayer(Player):
 
         self.waitForFrames()
 
-        print("Playing")
+        log("Playing")
 
         self.play()
 
@@ -705,7 +706,7 @@ class FFPlayer(Player):
 
     def play(self):
         frame, val = self.player.get_frame()
-        # print(val)
+        # log(val)
         loop = self.parent.after(int(val * 1000), self.play)
         if val == 'eof':
             self.parent.after_cancel(loop)
@@ -720,7 +721,7 @@ class FFPlayer(Player):
         if selector == "display_sub":
             for i, v in enumerate(value):
                 pass
-                # print(i,v)
+                # log(i,v)
 
     def waitForFrames(self):
         frame = None
@@ -760,7 +761,7 @@ class FFPlayer(Player):
     def getMetadata(self, file, filter=""):
         cmd = "ffprobe -v error -show_entries stream=index,codec_name,codec_type:stream_tags=title,language:stream_disposition=default"
         output = subprocess.check_output(cmd.split(" ") + [file])
-        # print(output.decode())
+        # log(output.decode())
         pattern = r'(.*)=(.*)'
         matchs = re.findall(pattern, output.decode().replace("\r", ""))
 
@@ -954,7 +955,7 @@ class FFPlayer(Player):
             return
         self.titleLock = True
         title = self.playlist[self.index].rsplit("/", 1)[1].rsplit(".", 1)[0]
-        # print(title)
+        # log(title)
         self.titleLabel['text'] = title
         # lbl.place(anchor="n",relx=0.5,rely=0,relwidth=1,height=50)
         if animations:
@@ -1012,7 +1013,7 @@ class FFPlayer(Player):
 
         cursorX, cursorY = queryMousePosition()
         # cursorX, cursorY = cursorX-self.videopanel.winfo_rootx(), cursorY-self.videopanel.winfo_rooty()
-        # print(cursor)
+        # log(cursor)
 
         if 0.95 < cursorY / \
                 self.videoSize[1] < 1 and 0 < cursorX < self.videoSize[0]:
@@ -1041,7 +1042,7 @@ class FFPlayer(Player):
         # sleep(delay)
 
     def updateDb(self):
-        print("Updating last_seen db", flush=True)
+        log("Updating last_seen db", flush=True)
 
         def handler(self):
             if self.id is not None and self.database is not None:
@@ -1052,7 +1053,7 @@ class FFPlayer(Player):
         self.thread.start()
 
     def OnClose(self):
-        print("Closing")
+        log("Closing")
         if self.stopped:
             return
         self.stopped = True
@@ -1088,13 +1089,13 @@ class MpvPlayer(Player):
         self.getPlaylist(url, playlist)
 
         if len(self.playlist) == 0:
-            print("No video found!")
+            log("No video found!")
             self.OnClose()
             return
 
         h = self.videopanel.winfo_id()
         self.player = mpv.MPV(wid=str(int(h)), ytdl=url)
-        # print(self.player.property_observer('time-remaining')(self.auto_loop),flush=True) - TODO
+        # log(self.player.property_observer('time-remaining')(self.auto_loop),flush=True) - TODO
         self.player.play(self.playlist[self.index])
 
         self.volume = 100
@@ -1103,7 +1104,7 @@ class MpvPlayer(Player):
         self.videoSize = (self.videopanel.winfo_width(),
                           self.videopanel.winfo_height())
 
-        print("Playing")
+        log("Playing")
 
         self.showTitle()
         self.updateDb()
@@ -1373,7 +1374,7 @@ class MpvPlayer(Player):
             cursorX, cursorY = 0, 0
         cursorX, cursorY = cursorX - self.videopanel.winfo_rootx(), cursorY - \
             self.videopanel.winfo_rooty()
-        # print(cursor)
+        # log(cursor)
 
         if 0.95 < cursorY / \
                 self.videoSize[1] < 1 and 0 < cursorX < self.videoSize[0]:
@@ -1394,13 +1395,13 @@ class MpvPlayer(Player):
     def auto_loop(self, _name, time):
         if time is None:
             return
-        print(time, flush=True)
+        log(time, flush=True)
         if time < 0.5:
-            print("NEXT FILE")
+            log("NEXT FILE")
             self.playlistNext()
 
     def updateDb(self):
-        # print("Updating last_seen db",flush=True)
+        # log("Updating last_seen db",flush=True)
         def handler(self):
             if self.id is not None and self.database is not None:
                 filename = self.playlist[self.index]
@@ -1449,10 +1450,10 @@ class MpvPlayer(Player):
         try:
             streams = list(video.streams.filter(file_extension='mp4'))
         except pytube.exceptions.VideoUnavailable:
-            print("Video not found for url", v)
+            log("Video not found for url", v)
             return
         except pytube.exceptions.VideoPrivate:
-            print("The video is private!")
+            log("The video is private!")
             return
         else:
             streams.sort(key=lambda s: int(
@@ -1463,15 +1464,15 @@ class MpvPlayer(Player):
     def OnClose(self):
         if self.stopped:
             return
-        print("Closing")
+        log("Closing")
         self.stopped = True
         self.parent.destroy()
         self.updateDb()
         try:
             self.player.stop()
         except Exception as e:
-            print("Error while stopping player:", type(e), e)
-        print("Closed")
+            log("Error while stopping player:", type(e), e)
+        log("Closed")
         # self.parent.quit()
 
 
@@ -1499,12 +1500,12 @@ if __name__ == "__main__":
     fileFormats = ('mkv', 'mp4')
     playlist = []
     playlist = [f for f in files if f.rsplit('.', 1)[-1] in fileFormats]
-    print("Root folder: {} - Files: {} - Videos: {}".format(path,
-          len(files), len(playlist)))
+    log("Root folder: {} - Files: {} - Videos: {}".format(path,
+                                                          len(files), len(playlist)))
 
     # MpvPlayer(["https://youtu.be/tlTKTTt47WE"],0,url=True)
     fen = Tk()
-    Button(fen, text="yoooo", command=print).pack()
+    Button(fen, text="yoooo", command=log).pack()
     MpvPlayer(playlist, 0, root=fen)
     fen.mainloop()
     # VlcPlayer(playlist,0)

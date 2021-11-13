@@ -1,3 +1,4 @@
+from logger import log
 from classes import Anime, AnimeList, Character, CharacterList
 import os
 import threading
@@ -29,12 +30,12 @@ class AnimeAPI():
                     try:
                         exec('from {n} import {n}Wrapper'.format(n=name))
                     except ImportError as e:
-                        print(name, e)
+                        log(name, e)
                     else:
                         try:
                             f = locals()[name + "Wrapper"](*args, **kwargs)
                         except Exception as e:
-                            print(
+                            log(
                                 "Error while loading {} API wrapper: {}".format(name, traceback.format_exc()))
                         else:
                             self.apis.append(f)
@@ -46,10 +47,10 @@ class AnimeAPI():
                 except BaseException:
                     pass
         if len(self.apis) == 0:
-            print("No apis found!")
+            log("No apis found!")
 
     def log(self, *args):
-        print(*args)
+        log(*args)
 
     def wrapper(self, name, *args, **kwargs):
         def handler(api, name, que, *args, **kwargs):
@@ -57,7 +58,7 @@ class AnimeAPI():
                 r = getattr(api, name)(*args, **kwargs)
             except Exception as e:
                 apiName = str(r).split(".")[0].split(" ")[-1]
-                print(
+                log(
                     "Error on API - handler",
                     apiName,
                     traceback.format_exc(),
@@ -67,7 +68,7 @@ class AnimeAPI():
                     que.put(r)
                 else:
                     apiName = str(api).split(".")[1].split(" ")[0]
-                    print("{}.{}() not found!".format(apiName, name))
+                    log("{}.{}() not found!".format(apiName, name))
 
         def iterator(que, threads):  # Not used
             results = [que.get()]
@@ -82,7 +83,7 @@ class AnimeAPI():
                         results.remove(r)
                     except Exception as e:
                         apiName = str(r).split(".")[0].split(" ")[-1]
-                        print(
+                        log(
                             "Error on API - iterator",
                             apiName,
                             traceback.format_exc(),
@@ -141,7 +142,7 @@ if __name__ == "__main__":
     s = api.searchAnime("boku")
     c = 0
     for e in s:
-        print(c, e['title'])
+        log(c, e['title'])
         c += 1
     for k, v in api.anime(10).items():
-        print(k, v)
+        log(k, v)

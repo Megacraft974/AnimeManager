@@ -59,15 +59,6 @@
 #         print(url)
 #         getTracker(v.scheme,url,v.port,info_hash,size)
 
-from dbManager import db
-from animeAPI import AnimeAPI
-import os
+import windows
 
-appdata = os.path.join(os.getenv('APPDATA'), "AnimeManager")
-dbPath = os.path.join(appdata, "animeData.db")
-database = db(dbPath)
-api = AnimeAPI('all', dbPath)
-
-sql = "SELECT id,title FROM anime WHERE broadcast is not null"
-for a in database.sql(sql):
-    data = api.anime(a[0])
+print(windows.windows)
