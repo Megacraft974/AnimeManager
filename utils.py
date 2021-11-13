@@ -340,6 +340,19 @@ def peek(iter):
         return first, new_iter(first, iter)
 
 
+def lines_in_dir(root="./"):
+    c = 0
+    for f in os.listdir(root):
+        end = f.split(".")[-1]
+        path = os.path.join(root, f)
+        if os.path.isfile(path):
+            if end == "py":
+                with open(path, encoding="utf-8") as file:
+                    c += len(file.readlines()) + 1
+        elif os.path.isdir(path):
+            c += lines_in_dir(path)
+    return c
+
+
 if __name__ == "__main__":
-    from animeManager import Manager
-    m = Manager()
+    print(lines_in_dir(), "lines of code in the project!")

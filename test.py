@@ -59,6 +59,22 @@
 #         print(url)
 #         getTracker(v.scheme,url,v.port,info_hash,size)
 
-import windows
+import os
 
-print(windows.windows)
+
+def project_lines_counter(root="./"):
+    c = 0
+    for f in os.listdir(root):
+        end = f.split(".")[-1]
+        path = os.path.join(root, f)
+        if os.path.isfile(path):
+            if end == "py":
+                print(path)
+                with open(path, encoding="utf-8") as file:
+                    c += len(file.readlines()) + 1
+        elif os.path.isdir(path):
+            c += lines_in_dir(path)
+    return c
+
+
+print(lines_in_dir("./"))
