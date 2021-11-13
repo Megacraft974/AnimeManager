@@ -6,6 +6,7 @@ import time
 import os
 from ctypes import windll, Structure, c_long, byref
 
+
 class RoundTopLevel(Frame):
     def __init__(self, parent, minsize=None, title="Title",
                  radius=25, bd=2, fg="#FFFFFF", bg="#000000", **kwargs):
@@ -111,7 +112,7 @@ class RoundTopLevel(Frame):
     def clear(self):
         try:
             for w in self.mainFrame.winfo_children():
-                if type(w) != RoundTopLevel:
+                if not isinstance(w, RoundTopLevel):
                     w.destroy()
         except BaseException:
             pass
@@ -122,7 +123,7 @@ class RoundTopLevel(Frame):
         self.fen.lift()
         # self.fen.focus_force()
         for c in self.mainFrame.winfo_children():
-            if type(c) == Toplevel:
+            if isinstance(c, Toplevel):
                 if hasattr(c, "topLevel"):
                     c.topLevel.focus_force()
                 else:
@@ -130,7 +131,7 @@ class RoundTopLevel(Frame):
 
     def exit(self, e=None):
         for c in self.mainFrame.winfo_children():
-            if type(c) == Toplevel:
+            if isinstance(c, Toplevel):
                 if hasattr(c, "topLevel"):
                     c.topLevel.focus_force()
                 else:
@@ -154,7 +155,7 @@ class RoundTopLevel(Frame):
             y = self.fen.winfo_y() + deltay
             self.fen.geometry(f"+{x}+{y}")
             for c in self.mainFrame.winfo_children():
-                if type(c) == Toplevel:
+                if isinstance(c, Toplevel):
                     if hasattr(c, "topLevel"):
                         c.topLevel.focus_force()
                     else:

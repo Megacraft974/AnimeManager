@@ -6,6 +6,7 @@ import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from dbManager import db
 
+
 def startServer(hostName, serverPort, dbPath, manager):
     def serve_thread(webServer):
         try:
@@ -163,4 +164,3 @@ def GetHandler(dbPath, manager):
             self.wfile.write(bytes(data, "utf-8"))
 
     return DbServer
-

@@ -3,6 +3,7 @@ import threading
 from dbManager import db
 from tkinter import *
 
+
 class get:
     def database(self):
         if threading.main_thread() == threading.current_thread():
@@ -110,7 +111,7 @@ class get:
             anime = database(id=id, table="anime").get()
             self.animeFolder = os.listdir(self.animePath)
         else:
-            if type(anime) != Anime:
+            if not isinstance(anime, Anime):
                 anime = Anime(anime)
             if id is None:
                 id = anime.id
