@@ -6,58 +6,58 @@
 # print(str("0x41727101980"))
 
 # def getTracker(protocol,url,port,info_hash,size):
-# 	params = {
-# 	    'info_hash': info_hash,
-# 	    'peer_id': "weshweshcava12345678",
-# 	    'port': port,
-# 	    'uploaded': '0',
-# 	    'downloaded': '0',
-# 	    'left': str(size),
-# 	    'compact': '1',
-# 	    'no_peer_id': '0',
-# 	    'event': 'started'
-# 	}
-# 	if protocol == "http":
-# 		try:
-# 			page = requests.get(url, params=params)
-# 		except ConnectionResetError as e:
-# 			print(e)
-# 		except requests.exceptions.ConnectionError as e:
-# 			print(2,e)
-# 		except requests.exceptions.InvalidSchema as e:
-# 			print(3,e)
-# 		else:
-# 			print("---",page.text)
-# 	elif protocol == "udp":
-# 		sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
-# 		sock.sendto(bytes(MESSAGE, "utf-8"), (UDP_IP, UDP_PORT))
-# 	else:
-# 		print(protocol,"not supported")
+#     params = {
+#         'info_hash': info_hash,
+#         'peer_id': "weshweshcava12345678",
+#         'port': port,
+#         'uploaded': '0',
+#         'downloaded': '0',
+#         'left': str(size),
+#         'compact': '1',
+#         'no_peer_id': '0',
+#         'event': 'started'
+#     }
+#     if protocol == "http":
+#         try:
+#             page = requests.get(url, params=params)
+#         except ConnectionResetError as e:
+#             print(e)
+#         except requests.exceptions.ConnectionError as e:
+#             print(2,e)
+#         except requests.exceptions.InvalidSchema as e:
+#             print(3,e)
+#         else:
+#             print("---",page.text)
+#     elif protocol == "udp":
+#         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
+#         sock.sendto(bytes(MESSAGE, "utf-8"), (UDP_IP, UDP_PORT))
+#     else:
+#         print(protocol,"not supported")
 
 # if pattern.match(url):
-# 	print("Magnet!")
+#     print("Magnet!")
 
-# 	parameters = re.compile(r"(\w{2})=([^&]+)")
-# 	data = list((a,urllib.parse.unquote(b)) for a,b in parameters.findall(url))
-# 	for i,d in enumerate(data):
-# 		k,v = d
-# 		if k == "tr":
-# 			try:
-# 				v = urllib.parse.urlparse(v)
-# 			except Exception as e:
-# 				print(e)
-# 		else:
-# 			print(k,v)
-# 		data[i] = (k,v)
+#     parameters = re.compile(r"(\w{2})=([^&]+)")
+#     data = list((a,urllib.parse.unquote(b)) for a,b in parameters.findall(url))
+#     for i,d in enumerate(data):
+#         k,v = d
+#         if k == "tr":
+#             try:
+#                 v = urllib.parse.urlparse(v)
+#             except Exception as e:
+#                 print(e)
+#         else:
+#             print(k,v)
+#         data[i] = (k,v)
 
-# 	print("___________")
-# 	info_hash = [d[1] for d in data if d[0] == "xt"][0].split(":")[-1]
-# 	size = [d[1] for d in data if d[0] == "xl"][0]
-# 	print(info_hash,size)
-# 	for k,v in (d for d in data if d[0] == "tr"):
-# 		url = urllib.parse.urlunparse(v)
-# 		print(url)
-# 		getTracker(v.scheme,url,v.port,info_hash,size)
+#     print("___________")
+#     info_hash = [d[1] for d in data if d[0] == "xt"][0].split(":")[-1]
+#     size = [d[1] for d in data if d[0] == "xl"][0]
+#     print(info_hash,size)
+#     for k,v in (d for d in data if d[0] == "tr"):
+#         url = urllib.parse.urlunparse(v)
+#         print(url)
+#         getTracker(v.scheme,url,v.port,info_hash,size)
 
 from dbManager import db
 from animeAPI import AnimeAPI

@@ -11,7 +11,6 @@ import queue
 import subprocess
 import traceback
 import socket
-import hashlib
 import webbrowser
 from operator import itemgetter
 from datetime import date, datetime, timedelta, time as datetime_time
@@ -44,9 +43,10 @@ try:
     import mobile_server
     import search_engines
     import animeAPI
-    import update_utils
 
-    # from dbManager import db
+    from update_utils import UpdateUtils
+    from getters import Getters
+    from dbManager import db
     from playerManager import MpvPlayer
     from classes import Anime, Character, AnimeList, CharacterList
 except ModuleNotFoundError as e:
@@ -56,7 +56,7 @@ except ModuleNotFoundError as e:
     sys.exit()
 
 
-class Manager():
+class Manager(UpdateUtils,Getters):
     def __init__(self, remote=False):
         self.start = time.time()
 
@@ -171,14 +171,14 @@ class Manager():
                            'to_be_aired': 'UPCOMING', 'tba': 'UPCOMING', 'upcoming': 'UPCOMING', 'Not yet aired': 'UPCOMING',
                            'NONE': 'UNKNOWN', 'UPDATE': 'UNKNOWN'}
 
+        self.database = self.getDatabase()
         if not os.path.exists(self.dbPath):
-            self.database = self.getDatabase()
             self.checkSettings()
             self.reloadAll()
             return
         else:
-            self.database = self.getDatabase()
             self.checkSettings()
+        
         self.api = animeAPI.AnimeAPI('all', self.dbPath)
         # self.qb = Client(host=self.torrentApiAddress, username=self.torrentApiLogin, password=self.torrentApiPassword)
         self.getQB()
@@ -190,12 +190,13 @@ class Manager():
 
                 self.log('MAIN_STATE', "Stopping")
                 self.start = time.time()
-                self.updateCache()
-                self.updateDirs()
-                self.updateTag()
-                self.regroupFiles()
-                self.updateTitles()
-                self.getSchedule()
+                # self.updateCache()
+                # self.updateDirs()
+                # self.updateTag()
+                # self.regroupFiles()
+                # self.updateTitles()
+                # self.getSchedule()
+                self.updateAll()
                 self.log('TIME', "Stopping time:".ljust(25),
                          round(time.time() - self.start, 2), 'sec')
             except Exception as e:
@@ -420,13 +421,13 @@ class Manager():
                 if filter == 'WATCHING':
                     commonFilter = "\nAND anime.id NOT IN(SELECT anime.id FROM anime WHERE status = 'UPCOMING')"
                     order = """
-						CASE WHEN anime.status = "AIRING" AND broadcast IS NOT NULL
-						THEN (({}-SUBSTR(broadcast,1,1)+6)%7*24*60
-							+({}-SUBSTR(broadcast,3,2))*60
-							+({}-SUBSTR(broadcast,6,2))
-						+86400)%86400 ELSE "9" END ASC,
-						date_from DESC
-					"""
+                        CASE WHEN anime.status = "AIRING" AND broadcast IS NOT NULL
+                        THEN (({}-SUBSTR(broadcast,1,1)+6)%7*24*60
+                            +({}-SUBSTR(broadcast,3,2))*60
+                            +({}-SUBSTR(broadcast,6,2))
+                        +86400)%86400 ELSE "9" END ASC,
+                        date_from DESC
+                    """
                     sort_date = datetime.today() - timedelta(hours=5)
                     order = order.format(
                         sort_date.day, sort_date.hour, sort_date.minute)
@@ -441,11 +442,11 @@ class Manager():
         self.animeListReady = True  # Interrupt previous list generation
         self.root.update()
         # try:
-        # 	for child in [c for c in self.fen.winfo_children() if "!progressbar" in str(c)]:
-        # 		if "!progressbar" in str(child):
-        # 			child.destroy()
+        #     for child in [c for c in self.fen.winfo_children() if "!progressbar" in str(c)]:
+        #         if "!progressbar" in str(child):
+        #             child.destroy()
         # except:
-        # 	pass
+        #     pass
 
         if listrange == (0, 50):
             self.scrollable_frame.canvas.yview_moveto(0)
@@ -903,128 +904,7 @@ class Manager():
         with open(self.settingsPath, 'w') as f:
             json.dump(self.settings, f, sort_keys=True, indent=4)
 
-    # ___get... stuff___
-    def getDatabase(self):
-        if threading.main_thread() == threading.current_thread():
-            return self.database
-        else:
-            return db(self.dbPath)
-
-    def getImage(self, path, size=None):
-        if os.path.isfile(path):
-            img = Image.open(path)
-        else:
-            img = Image.new('RGB', (10, 10), self.colors['Gray'])
-        if size is not None:
-            img = img.resize(size)
-        return ImageTk.PhotoImage(img, master=self.root)
-
-    def getStatus(self, anime, reverse=True):
-        if anime.status is not None:
-            if anime.status in self.status.values():
-                return anime.status
-            if anime.status == 'NONE':
-                self.log('DB_ERROR', "Unknown status for id", id)
-            if anime.status == 'UPDATE':
-                return 'UNKNOWN'
-            return anime.status
-
-        if anime.date_from is None:
-            status = 'UNKNOWN'
-        else:
-            if date.fromisoformat(anime.date_from) > date.today():
-                status = 'UPCOMING'
-            else:
-                if anime.date_to is None:
-                    if anime.episodes == 1:
-                        status = 'FINISHED'
-                    else:
-                        status = 'AIRING'
-                else:
-                    if date.fromisoformat(anime.date_to) > date.today():
-                        status = 'AIRING'
-                    else:
-                        status = 'FINISHED'
-        return status
-
-    def getTorrentName(self, file):
-        with open(file, 'rb') as f:
-            m = re.findall(rb"name\d+:(.*?)\d+:piece length", f.read())
-        if len(m) != 0:
-            return m[0].decode()
-        else:
-            return None
-
-    def getTorrentHash(self, path):
-        objTorrentFile = open(path, "rb")
-        try:
-            decodedDict = bencoding.bdecode(objTorrentFile.read())
-        except Exception as e:
-            raise e
-
-        info_hash = hashlib.sha1(bencoding.bencode(
-            decodedDict[b"info"])).hexdigest()
-        return info_hash
-
-    def getTorrentColor(self, title):
-        def fileFormat(f): return ''.join(
-            f.rsplit(".torrent", 1)[0].split(" ")).lower()
-        timeNow = time.time()
-        if hasattr(self, 'formattedTorrentFiles') and timeNow - \
-                self.formattedTorrentFiles[0] < 10:
-            files = self.formattedTorrentFiles[1]
-        else:
-            files = [fileFormat(f) for f in os.listdir(self.torrentPath)]
-            self.formattedTorrentFiles = (timeNow, files)
-
-        fg = self.colors['White']
-        for f in files:
-            t = fileFormat(title)
-            if t in f or f in t:
-                fg = self.colors['Blue']
-        else:
-            for color, marks in self.fileMarkers.items():
-                for mark in marks:
-                    if mark in title.lower():
-                        fg = self.colors[color]
-                        break
-        return fg
-
-    def getFolderFormat(self, title):
-        chars = []
-        spaceLike = list("-")
-        if title is None:
-            return " "
-        for char in title:
-            if char.isalnum() or char == " ":
-                chars.append(char)
-            if char in spaceLike:
-                chars.append(" ")
-        return "".join(chars)
-
-    def getFolder(self, id=None, anime=None):
-        if anime is None or anime == {}:
-            if id is None:
-                raise Exception("Id required!")
-            database = self.getDatabase()
-            anime = database(id=id, table="anime").get()
-            self.animeFolder = os.listdir(self.animePath)
-        else:
-            if type(anime) != Anime:
-                anime = Anime(anime)
-            if id is None:
-                id = anime.id
-
-        for f in self.animeFolder:
-            f_id = int(f.rsplit(" ", 1)[1])
-            if f_id == id:
-                folder = os.path.normpath(os.path.join(self.animePath, f))
-                return folder
-        folderFormat = self.getFolderFormat(anime.title)
-        folderName = "{} - {}".format(folderFormat, id)
-        folder = os.path.normpath(os.path.join(self.animePath, folderName))
-        return folder
-
+    
     # ___Misc___
     def downloadFile(self, id, url=None, file=None):
         def handler(id, url=None, file=None):
@@ -1037,7 +917,7 @@ class Manager():
                 else:
                     try:
                         # if url.startswith("https://nyaa.si/"):
-                        # 	url = "https://torproxy.cyou/?cdURL="+url
+                        #     url = "https://torproxy.cyou/?cdURL="+url
                         req = None
                         req = requests.get(url, allow_redirects=True)
                         file = urllib.parse.unquote(
@@ -1959,10 +1839,10 @@ class Manager():
             for genre_id in genres:
                 # values = self.database.sql("SELECT name FROM genres WHERE id=?",(genre_id,))
                 # if len(values) >= 1:
-                # 	txt = values[0][0]
+                #     txt = values[0][0]
                 # else:
-                # 	txt = "Unknown"
-                # 	self.log("DB_ERROR","Unknown genre for id",genre_id,"on key",key)
+                #     txt = "Unknown"
+                #     self.log("DB_ERROR","Unknown genre for id",genre_id,"on key",key)
                 txt = self.database(id=genre_id, table="genres")["name"]
                 if txt == "NONE":
                     txt = "Unknown"
@@ -2194,7 +2074,7 @@ class Manager():
                 leechsLbl.bind("<Button-1>", command)
                 sizeLbl.bind("<Button-1>", command)
                 # Label(table, text=d['seeders'], font=("Source Code Pro Medium",13), bg=bg, fg=self.colors['White']
-                # 	).grid(row=row,column=2,sticky="nsew")
+                #     ).grid(row=row,column=2,sticky="nsew")
             table.update()
             self.fileChooser.update()
 
@@ -2359,10 +2239,10 @@ class Manager():
                 database = self.getDatabase()
                 if id == "LIKED":
                     characters = database.sql("""
-						SELECT * FROM characters
-						WHERE like = 1
-						GROUP BY id
-						ORDER BY anime_id;""")
+                        SELECT * FROM characters
+                        WHERE like = 1
+                        GROUP BY id
+                        ORDER BY anime_id;""")
                 else:
                     characters = database.sql(
                         "SELECT * FROM characters WHERE anime_id=?;", (id,))
@@ -2426,8 +2306,8 @@ class Manager():
             characters = getCharacters(id)
 
             # if update:
-            # 	thread = threading.Thread(target=self.getCharactersData, args=(id,lambda id=id,c=characters:reload(id,c)))
-            # 	thread.start()
+            #     thread = threading.Thread(target=self.getCharactersData, args=(id,lambda id=id,c=characters:reload(id,c)))
+            #     thread.start()
 
             maxX = len(characters) // self.animePerRow
             [self.characterListTable.grid_rowconfigure(
@@ -2539,8 +2419,8 @@ class Manager():
                 # thread = threading.Thread(target=self.getCharacterData, args=(character['id'],))
                 # thread.start()
                 # while thread.is_alive():
-                # 	self.characterInfo.update()
-                # 	time.sleep(0.01)
+                #     self.characterInfo.update()
+                #     time.sleep(0.01)
 
                 if update:
                     thread = threading.Thread(target=update, args=(character,))
@@ -2726,7 +2606,7 @@ class Manager():
                     color = c
 
             # self.diskfen.titleLbl.configure(text="Disk "+disk, font=("Source Code Pro Medium",20),
-            # 		bg= self.colors['Gray2'], fg= self.colors['Gray4'],)
+            #         bg= self.colors['Gray2'], fg= self.colors['Gray4'],)
 
             bar = Canvas(
                 barFrame, bg=self.colors['Gray2'], width=length, height=radius * 2, highlightthickness=0,)
@@ -2874,7 +2754,7 @@ class Manager():
                 self.settings.clear()
                 self.settings.focus()
             # self.settings.titleLbl.configure(text="Settings", font=("Source Code Pro Medium",20),
-            # 		bg= self.colors['Gray2'], fg= self.colors['Gray4'],)
+            #         bg= self.colors['Gray2'], fg= self.colors['Gray4'],)
 
         # Path update frame "iconPath","cache","path","torrentPath","dbPath"
         if True:
@@ -3181,7 +3061,7 @@ class Manager():
         for data in searchResults:
             yield data
             # if anime.id not in (k for k in self.animeList):
-            # 	self.animeList.append(data)
+            #     self.animeList.append(data)
             if self.stopSearch:
                 break
 
@@ -3291,20 +3171,20 @@ class Manager():
             self.log("CHARACTER", "Adding character with id", id,
                      "name", character['name'], "to", len(animes), "animes.")
             # for anime in animes: TODO
-            # 	character['anime_id'] = database.getId(api_key,anime['mal_id'])
-            # 	sql = "SELECT EXISTS(SELECT 1 FROM characters WHERE id = ? AND anime_id = ?);"
-            # 	values = list(character.values())
-            # 	if bool(database.sql(sql,(character['id'],character['anime_id']))[0][0]):
-            # 		sql = "UPDATE characters SET " + "{} = ?,"*(len(character)-1) + "{} = ? WHERE id = ? AND anime_id = ?;"
-            # 		sql = sql.format(*character.keys())
-            # 		values += [character['id'],character['anime_id']]
-            # 	else:
-            # 		sql = "INSERT INTO characters(" + "{},"*(len(character)-1) + "{}) VALUES(" + "?,"*(len(character)-1)+"?);"
-            # 		sql = sql.format(*character.keys())
-            # 	try:
-            # 		database.sql(sql,values,save=True)
-            # 	except Exception as e:
-            # 		raise e
+            #     character['anime_id'] = database.getId(api_key,anime['mal_id'])
+            #     sql = "SELECT EXISTS(SELECT 1 FROM characters WHERE id = ? AND anime_id = ?);"
+            #     values = list(character.values())
+            #     if bool(database.sql(sql,(character['id'],character['anime_id']))[0][0]):
+            #         sql = "UPDATE characters SET " + "{} = ?,"*(len(character)-1) + "{} = ? WHERE id = ? AND anime_id = ?;"
+            #         sql = sql.format(*character.keys())
+            #         values += [character['id'],character['anime_id']]
+            #     else:
+            #         sql = "INSERT INTO characters(" + "{},"*(len(character)-1) + "{}) VALUES(" + "?,"*(len(character)-1)+"?);"
+            #         sql = sql.format(*character.keys())
+            #     try:
+            #         database.sql(sql,values,save=True)
+            #     except Exception as e:
+            #         raise e
 
         return character
 

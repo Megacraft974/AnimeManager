@@ -1,12 +1,18 @@
-class UpdateUtils:
-	def __init__(self):
-		self.animePath = ""
-		self.getDatabase = ""
-		self.log = ""
-		self.getFolder = ""
-		self.api
+from datetime import datetime, timedelta
+import os
+import utils
 
-	def updateCache(self):
+class UpdateUtils:
+    def updateAll(self,schedule=True):
+        self.updateCache()
+        self.updateDirs()
+        self.updateTag()
+        self.regroupFiles()
+        self.updateTitles()
+        if schedule:
+            self.getSchedule()
+
+    def updateCache(self):
         c = 0
         maxDate = timedelta(days=7)
         for f in os.listdir(self.cache):

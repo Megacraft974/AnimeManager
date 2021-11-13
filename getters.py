@@ -1,17 +1,21 @@
 import threading
+import os
+import hashlib
+
+import bencoding
 
 from dbManager import db
-from tkinter import *
+from PIL import Image, ImageTk
+from classes import Anime
 
-
-class get:
-    def database(self):
-        if threading.main_thread() == threading.current_thread():
+class Getters:
+    def getDatabase(self):
+        if threading.main_thread() == threading.current_thread() and hasattr(self,"database"):
             return self.database
         else:
             return db(self.dbPath)
 
-    def image(self, path, size=None):
+    def getImage(self, path, size=None):
         if os.path.isfile(path):
             img = Image.open(path)
         else:
@@ -20,7 +24,7 @@ class get:
             img = img.resize(size)
         return ImageTk.PhotoImage(img, master=self.root)
 
-    def status(self, anime, reverse=True):
+    def getStatus(self, anime, reverse=True):
         if anime.status is not None:
             if anime.status in self.status.values():
                 return anime.status
@@ -48,7 +52,7 @@ class get:
                         status = 'FINISHED'
         return status
 
-    def torrent_name(self, file):
+    def getTorrentName(self, file):
         with open(file, 'rb') as f:
             m = re.findall(rb"name\d+:(.*?)\d+:piece length", f.read())
         if len(m) != 0:
@@ -56,7 +60,7 @@ class get:
         else:
             return None
 
-    def torrent_hash(self, path):
+    def getTorrentHash(self, path):
         objTorrentFile = open(path, "rb")
         try:
             decodedDict = bencoding.bdecode(objTorrentFile.read())
@@ -67,7 +71,7 @@ class get:
             decodedDict[b"info"])).hexdigest()
         return info_hash
 
-    def torrent_color(self, title):
+    def getTorrentColor(self, title):
         def fileFormat(f): return ''.join(
             f.rsplit(".torrent", 1)[0].split(" ")).lower()
         timeNow = time.time()
@@ -91,7 +95,7 @@ class get:
                         break
         return fg
 
-    def folder_format(self, title):
+    def getFolderFormat(self, title):
         chars = []
         spaceLike = list("-")
         if title is None:
@@ -103,7 +107,7 @@ class get:
                 chars.append(" ")
         return "".join(chars)
 
-    def folder(self, id=None, anime=None):
+    def getFolder(self, id=None, anime=None):
         if anime is None or anime == {}:
             if id is None:
                 raise Exception("Id required!")
@@ -111,7 +115,7 @@ class get:
             anime = database(id=id, table="anime").get()
             self.animeFolder = os.listdir(self.animePath)
         else:
-            if not isinstance(anime, Anime):
+            if type(anime) != Anime:
                 anime = Anime(anime)
             if id is None:
                 id = anime.id

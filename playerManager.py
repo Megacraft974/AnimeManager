@@ -337,11 +337,11 @@ class VlcPlayer(Player):
         # subs = []
         # mods = self.player.video_get_spu_description()
         # if mods:
-        #	 mod = mods
-        #	 while mod:
-        #		 mod = mod.contents
-        #		 subs.append(mod.id)
-        #		 mod = mod.next
+        #     mod = mods
+        #     while mod:
+        #         mod = mod.contents
+        #         subs.append(mod.id)
+        #         mod = mod.next
         # print(subs)
         # return subs
 
@@ -349,11 +349,11 @@ class VlcPlayer(Player):
         return dict(self.player.audio_get_track_description())
         # print(mods)
         # if mods:
-        #	 mod = mods
-        #	 while mod:
-        #		 mod = mod.contents
-        #		 tracks.append(mod.id)
-        #		 mod = mod.next
+        #     mod = mods
+        #     while mod:
+        #         mod = mod.contents
+        #         tracks.append(mod.id)
+        #         mod = mod.next
         # return tracks
 
     def changeSubs(self, sub):

@@ -117,8 +117,8 @@ class AnimeAPI():
                 else:
                     out += r
                     # for k,v in r.items():
-                    # 	if k not in out.keys():
-                    # 		out[k] = v
+                    #     if k not in out.keys():
+                    #         out[k] = v
             return out
         else:
             if name in ('schedule', 'searchAnime'):
