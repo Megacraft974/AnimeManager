@@ -4,6 +4,9 @@ import hashlib
 
 import bencoding
 
+from qbittorrentapi import Client
+import qbittorrentapi.exceptions
+
 from dbManager import db
 from PIL import Image, ImageTk
 from classes import Anime
@@ -14,6 +17,42 @@ class Getters:
             return self.database
         else:
             return db(self.dbPath)
+
+    def getQB(self, reconnect=False):
+        try:
+            if reconnect:
+                if self.qb is not None:
+                    self.qb.auth_log_out()
+                    self.log("MAIN_STATE",
+                             "Logged off from qBittorrent client")
+            if self.qb is None or not self.qb.is_logged_in:
+                self.qb = Client(self.torrentApiAddress)
+                self.qb.auth_log_in(self.torrentApiLogin,
+                                    self.torrentApiPassword)
+                if not self.qb.is_logged_in:
+                    self.log(
+                        'MAIN_STATE', '[ERROR] - Invalid credentials for the torrent client!')
+                    self.qb = None
+                    state = "CREDENTIALS"
+                else:
+                    self.qb.app_set_preferences(self.qb_settings)
+                    self.log('MAIN_STATE', 'Qbittorrent version:', self.qb.app_version(
+                    ), "- web API version:", self.qb.app_web_api_version())
+                    # self.log('MAIN_STATE','Connected to torrent client')
+                    state = "OK"
+            else:
+                state = "OK"
+        except qbittorrentapi.exceptions.NotFound404Error as e:
+            self.qb = None
+            self.log('MAIN_STATE',
+                     '[ERROR] - Error 404 while connecting to torrent client')
+            state = "ADDRESS"
+        except qbittorrentapi.exceptions.APIConnectionError as e:
+            self.qb = None
+            self.log('MAIN_STATE',
+                     '[ERROR] - Error while connecting to torrent client')
+            state = "ADDRESS"
+        return state
 
     def getImage(self, path, size=None):
         if os.path.isfile(path):

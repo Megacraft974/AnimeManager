@@ -46,6 +46,7 @@ try:
 
     from update_utils import UpdateUtils
     from getters import Getters
+    from logger import Logger
     from dbManager import db
     from playerManager import MpvPlayer
     from classes import Anime, Character, AnimeList, CharacterList
@@ -56,7 +57,7 @@ except ModuleNotFoundError as e:
     sys.exit()
 
 
-class Manager(UpdateUtils,Getters):
+class Manager(UpdateUtils,Getters,Logger):
     def __init__(self, remote=False):
         self.start = time.time()
 
@@ -709,42 +710,6 @@ class Manager(UpdateUtils,Getters):
             self.log("ERROR", e)
 
     # ___Utils___
-    def getQB(self, reconnect=False):
-        try:
-            if reconnect:
-                if self.qb is not None:
-                    self.qb.auth_log_out()
-                    self.log("MAIN_STATE",
-                             "Logged off from qBittorrent client")
-            if self.qb is None or not self.qb.is_logged_in:
-                self.qb = Client(self.torrentApiAddress)
-                self.qb.auth_log_in(self.torrentApiLogin,
-                                    self.torrentApiPassword)
-                if not self.qb.is_logged_in:
-                    self.log(
-                        'MAIN_STATE', '[ERROR] - Invalid credentials for the torrent client!')
-                    self.qb = None
-                    state = "CREDENTIALS"
-                else:
-                    self.qb.app_set_preferences(self.qb_settings)
-                    self.log('MAIN_STATE', 'Qbittorrent version:', self.qb.app_version(
-                    ), "- web API version:", self.qb.app_web_api_version())
-                    # self.log('MAIN_STATE','Connected to torrent client')
-                    state = "OK"
-            else:
-                state = "OK"
-        except qbittorrentapi.exceptions.NotFound404Error as e:
-            self.qb = None
-            self.log('MAIN_STATE',
-                     '[ERROR] - Error 404 while connecting to torrent client')
-            state = "ADDRESS"
-        except qbittorrentapi.exceptions.APIConnectionError as e:
-            self.qb = None
-            self.log('MAIN_STATE',
-                     '[ERROR] - Error while connecting to torrent client')
-            state = "ADDRESS"
-        return state
-
     def reloadAll(self):
         try:
             self.log('MAIN_STATE', "Reloading")
@@ -827,50 +792,7 @@ class Manager(UpdateUtils,Getters):
             self.fen.after_cancel(self.timer_id)
         self.timer_id = self.fen.after(30, self.loading, n + 1, True)
 
-    def log(self, category, *text, end="\n"):
-        toLog = "[{}]".format(category.center(13)) + " - "
-        toLog += " ".join([str(t) for t in text])
-        if category in self.logs:
-            print(toLog, flush=True, end=end)
-        if self.loadfen is not None and threading.main_thread() == threading.current_thread():
-            try:
-                self.loadLabel['text'] = toLog
-                self.loadfen.update()
-            except BaseException:
-                pass
-        with open(self.logFile, "a", encoding='utf-8') as f:
-            timestamp = "[{}]".format(time.strftime("%H:%M:%S"))
-            f.write(timestamp + toLog + "\n")
-
     # ___Settings___
-    def initLogs(self):
-        if not os.path.exists(self.logsPath):
-            os.mkdir(self.logsPath)
-
-        logsList = os.listdir(self.logsPath)
-        size = sum(os.path.getsize(os.path.join(self.logsPath, f))
-                   for f in logsList)
-
-        while size >= self.maxLogsSize and len(logsList) > 1:
-            os.remove(os.path.join(self.logsPath, logsList[0]))
-            logsList = os.listdir(self.logsPath)
-            size = sum(os.path.getsize(os.path.join(self.logsPath, f))
-                       for f in logsList)
-
-        self.logFile = os.path.normpath(os.path.join(self.logsPath, "log_{}.txt".format(
-            datetime.today().strftime("%Y-%m-%dT%H.%M.%S"))))
-        with open(self.logFile, "w") as f:
-            f.write(
-                "_" *
-                10 +
-                date.today().strftime("%d/%m/%y") +
-                "_" *
-                10 +
-                "\n")
-
-        if self.remote:
-            self.logs = []
-
     def checkSettings(self):
         self.initLogs()
         self.log('CONFIG', "Settings:")
@@ -903,7 +825,6 @@ class Manager(UpdateUtils,Getters):
             setattr(self, updateKey, updateValue)
         with open(self.settingsPath, 'w') as f:
             json.dump(self.settings, f, sort_keys=True, indent=4)
-
     
     # ___Misc___
     def downloadFile(self, id, url=None, file=None):
