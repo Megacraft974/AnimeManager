@@ -46,7 +46,7 @@ try:
     import animeAPI
     import update_utils
 
-    from dbManager import db
+    # from dbManager import db
     from playerManager import MpvPlayer
     from classes import Anime, Character, AnimeList, CharacterList
 except ModuleNotFoundError as e:
@@ -1024,15 +1024,6 @@ class Manager():
         folderName = "{} - {}".format(folderFormat, id)
         folder = os.path.normpath(os.path.join(self.animePath, folderName))
         return folder
-
-    def getChild(self, w):
-        out = []
-        if not type(w) in (Button, Checkbutton, Toplevel, OptionMenu):
-            out.append(w)
-        if type(w) in [Toplevel, Canvas, Frame]:
-            for w in w.winfo_children():
-                out += self.getChild(w)
-        return out
 
     # ___Misc___
     def downloadFile(self, id, url=None, file=None):
