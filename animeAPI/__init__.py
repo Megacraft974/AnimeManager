@@ -16,7 +16,8 @@ class AnimeAPI():
         self.init_thread.start()
 
     def __getattr__(self, name):
-        f = lambda *args, **kwargs: self.wrapper(name, *args, **kwargs)
+        def f(*args, **kwargs):
+            return self.wrapper(name, *args, **kwargs)
         return f
 
     def load_apis(self, apis='all', *args, **kwargs):
@@ -25,7 +26,7 @@ class AnimeAPI():
             root = os.path.dirname(__file__)
             sys.path.append(root)
             for f in os.listdir(root):
-                if not f in ignore and f[-3:] == ".py":
+                if f not in ignore and f[-3:] == ".py":
                     name = f[:-3]
                     try:
                         exec('from {n} import {n}Wrapper'.format(n=name))
@@ -35,8 +36,8 @@ class AnimeAPI():
                         try:
                             f = locals()[name + "Wrapper"](*args, **kwargs)
                         except Exception as e:
-                            log(
-                                "Error while loading {} API wrapper: {}".format(name, traceback.format_exc()))
+                            log("Error while loading {} API wrapper: {}".format(
+                                name, traceback.format_exc()))
                         else:
                             self.apis.append(f)
         else:

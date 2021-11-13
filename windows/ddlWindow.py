@@ -11,11 +11,20 @@ class ddlWindow:
                     self.publisherDDLWindowMinHeight)
             if self.publisherChooser is None or not self.publisherChooser.winfo_exists():
                 self.publisherChooser = utils.RoundTopLevel(
-                    self.choice, title="Loading...", minsize=size, bg=self.colors['Gray3'], fg=self.colors['Gray2'])
+                    self.choice,
+                    title="Loading...",
+                    minsize=size,
+                    bg=self.colors['Gray3'],
+                    fg=self.colors['Gray2'])
             else:
                 self.publisherChooser.clear()
                 self.publisherChooser.titleLbl.configure(
-                    text="Loading...", bg=self.colors['Gray3'], fg=self.colors['Gray2'], font=("Source Code Pro Medium", 18))
+                    text="Loading...",
+                    bg=self.colors['Gray3'],
+                    fg=self.colors['Gray2'],
+                    font=(
+                        "Source Code Pro Medium",
+                        18))
 
             table = utils.ScrollableFrame(
                 self.publisherChooser, bg=self.colors['Gray3'])
@@ -48,11 +57,26 @@ class ddlWindow:
                     publisher = 'None'
                 if not self.publisherChooser.winfo_exists():
                     return
-                Button(table, text=publisher, bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                       activebackground=self.colors['Gray3'], activeforeground=fg, bg=bg, fg=fg,
-                       command=lambda a=data, b=id: self.ddlFileListWindow(
-                           a, b)
-                       ).grid(row=i, column=0, sticky="nsew")
+                Button(
+                    table,
+                    text=publisher,
+                    bd=0,
+                    height=1,
+                    relief='solid',
+                    font=(
+                        "Source Code Pro Medium",
+                        13),
+                    activebackground=self.colors['Gray3'],
+                    activeforeground=fg,
+                    bg=bg,
+                    fg=fg,
+                    command=lambda a=data,
+                    b=id: self.ddlFileListWindow(
+                        a,
+                        b)).grid(
+                    row=i,
+                    column=0,
+                    sticky="nsew")
 
             try:
                 if empty:

@@ -35,8 +35,10 @@ class Logger:
             size = sum(os.path.getsize(os.path.join(self.logsPath, f))
                        for f in logsList)
 
-        self.logFile = os.path.normpath(os.path.join(self.logsPath, "log_{}.txt".format(
-            datetime.today().strftime("%Y-%m-%dT%H.%M.%S"))))
+        self.logFile = os.path.normpath(
+            os.path.join(
+                self.logsPath, "log_{}.txt".format(
+                    datetime.today().strftime("%Y-%m-%dT%H.%M.%S"))))
         with open(self.logFile, "w") as f:
             f.write("_" * 10 + date.today().strftime("%d/%m/%y") + "_" * 10 + "\n")
 
@@ -55,7 +57,7 @@ class Logger:
             else:
                 return
         elif self.log_mode == "ALL":
-            toLog = "[LOG] - " + " ".join([str(t) for t in text])
+            toLog = "[     LOG     ] - " + " ".join([str(t) for t in text])
             print(toLog, flush=True, end=end)
         else:
             return

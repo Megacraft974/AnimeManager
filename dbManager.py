@@ -154,8 +154,7 @@ class db():
 
     def values(self):
         cur = self.con.cursor()
-        cur.execute("SELECT * FROM " + self.table +
-                    " WHERE id=?", (str(self.id),))
+        cur.execute("SELECT * FROM " + self.table + " WHERE id=?", (str(self.id),))
         rows = cur.fetchall()
         if len(rows) >= 1:
             return rows[0]
@@ -341,14 +340,14 @@ class db():
                 range=None, order=None, filter=None):
         if table is not None:
             self.table = table
-        if range == True or sort:
+        if range or sort:
             join = "\nJOIN anime on {table}.id = anime.id ".format(
                 table=self.table) if self.table != "anime" else ""
             limit = "\nLIMIT {start},{stop}".format(
                 start=range[0], stop=range[1]) if range else ""
             filter = "\nWHERE {filter}".format(filter=filter) if filter else ""
             if order is None:
-                sort = "DESC" if sort == True else sort
+                sort = "DESC" if sort else sort
                 order = "anime.date_from"
             else:
                 sort = ""

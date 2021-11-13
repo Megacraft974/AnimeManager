@@ -16,10 +16,17 @@ class settingsWindow:
             def getDir(title, var, file=False):
                 if not file:
                     path = askdirectory(
-                        parent=self.root, title=title, initialdir=getattr(self, var))
+                        parent=self.root,
+                        title=title,
+                        initialdir=getattr(
+                            self,
+                            var))
                 else:
-                    path = askopenfilename(parent=self.root, title=title, initialdir=os.path.dirname(
-                        getattr(self, var)), filetypes=[("Database", (".db"))])
+                    path = askopenfilename(
+                        parent=self.root, title=title, initialdir=os.path.dirname(
+                            getattr(
+                                self, var)), filetypes=[
+                            ("Database", (".db"))])
                 if path != "":
                     self.setSettings({var: path})
                     self.start = time.time()
@@ -43,19 +50,35 @@ class settingsWindow:
                 [parent.grid_columnconfigure(i, weight=1)
                  for i in range(columns)]
                 allLogs = sorted(
-                    self.logs) + sorted((l for l in self.allLogs if l not in self.logs))
+                    self.logs) + sorted((log for log in self.allLogs if log not in self.logs))
                 for ind, log in enumerate(allLogs):
                     if log in self.logs:
                         color = "Green"
                     else:
                         color = "Red"
                     column = ind % columns
-                    Button(parent, text=log, bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                           activebackground=self.colors['Gray2'], activeforeground=self.colors[
-                               'White'], bg=self.colors['Gray3'], fg=self.colors[color],
-                           command=lambda log=log, parent=parent: toggleLog(
-                               log, parent)
-                           ).grid(row=ind // columns, column=column, sticky="nsew", pady=2, padx=2)
+                    Button(
+                        parent,
+                        text=log,
+                        bd=0,
+                        height=1,
+                        relief='solid',
+                        font=(
+                            "Source Code Pro Medium",
+                            13),
+                        activebackground=self.colors['Gray2'],
+                        activeforeground=self.colors['White'],
+                        bg=self.colors['Gray3'],
+                        fg=self.colors[color],
+                        command=lambda log=log,
+                        parent=parent: toggleLog(
+                            log,
+                            parent)).grid(
+                        row=ind // columns,
+                        column=column,
+                        sticky="nsew",
+                        pady=2,
+                        padx=2)
 
             def toggleLog(log, parent):
                 if log in self.logs:
@@ -115,7 +138,11 @@ class settingsWindow:
                 size = (self.settingsWindowMinWidth,
                         self.settingsWindowMinHeight)
                 self.settings = utils.RoundTopLevel(
-                    self.fen, title="Settings", minsize=size, bg=self.colors['Gray2'], fg=self.colors['Gray4'])
+                    self.fen,
+                    title="Settings",
+                    minsize=size,
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['Gray4'])
             else:
                 self.settings.clear()
                 self.settings.focus()
@@ -125,32 +152,94 @@ class settingsWindow:
         # Path update frame "iconPath","cache","path","torrentPath","dbPath"
         if True:
             pathFrame = Frame(self.settings, bg=self.colors['Gray2'])
-            Button(pathFrame, text="Change anime folder", bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                   activebackground=self.colors['Gray2'], activeforeground=self.colors[
-                       'White'], bg=self.colors['Gray3'], fg=self.colors['White'],
-                   command=lambda id=id: getDir(
-                       "Choose anime folder", "animePath")
-                   ).grid(row=0, column=0, sticky="nsew", pady=2, padx=2)
+            Button(
+                pathFrame,
+                text="Change anime folder",
+                bd=0,
+                height=1,
+                relief='solid',
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                activebackground=self.colors['Gray2'],
+                activeforeground=self.colors['White'],
+                bg=self.colors['Gray3'],
+                fg=self.colors['White'],
+                command=lambda id=id: getDir(
+                    "Choose anime folder",
+                    "animePath")).grid(
+                row=0,
+                column=0,
+                sticky="nsew",
+                pady=2,
+                padx=2)
 
-            Button(pathFrame, text="Change torrents folder", bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                   activebackground=self.colors['Gray2'], activeforeground=self.colors[
-                       'White'], bg=self.colors['Gray3'], fg=self.colors['White'],
-                   command=lambda id=id: getDir(
-                       "Choose torrents folder", "torrentPath")
-                   ).grid(row=1, column=0, sticky="nsew", pady=2, padx=2)
+            Button(
+                pathFrame,
+                text="Change torrents folder",
+                bd=0,
+                height=1,
+                relief='solid',
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                activebackground=self.colors['Gray2'],
+                activeforeground=self.colors['White'],
+                bg=self.colors['Gray3'],
+                fg=self.colors['White'],
+                command=lambda id=id: getDir(
+                    "Choose torrents folder",
+                    "torrentPath")).grid(
+                row=1,
+                column=0,
+                sticky="nsew",
+                pady=2,
+                padx=2)
 
-            Button(pathFrame, text="Change cache folder", bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                   activebackground=self.colors['Gray2'], activeforeground=self.colors[
-                       'White'], bg=self.colors['Gray3'], fg=self.colors['White'],
-                   command=lambda id=id: getDir("Choose cache folder", "cache")
-                   ).grid(row=0, column=1, sticky="nsew", pady=2, padx=2)
+            Button(
+                pathFrame,
+                text="Change cache folder",
+                bd=0,
+                height=1,
+                relief='solid',
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                activebackground=self.colors['Gray2'],
+                activeforeground=self.colors['White'],
+                bg=self.colors['Gray3'],
+                fg=self.colors['White'],
+                command=lambda id=id: getDir(
+                    "Choose cache folder",
+                    "cache")).grid(
+                row=0,
+                column=1,
+                sticky="nsew",
+                pady=2,
+                padx=2)
 
-            Button(pathFrame, text="Change database path", bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                   activebackground=self.colors['Gray2'], activeforeground=self.colors[
-                       'White'], bg=self.colors['Gray3'], fg=self.colors['White'],
-                   command=lambda id=id: getDir(
-                       "Choose database file", "dbPath", True)
-                   ).grid(row=1, column=1, sticky="nsew", pady=2, padx=2)
+            Button(
+                pathFrame,
+                text="Change database path",
+                bd=0,
+                height=1,
+                relief='solid',
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                activebackground=self.colors['Gray2'],
+                activeforeground=self.colors['White'],
+                bg=self.colors['Gray3'],
+                fg=self.colors['White'],
+                command=lambda id=id: getDir(
+                    "Choose database file",
+                    "dbPath",
+                    True)).grid(
+                row=1,
+                column=1,
+                sticky="nsew",
+                pady=2,
+                padx=2)
             pathFrame.grid(row=1, column=0)
             [pathFrame.grid_columnconfigure(i, weight=1) for i in range(2)]
 
@@ -162,11 +251,27 @@ class settingsWindow:
             check = self.getImage('./icons/check.png', iconSize)
             ratedVar = IntVar()
             ratedVar.set(self.hideRated)
-            ratedCB = Checkbutton(checkboxFrame, text=" Hide rated anime (R+/Rx)", bd=0, relief='solid',
-                                  indicatoron=False, image=no_check, compound='left', selectimage=check, font=("Source Code Pro Medium", 13),
-                                  activebackground=self.colors['Gray3'], activeforeground=self.colors[
-                                      'White'], bg=self.colors['Gray2'], fg=self.colors['White'],
-                                  selectcolor=self.colors['Gray2'], variable=ratedVar, command=lambda: checkboxHandler(ratedVar, "hideRated"))
+            ratedCB = Checkbutton(
+                checkboxFrame,
+                text=" Hide rated anime (R+/Rx)",
+                bd=0,
+                relief='solid',
+                indicatoron=False,
+                image=no_check,
+                compound='left',
+                selectimage=check,
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                activebackground=self.colors['Gray3'],
+                activeforeground=self.colors['White'],
+                bg=self.colors['Gray2'],
+                fg=self.colors['White'],
+                selectcolor=self.colors['Gray2'],
+                variable=ratedVar,
+                command=lambda: checkboxHandler(
+                    ratedVar,
+                    "hideRated"))
             ratedCB.no_check = no_check
             ratedCB.check = check
             ratedCB.grid(row=0, column=0, sticky="nsew", pady=10)
@@ -181,17 +286,46 @@ class settingsWindow:
         if True:
             serverFrame = Frame(self.settings, bg=self.colors['Gray2'])
 
-            Label(serverFrame, text="Mobile App Server (BETA)", justify="center", font=("Source Code Pro Medium", 13),
-                  bg=self.colors['Gray2'], fg=self.colors['White']
-                  ).grid(row=0, column=0, columnspan=4, sticky="nsew", pady=(0, 7))
+            Label(
+                serverFrame,
+                text="Mobile App Server (BETA)",
+                justify="center",
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                bg=self.colors['Gray2'],
+                fg=self.colors['White']).grid(
+                row=0,
+                column=0,
+                columnspan=4,
+                sticky="nsew",
+                pady=(
+                    0,
+                    7))
 
             serverVar = IntVar()
             serverVar.set(self.enableServer)
-            serverCB = Checkbutton(serverFrame, text=" Enable server", bd=0, relief='solid',
-                                   indicatoron=False, image=no_check, compound='left', selectimage=check, font=("Source Code Pro Medium", 13),
-                                   activebackground=self.colors['Gray3'], activeforeground=self.colors[
-                                       'White'], bg=self.colors['Gray2'], fg=self.colors['White'],
-                                   selectcolor=self.colors['Gray2'], variable=serverVar, command=lambda: checkboxHandler(serverVar, "enableServer"))
+            serverCB = Checkbutton(
+                serverFrame,
+                text=" Enable server",
+                bd=0,
+                relief='solid',
+                indicatoron=False,
+                image=no_check,
+                compound='left',
+                selectimage=check,
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                activebackground=self.colors['Gray3'],
+                activeforeground=self.colors['White'],
+                bg=self.colors['Gray2'],
+                fg=self.colors['White'],
+                selectcolor=self.colors['Gray2'],
+                variable=serverVar,
+                command=lambda: checkboxHandler(
+                    serverVar,
+                    "enableServer"))
             serverCB.no_check = no_check
             serverCB.check = check
             serverCB.grid(row=1, column=0, columnspan=4,
@@ -199,33 +333,81 @@ class settingsWindow:
 
             serverAddress = StringVar()
             serverAddress.set(self.hostName)
-            serverEntry = Entry(serverFrame, textvariable=serverAddress, highlightthickness=0, width=15, justify="center",
-                                borderwidth=0, font=("Source Code Pro Medium", 13), bg=self.colors['Gray3'], fg=self.colors['White'])
+            serverEntry = Entry(
+                serverFrame,
+                textvariable=serverAddress,
+                highlightthickness=0,
+                width=15,
+                justify="center",
+                borderwidth=0,
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                bg=self.colors['Gray3'],
+                fg=self.colors['White'])
             serverEntry.bind("<Return>", lambda e,
                              var=serverAddress: updateServer((var, "ADDRESS")))
             serverEntry.grid(row=2, column=0, sticky="nsew")
             self.settings.handles.append(serverEntry)
 
             tmp = Frame(serverFrame, bg=self.colors['Gray3'])
-            Label(tmp, text=":", font=("Source Code Pro Medium", 13), bg=self.colors['Gray3'], fg=self.colors['White']
-                  ).grid(row=0, column=0, pady=(2, 0))
+            Label(
+                tmp,
+                text=":",
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                bg=self.colors['Gray3'],
+                fg=self.colors['White']).grid(
+                row=0,
+                column=0,
+                pady=(
+                    2,
+                    0))
             tmp.grid(row=2, column=1, sticky="nsew")
 
             serverPort = StringVar()
             serverPort.set(self.serverPort)
-            serverPortEntry = Entry(serverFrame, textvariable=serverPort, highlightthickness=0, width=5, justify="center",
-                                    borderwidth=0, font=("Source Code Pro Medium", 13), bg=self.colors['Gray3'], fg=self.colors['White'])
+            serverPortEntry = Entry(
+                serverFrame,
+                textvariable=serverPort,
+                highlightthickness=0,
+                width=5,
+                justify="center",
+                borderwidth=0,
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                bg=self.colors['Gray3'],
+                fg=self.colors['White'])
             serverPortEntry.bind("<Return>", lambda e,
                                  var=serverPort: updateServer((var, "PORT")))
             serverPortEntry.grid(row=2, column=2, sticky="nsew")
             self.settings.handles.append(serverPortEntry)
 
-            Button(serverFrame, text="Restart server", bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                   activebackground=self.colors['Gray2'], activeforeground=self.colors[
-                       'White'], bg=self.colors['Gray3'], fg=self.colors['White'],
-                   command=lambda address=serverAddress, port=serverPort: updateServer(
-                       (address, "ADDRESS"), (port, "PORT"))
-                   ).grid(row=2, column=3, sticky="nsew", padx=4)
+            Button(
+                serverFrame,
+                text="Restart server",
+                bd=0,
+                height=1,
+                relief='solid',
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                activebackground=self.colors['Gray2'],
+                activeforeground=self.colors['White'],
+                bg=self.colors['Gray3'],
+                fg=self.colors['White'],
+                command=lambda address=serverAddress,
+                port=serverPort: updateServer(
+                    (address,
+                     "ADDRESS"),
+                    (port,
+                     "PORT"))).grid(
+                row=2,
+                column=3,
+                sticky="nsew",
+                padx=4)
 
             serverFrame.grid_columnconfigure(0, weight=1)
             serverFrame.grid_columnconfigure(1, weight=1)
@@ -246,46 +428,139 @@ class settingsWindow:
             elif auth == "OK":
                 colA, colC = 'Green', 'Green'
 
-            Label(torrentFrame, text="qBittorrent Client", justify="center", font=("Source Code Pro Medium", 13),
-                  bg=self.colors['Gray2'], fg=self.colors['White']
-                  ).grid(row=0, column=0, columnspan=2, sticky="nsew", pady=(0, 7))
-            Label(torrentFrame, text="Address:", justify="right", font=("Source Code Pro Medium", 13),
-                  bg=self.colors['Gray2'], fg=self.colors['White']
-                  ).grid(row=1, column=0, pady=3)
+            Label(
+                torrentFrame,
+                text="qBittorrent Client",
+                justify="center",
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                bg=self.colors['Gray2'],
+                fg=self.colors['White']).grid(
+                row=0,
+                column=0,
+                columnspan=2,
+                sticky="nsew",
+                pady=(
+                    0,
+                    7))
+            Label(
+                torrentFrame,
+                text="Address:",
+                justify="right",
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                bg=self.colors['Gray2'],
+                fg=self.colors['White']).grid(
+                row=1,
+                column=0,
+                pady=3)
             torrentApiAddress = StringVar()
             torrentApiAddress.set(self.torrentApiAddress)
-            entries['address'] = Entry(torrentFrame, textvariable=torrentApiAddress, highlightthickness=0, width=40, justify="center",
-                                       borderwidth=0, font=("Source Code Pro Medium", 13), bg=self.colors['Gray3'], fg=self.colors[colA])
+            entries['address'] = Entry(
+                torrentFrame,
+                textvariable=torrentApiAddress,
+                highlightthickness=0,
+                width=40,
+                justify="center",
+                borderwidth=0,
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                bg=self.colors['Gray3'],
+                fg=self.colors[colA])
             entries['address'].bind(
-                "<Return>", lambda e, var=torrentApiAddress: updateTorrent((var, "ADDRESS")))
+                "<Return>", lambda e, var=torrentApiAddress: updateTorrent(
+                    (var, "ADDRESS")))
             entries['address'].grid(row=1, column=1, sticky="nsew", pady=3)
 
-            Label(torrentFrame, text="Login:", justify="right", font=("Source Code Pro Medium", 13),
-                  bg=self.colors['Gray2'], fg=self.colors['White']
-                  ).grid(row=2, column=0, pady=3)
+            Label(
+                torrentFrame,
+                text="Login:",
+                justify="right",
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                bg=self.colors['Gray2'],
+                fg=self.colors['White']).grid(
+                row=2,
+                column=0,
+                pady=3)
             torrentApiLogin = StringVar()
             torrentApiLogin.set(self.torrentApiLogin)
-            entries['login'] = Entry(torrentFrame, textvariable=torrentApiLogin, highlightthickness=0, justify="center",
-                                     borderwidth=0, font=("Source Code Pro Medium", 13), bg=self.colors['Gray3'], fg=self.colors[colC])
+            entries['login'] = Entry(
+                torrentFrame,
+                textvariable=torrentApiLogin,
+                highlightthickness=0,
+                justify="center",
+                borderwidth=0,
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                bg=self.colors['Gray3'],
+                fg=self.colors[colC])
             entries['login'].bind(
-                "<Return>", lambda e, var=torrentApiLogin: updateTorrent((var, "LOGIN")))
+                "<Return>", lambda e, var=torrentApiLogin: updateTorrent(
+                    (var, "LOGIN")))
             entries['login'].grid(row=2, column=1, sticky="nsew", pady=3)
 
-            Label(torrentFrame, text="Password:", justify="right", font=("Source Code Pro Medium", 13),
-                  bg=self.colors['Gray2'], fg=self.colors['White']
-                  ).grid(row=3, column=0, pady=3)
+            Label(
+                torrentFrame,
+                text="Password:",
+                justify="right",
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                bg=self.colors['Gray2'],
+                fg=self.colors['White']).grid(
+                row=3,
+                column=0,
+                pady=3)
             torrentPwd = StringVar()
             torrentPwd.set(self.torrentApiPassword)
-            entries['password'] = Entry(torrentFrame, textvariable=torrentPwd, highlightthickness=0, justify="center",
-                                        borderwidth=0, font=("Source Code Pro Medium", 13), bg=self.colors['Gray3'], fg=self.colors[colC])
+            entries['password'] = Entry(
+                torrentFrame,
+                textvariable=torrentPwd,
+                highlightthickness=0,
+                justify="center",
+                borderwidth=0,
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                bg=self.colors['Gray3'],
+                fg=self.colors[colC])
             entries['password'].bind(
-                "<Return>", lambda e, var=torrentPwd: updateTorrent((var, "LOGIN")))
+                "<Return>", lambda e, var=torrentPwd: updateTorrent(
+                    (var, "LOGIN")))
             entries['password'].grid(row=3, column=1, sticky="nsew", pady=3)
 
-            b = Button(torrentFrame, text="Connect", bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                       activebackground=self.colors['Gray'], activeforeground=self.colors['White'], bg=self.colors['Gray3'], fg=self.colors['White'],)
-            b.configure(command=lambda address=torrentApiAddress, login=torrentApiLogin, pwd=torrentPwd,
-                        b=entries: updateTorrent((address, "ADDRESS"), (login, "LOGIN"), (pwd, "PASSWORD"), entries=b))
+            b = Button(
+                torrentFrame,
+                text="Connect",
+                bd=0,
+                height=1,
+                relief='solid',
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                activebackground=self.colors['Gray'],
+                activeforeground=self.colors['White'],
+                bg=self.colors['Gray3'],
+                fg=self.colors['White'],
+            )
+            b.configure(
+                command=lambda address=torrentApiAddress,
+                login=torrentApiLogin,
+                pwd=torrentPwd,
+                b=entries: updateTorrent(
+                    (address,
+                     "ADDRESS"),
+                    (login,
+                     "LOGIN"),
+                    (pwd,
+                     "PASSWORD"),
+                    entries=b))
             b.grid(row=4, column=0, columnspan=2, sticky="nsew", pady=3)
 
             self.settings.handles += list(entries.values())
@@ -298,9 +573,21 @@ class settingsWindow:
         # Logs frame
         if True:
             logsFrame = Frame(self.settings, bg=self.colors['Gray2'])
-            Label(logsFrame, text="Logs", justify="center", font=("Source Code Pro Medium", 13),
-                  bg=self.colors['Gray2'], fg=self.colors['White']
-                  ).grid(row=0, column=0, sticky="nsew", pady=(0, 7))
+            Label(
+                logsFrame,
+                text="Logs",
+                justify="center",
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                bg=self.colors['Gray2'],
+                fg=self.colors['White']).grid(
+                row=0,
+                column=0,
+                sticky="nsew",
+                pady=(
+                    0,
+                    7))
             logsParentFrame = Frame(logsFrame, bg=self.colors['Gray2'])
             drawLogs(logsParentFrame)
             logsParentFrame.grid(row=1, column=0, sticky="nsew")

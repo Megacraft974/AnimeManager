@@ -59,8 +59,21 @@ class Item(dict):
 
 class Anime(Item):
     def __init__(self, data=None):
-        self.data_keys = ('date_from', 'date_to', 'duration', 'episodes', 'genres', 'id', 'picture',
-                          'rating', 'status', 'synopsis', 'title', 'title_synonyms', 'trailer', 'torrent')
+        self.data_keys = (
+            'date_from',
+            'date_to',
+            'duration',
+            'episodes',
+            'genres',
+            'id',
+            'picture',
+            'rating',
+            'status',
+            'synopsis',
+            'title',
+            'title_synonyms',
+            'trailer',
+            'torrent')
         self.meta_data_keys = ('title_synonyms', 'genres', 'torrent')
         super().__init__(data)
 
@@ -123,7 +136,7 @@ class ItemList(queue.Queue):
                 break
             else:
                 id = self.identifier(e)
-                if not id in self.ids:  # TODO - Identifier func
+                if id not in self.ids:  # TODO - Identifier func
                     self.list.append(e)
                     self.ids.append(id)
                     if self.new_elem_event["enabled"]:
@@ -193,8 +206,8 @@ class CharacterList(ItemList):
 
 
 if __name__ == "__main__":
-    def slow_iter(msg, t=1, l=10):
-        for i in range(l):
+    def slow_iter(msg, t=1, length=10):
+        for i in range(length):
             time.sleep(t)
             # log(msg+str(i))
             yield msg + str(i)

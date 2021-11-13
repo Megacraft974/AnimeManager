@@ -22,7 +22,11 @@ class characterListWindow:
                 cell.grid_columnconfigure(0, weight=1)
 
                 can = Canvas(
-                    cell, width=size[0], height=size[1], highlightthickness=0, bg=self.colors['Gray3'])
+                    cell,
+                    width=size[0],
+                    height=size[1],
+                    highlightthickness=0,
+                    bg=self.colors['Gray3'])
                 can.grid(row=0, column=0, sticky="ns")
                 can.bind("<Button-1>", lambda e,
                          a=character: self.characterWindow(a))
@@ -37,8 +41,12 @@ class characterListWindow:
                 else:
                     im = Image.new('RGB', (225, 310), self.colors['Gray'])
                     loadImg = True
-                    self.log('DISK_ERROR', "[ERROR] - Can't open image for character",
-                             character['name'], "id", character['id'])
+                    self.log(
+                        'DISK_ERROR',
+                        "[ERROR] - Can't open image for character",
+                        character['name'],
+                        "id",
+                        character['id'])
 
                 # im.resize(size)
                 image = ImageTk.PhotoImage(im)
@@ -49,14 +57,26 @@ class characterListWindow:
                 title = character['name']
                 if len(title) >= 20:
                     title = title[:15] + "..."
-                if database(id=character['id'], table='characters').exist() and bool(
+                if database(
+                        id=character['id'],
+                        table='characters').exist() and bool(
                         database['like']):
                     title += " ❤"
                 color = 'Blue' if character['role'] == 'main' else 'White'
-                b = Button(cell, text=title, bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                           activebackground=self.colors['Gray2'], activeforeground=self.colors[
-                               color], bg=self.colors['Gray3'], fg=self.colors[color],
-                           command=lambda a=character: self.characterWindow(a))
+                b = Button(
+                    cell,
+                    text=title,
+                    bd=0,
+                    height=1,
+                    relief='solid',
+                    font=(
+                        "Source Code Pro Medium",
+                        13),
+                    activebackground=self.colors['Gray2'],
+                    activeforeground=self.colors[color],
+                    bg=self.colors['Gray3'],
+                    fg=self.colors[color],
+                    command=lambda a=character: self.characterWindow(a))
                 b.name = character['id']
                 b.grid(row=1, column=0, sticky="nsew")
 
@@ -129,7 +149,11 @@ class characterListWindow:
 
             if self.characterList is None or not self.characterList.winfo_exists():
                 self.characterList = utils.RoundTopLevel(
-                    parent, title="Characters", minsize=size, bg=self.colors['Gray3'], fg=self.colors['Gray2'])
+                    parent,
+                    title="Characters",
+                    minsize=size,
+                    bg=self.colors['Gray3'],
+                    fg=self.colors['Gray2'])
             else:
                 self.characterList.clear()
             # self.characterList.titleLbl.configure(text="Characters", bg= self.colors['Gray3'], fg= self.colors['Gray2'], font=("Source Code Pro Medium",18))
@@ -147,8 +171,14 @@ class characterListWindow:
             sql = "SELECT EXISTS(SELECT 1 FROM characters WHERE anime_id = ?);"
             empty = not bool(self.database.sql(sql, (id,))[0][0])
             if id != "LIKED" and empty:
-                loadLbl = Label(self.characterListTable, text="Loading data...",
-                                bg=self.colors['Gray3'], fg=self.colors['Gray2'], font=("Source Code Pro Medium", 18))
+                loadLbl = Label(
+                    self.characterListTable,
+                    text="Loading data...",
+                    bg=self.colors['Gray3'],
+                    fg=self.colors['Gray2'],
+                    font=(
+                        "Source Code Pro Medium",
+                        18))
                 loadLbl.pack(fill="both", expand=True, pady=10, side=BOTTOM)
                 thread = threading.Thread(
                     target=self.getCharactersData, args=(id,))
@@ -204,6 +234,18 @@ class characterListWindow:
             if self.characterListTable.winfo_exists():
                 self.characterListTable.grid_columnconfigure(0, weight=1)
                 if len(characters) == 0:
-                    Label(self.characterListTable, text="No characters", font=("Source Code Pro Medium", 13), bg=self.colors['Gray3'], fg=self.colors['Red'],
-                          ).grid(row=0, column=0, sticky="nsew", pady=2, padx=2)
+                    Label(
+                        self.characterListTable,
+                        text="No characters",
+                        font=(
+                            "Source Code Pro Medium",
+                            13),
+                        bg=self.colors['Gray3'],
+                        fg=self.colors['Red'],
+                    ).grid(
+                        row=0,
+                        column=0,
+                        sticky="nsew",
+                        pady=2,
+                        padx=2)
                 self.characterListTable.update()

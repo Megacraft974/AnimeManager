@@ -33,13 +33,18 @@ class Getters:
                                     self.torrentApiPassword)
                 if not self.qb.is_logged_in:
                     self.log(
-                        'MAIN_STATE', '[ERROR] - Invalid credentials for the torrent client!')
+                        'MAIN_STATE',
+                        '[ERROR] - Invalid credentials for the torrent client!')
                     self.qb = None
                     state = "CREDENTIALS"
                 else:
                     self.qb.app_set_preferences(self.qb_settings)
-                    self.log('MAIN_STATE', 'Qbittorrent version:', self.qb.app_version(
-                    ), "- web API version:", self.qb.app_web_api_version())
+                    self.log(
+                        'MAIN_STATE',
+                        'Qbittorrent version:',
+                        self.qb.app_version(),
+                        "- web API version:",
+                        self.qb.app_web_api_version())
                     # self.log('MAIN_STATE','Connected to torrent client')
                     state = "OK"
             else:
@@ -113,8 +118,8 @@ class Getters:
         return info_hash
 
     def getTorrentColor(self, title):
-        def fileFormat(f): return ''.join(
-            f.rsplit(".torrent", 1)[0].split(" ")).lower()
+        def fileFormat(f):
+            return ''.join(f.rsplit(".torrent", 1)[0].split(" ")).lower()
         timeNow = time.time()
         if hasattr(self, 'formattedTorrentFiles') and timeNow - \
                 self.formattedTorrentFiles[0] < 10:

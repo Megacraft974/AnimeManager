@@ -99,11 +99,30 @@ class initWindow:
                 droplistIcon = self.getImage(os.path.join(
                     self.iconPath, "menu.png"), (30, 30))
                 droplist = OptionMenu(
-                    head, StringVar(), *self.menuOptions.keys(), command=options)
-                droplist.configure(indicatoron=False, image=droplistIcon, highlightthickness=0, borderwidth=0,
-                                   activebackground=self.colors['Gray2'], bg=self.colors['Gray2'],)
-                droplist["menu"].configure(bd=0, borderwidth=0, activeborderwidth=0, font=("Source Code Pro Medium", 13),
-                                           activebackground=self.colors['Gray2'], activeforeground=self.colors['White'], bg=self.colors['Gray2'], fg=self.colors['White'],)
+                    head,
+                    StringVar(),
+                    *self.menuOptions.keys(),
+                    command=options)
+                droplist.configure(
+                    indicatoron=False,
+                    image=droplistIcon,
+                    highlightthickness=0,
+                    borderwidth=0,
+                    activebackground=self.colors['Gray2'],
+                    bg=self.colors['Gray2'],
+                )
+                droplist["menu"].configure(
+                    bd=0,
+                    borderwidth=0,
+                    activeborderwidth=0,
+                    font=(
+                        "Source Code Pro Medium",
+                        13),
+                    activebackground=self.colors['Gray2'],
+                    activeforeground=self.colors['White'],
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['White'],
+                )
                 droplist.image = droplistIcon
                 droplist.grid(row=0, column=0, padx=15)
 
@@ -115,30 +134,63 @@ class initWindow:
                 self.searchTerms = StringVar(self.fen)
                 self.searchTerms.trace_add(("write"), self.search)
 
-                searchBar = Entry(head, textvariable=self.searchTerms, highlightthickness=0, borderwidth=0, font=("Source Code Pro Medium", 13),
-                                  bg=self.colors['Gray2'], fg=self.colors['White'])
+                searchBar = Entry(
+                    head,
+                    textvariable=self.searchTerms,
+                    highlightthickness=0,
+                    borderwidth=0,
+                    font=(
+                        "Source Code Pro Medium",
+                        13),
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['White'])
                 searchBar.grid(row=0, column=1, sticky="nsew", pady=10)
-                #searchBar.bind("<Return>", search)
+                # searchBar.bind("<Return>", search)
                 searchBar.bind("<ButtonPress-1>",
                                lambda e: start_move(e, self.fen))
                 searchBar.bind("<B1-Motion>", lambda e: do_move(e, self.fen))
-                searchBar.bind("<Control-Return>", lambda e: self.getAnimeDataThread(
-                    self.searchTerms.get()) if self.searchTerms.get() != "" else None)
+                searchBar.bind(
+                    "<Control-Return>",
+                    lambda e: self.getAnimeDataThread(
+                        self.searchTerms.get()) if self.searchTerms.get() != "" else None)
 
-                self.giflist = [PhotoImage(file=os.path.join(
-                    self.iconPath, 'loading.gif'), format='gif -index %i' % (i)) for i in range(30)]
+                self.giflist = [
+                    PhotoImage(
+                        file=os.path.join(
+                            self.iconPath,
+                            'loading.gif'),
+                        format='gif -index %i' %
+                        (i)) for i in range(30)]
                 self.loadCanvas = Canvas(
-                    head, bg=self.colors['Gray2'], highlightthickness=0, width=56, height=56)
+                    head,
+                    bg=self.colors['Gray2'],
+                    highlightthickness=0,
+                    width=56,
+                    height=56)
                 self.loadCanvas.grid(row=0, column=2)
 
                 filterIcon = self.getImage(os.path.join(
                     self.iconPath, "filter.png"), (35, 35))
-                filter = OptionMenu(head, StringVar(), *
-                                    self.filterOptions.keys(), command=filter)
-                filter.configure(indicatoron=False, image=filterIcon, highlightthickness=0, borderwidth=0,
-                                 activebackground=self.colors['Gray2'], bg=self.colors['Gray2'])
-                filter["menu"].configure(bd=0, borderwidth=0, activeborderwidth=0, font=("Source Code Pro Medium", 13),
-                                         activebackground=self.colors['Gray2'], activeforeground=self.colors['White'], bg=self.colors['Gray2'], fg=self.colors['White'],)
+                filter = OptionMenu(head, StringVar(), * self.filterOptions.keys(), command=filter)
+                filter.configure(
+                    indicatoron=False,
+                    image=filterIcon,
+                    highlightthickness=0,
+                    borderwidth=0,
+                    activebackground=self.colors['Gray2'],
+                    bg=self.colors['Gray2'])
+                filter["menu"].configure(
+                    bd=0,
+                    borderwidth=0,
+                    activeborderwidth=0,
+                    font=(
+                        "Source Code Pro Medium",
+                        13),
+                    activebackground=self.colors['Gray2'],
+                    activeforeground=self.colors['White'],
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['White'],
+                )
                 filter.image = filterIcon
                 filter.grid(row=0, column=3, padx=0)
 
@@ -149,16 +201,34 @@ class initWindow:
 
                 closeIcon = self.getImage(os.path.join(
                     self.iconPath, "close.png"), (40, 40))
-                Button(head, image=closeIcon, bd=0, relief='solid', activebackground=self.colors['Gray2'], bg=self.colors['Gray2'],
-                       command=self.quit
-                       ).grid(row=0, column=4, padx=10)
+                Button(
+                    head,
+                    image=closeIcon,
+                    bd=0,
+                    relief='solid',
+                    activebackground=self.colors['Gray2'],
+                    bg=self.colors['Gray2'],
+                    command=self.quit).grid(
+                    row=0,
+                    column=4,
+                    padx=10)
 
             self.scrollable_frame = utils.ScrollableFrame(
                 dbFrame, bg=self.colors['Gray2'], width=900)
             self.scrollable_frame.pack(fill="both", expand=True)
 
-            Label(self.scrollable_frame, text="Loading...", bg=self.colors['Gray2'], fg=self.colors['Gray4'], font=(
-                "Source Code Pro Medium", 20)).grid(row=0, column=0, columnspan=4, sticky="nsew")
+            Label(
+                self.scrollable_frame,
+                text="Loading...",
+                bg=self.colors['Gray2'],
+                fg=self.colors['Gray4'],
+                font=(
+                    "Source Code Pro Medium",
+                    20)).grid(
+                row=0,
+                column=0,
+                columnspan=4,
+                sticky="nsew")
 
             dbFrame.pack(fill="both", expand=True)
             for i in range(4):

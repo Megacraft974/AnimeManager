@@ -9,7 +9,7 @@ IGNORE = ['template.py', '__init__.py']
 def get_parser_list():
     root = os.path.dirname(__file__)
     for f in os.listdir(root):
-        if not f in IGNORE and os.path.isfile(os.path.join(root, f)):
+        if f not in IGNORE and os.path.isfile(os.path.join(root, f)):
             f = f.split(".py")[0]
             exec("from . import " + f)
             module = globals()[f]

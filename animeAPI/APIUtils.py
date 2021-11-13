@@ -14,10 +14,17 @@ except ModuleNotFoundError:
 
 class APIUtils():
     def __init__(self, dbPath):
-        self.states = {'airing': 'AIRING', 'Currently Airing': 'AIRING',
-                       'completed': 'FINISHED', 'complete': 'FINISHED', 'Finished Airing': 'FINISHED',
-                       'to_be_aired': 'UPCOMING', 'tba': 'UPCOMING', 'upcoming': 'UPCOMING', 'Not yet aired': 'UPCOMING',
-                       'NONE': 'UNKNOWN'}
+        self.states = {
+            'airing': 'AIRING',
+            'Currently Airing': 'AIRING',
+            'completed': 'FINISHED',
+            'complete': 'FINISHED',
+            'Finished Airing': 'FINISHED',
+            'to_be_aired': 'UPCOMING',
+            'tba': 'UPCOMING',
+            'upcoming': 'UPCOMING',
+            'Not yet aired': 'UPCOMING',
+            'NONE': 'UNKNOWN'}
         self.dbPath = dbPath
         self.db = self.getDb()
 

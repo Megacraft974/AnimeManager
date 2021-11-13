@@ -50,7 +50,8 @@ except ModuleNotFoundError as e:
     import sys
     sys.exit()
 
-class Manager(UpdateUtils,Getters,Logger, *windows.windows):
+
+class Manager(UpdateUtils, Getters, Logger, *windows.windows):
     def __init__(self, remote=False):
         self.start = time.time()
 
@@ -115,29 +116,44 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
         self.torrentApiPassword = '123456'
 
         if True:
-            self.allLogs = ['CHARACTER', 'CONFIG', 'DB_ERROR', 'DB_UPDATE', 'DISK_ERROR',
-                            'FILE_SEARCH', 'MAIN_STATE', 'NETWORK', 'NETWORK_DATA',
-                            'PICTURE', 'RELATED', 'SCHEDULE', 'SERVER',
-                            'SETTINGS', 'THREAD', 'TIME']
+            self.allLogs = [
+                'CHARACTER',
+                'CONFIG',
+                'DB_ERROR',
+                'DB_UPDATE',
+                'DISK_ERROR',
+                'FILE_SEARCH',
+                'MAIN_STATE',
+                'NETWORK',
+                'NETWORK_DATA',
+                'PICTURE',
+                'RELATED',
+                'SCHEDULE',
+                'SERVER',
+                'SETTINGS',
+                'THREAD',
+                'TIME']
             self.pathSettings = ["animePath", "torrentPath",
                                  "iconPath", "cache", "dbPath", "logsPath"]
-            self.websitesViewUrls = {"mal_id": "https://myanimeList.net/anime/{}",
-                                     "kitsu_id": "https://kitsu.io/anime/{}",
-                                     "anilist_id": "https://anilist.co/anime/{}",
-                                     "anidb_id": "https://anidb.net/anime/{}"}
+            self.websitesViewUrls = {
+                "mal_id": "https://myanimeList.net/anime/{}",
+                "kitsu_id": "https://kitsu.io/anime/{}",
+                "anilist_id": "https://anilist.co/anime/{}",
+                "anidb_id": "https://anidb.net/anime/{}"}
             self.seasons = {'winter': {'start': 1, 'end': 3},
                             'spring': {'start': 4, 'end': 6},
                             'summer': {'start': 7, 'end': 9},
                             'fall': {'start': 10, 'end': 12}}
             self.menuOptions = {
-                'Liked characters': {'color': 'Green', 'command': lambda: self.characterListWindow("LIKED")},
-                'Disk manager': {'color': 'Orange', 'command': self.diskWindow},
-                'Clear logs': {'color': 'Green', 'command': self.clearLogs},
-                'Clear cache': {'color': 'Blue', 'command': self.clearCache},
-                'Clear db': {'color': 'Red', 'command': self.clearDb},
-                'Settings': {'color': 'Gray', 'command': self.settingsWindow},
-                'Reload': {'color': 'Orange', 'command': self.reloadAll},
-                'Exit': {'color': 'Red', 'command': self.quit}}
+                'Liked characters': {
+                    'color': 'Green', 'command': lambda: self.characterListWindow("LIKED")}, 'Disk manager': {
+                    'color': 'Orange', 'command': self.diskWindow}, 'Clear logs': {
+                    'color': 'Green', 'command': self.clearLogs}, 'Clear cache': {
+                    'color': 'Blue', 'command': self.clearCache}, 'Clear db': {
+                        'color': 'Red', 'command': self.clearDb}, 'Settings': {
+                            'color': 'Gray', 'command': self.settingsWindow}, 'Reload': {
+                                'color': 'Orange', 'command': self.reloadAll}, 'Exit': {
+                                    'color': 'Red', 'command': self.quit}}
             self.actionButtons = (
                 {'text': 'Copy title', 'color': 'Green', 'command': self.copy_title},
                 {'text': 'Reload', 'color': 'Blue', 'command': self.reload},
@@ -160,10 +176,18 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
                                   'Random': {'color': 'Green', 'filter': 'RANDOM'},
                                   'No tags': {'color': 'White', 'filter': 'NONE'},
                                   'No filter': {'color': 'Gray', 'filter': None}}
-            self.status = {'airing': 'AIRING', 'Currently Airing': 'AIRING',
-                           'completed': 'FINISHED', 'complete': 'FINISHED', 'Finished Airing': 'FINISHED',
-                           'to_be_aired': 'UPCOMING', 'tba': 'UPCOMING', 'upcoming': 'UPCOMING', 'Not yet aired': 'UPCOMING',
-                           'NONE': 'UNKNOWN', 'UPDATE': 'UNKNOWN'}
+            self.status = {
+                'airing': 'AIRING',
+                'Currently Airing': 'AIRING',
+                'completed': 'FINISHED',
+                'complete': 'FINISHED',
+                'Finished Airing': 'FINISHED',
+                'to_be_aired': 'UPCOMING',
+                'tba': 'UPCOMING',
+                'upcoming': 'UPCOMING',
+                'Not yet aired': 'UPCOMING',
+                'NONE': 'UNKNOWN',
+                'UPDATE': 'UNKNOWN'}
 
         self.database = self.getDatabase()
         if not os.path.exists(self.dbPath):
@@ -222,7 +246,8 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
 
         self.updateTitles()
         terms = "".join([c for c in terms if c.isalnum()]).lower()
-        if bool(self.database.sql(
+        if bool(
+            self.database.sql(
                 "SELECT EXISTS(SELECT 1 FROM searchTitles WHERE searchTitles.title LIKE '%{}%');".format(terms))[0][0]):
             return enumerator(terms)
         else:
@@ -323,7 +348,8 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
 
         keys = ('id', 'title', 'torrent')
         torrentDb = database.sql(
-            'SELECT id,title,torrent FROM anime WHERE torrent is not null', iterate=True)
+            'SELECT id,title,torrent FROM anime WHERE torrent is not null',
+            iterate=True)
         torrentData = (dict(zip(keys, d)) for d in torrentDb)
         c = 0
 
@@ -352,8 +378,11 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
 
         def wait_for_next(animelist, default):
             que = queue.Queue()
-            t = threading.Thread(target=lambda que, animelist, default: que.put(
-                next(animelist, default)), args=(que, animelist, default))
+            t = threading.Thread(
+                target=lambda que, animelist, default: que.put(
+                    next(
+                        animelist, default)), args=(
+                    que, animelist, default))
             t.start()
             while que.empty():
                 self.root.update()
@@ -379,7 +408,10 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
 
             elif filter == 'NONE':
                 ids = self.database.allkeys(
-                    'tag', sort=True, range=listrange, filter="tag.tag = 'NONE' OR anime.id NOT IN(SELECT id FROM tag)" + commonFilter)
+                    'tag',
+                    sort=True,
+                    range=listrange,
+                    filter="tag.tag = 'NONE' OR anime.id NOT IN(SELECT id FROM tag)" + commonFilter)
                 # b = self.database.allkeys('anime',sort=True,range=(0,listrange[1]-len(ids)),filter="id NOT IN(SELECT id FROM tag)"+commonFilter)
                 # ids = utils.merge_iter(a,b)
 
@@ -391,16 +423,26 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
                 else:
                     sort = True
                 ids = self.database.allkeys(
-                    'anime', sort=sort, range=listrange, filter="status = '{}'".format(filter) + commonFilter)
+                    'anime',
+                    sort=sort,
+                    range=listrange,
+                    filter="status = '{}'".format(filter) + commonFilter)
 
             elif filter == 'RATED':
                 commonFilter = "\nAND anime.id NOT IN(SELECT anime.id FROM anime WHERE status = 'UPCOMING')"
                 ids = self.database.allkeys(
-                    'anime', sort=True, range=listrange, filter="rating IN('R+','Rx')" + commonFilter)
+                    'anime',
+                    sort=True,
+                    range=listrange,
+                    filter="rating IN('R+','Rx')" + commonFilter)
 
             elif filter == "RANDOM":
                 ids = self.database.allkeys(
-                    'anime', sort=True, range=listrange, order="RANDOM()", filter="anime.picture is not null")
+                    'anime',
+                    sort=True,
+                    range=listrange,
+                    order="RANDOM()",
+                    filter="anime.picture is not null")
 
             elif filter == "SEASON":
                 return self.seasonSelector()
@@ -421,8 +463,12 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
                     # Depend on timezone - TODO
                 else:
                     order = None
-                ids = self.database.allkeys('tag', sort=True, range=listrange, filter="tag.tag = '{}'".format(
-                    filter) + commonFilter, order=order)
+                ids = self.database.allkeys(
+                    'tag',
+                    sort=True,
+                    range=listrange,
+                    filter="tag.tag = '{}'".format(filter) + commonFilter,
+                    order=order)
 
             self.animeList = enumerator(ids)
 
@@ -440,7 +486,9 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
         for child in self.scrollable_frame.winfo_children():
             child.destroy()
         # Ensure the Load More button is on the last column
-        listrange = (listrange[0], listrange[1] // self.animePerRow * self.animePerRow - 1)
+        listrange = (
+            listrange[0],
+            listrange[1] // self.animePerRow * self.animePerRow - 1)
 
         que = queue.Queue()
         threading.Thread(target=self.getImgThread, args=(que,)).start()
@@ -454,7 +502,7 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
                 data = wait_for_next(self.animeList, None)
                 # print(data.title)
             except TypeError:
-                if type(self.animeList) is None:
+                if isinstance(self.animeList, None):
                     self.animeList = []
                     break
             else:
@@ -511,10 +559,15 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
         if self.database(id=anime.id, table='like').exist() and bool(
                 self.database(id=anime.id, table='like')['like']):
             title += " ❤"
-        lbl = Label(self.scrollable_frame, text=title,
-                    bg=self.colors['Gray2'], fg=self.colors[self.tagcolors[self.database(
-                        id=anime.id, table='tag')['tag']]], font=("Source Code Pro Medium", 13),
-                    bd=0, wraplength=220)
+        lbl = Label(self.scrollable_frame,
+                    text=title,
+                    bg=self.colors['Gray2'],
+                    fg=self.colors[self.tagcolors[self.database(id=anime.id,
+                                                                table='tag')['tag']]],
+                    font=("Source Code Pro Medium",
+                          13),
+                    bd=0,
+                    wraplength=220)
         lbl.grid(column=index % self.animePerRow,
                  row=(index // self.animePerRow * 2) + 1)
         lbl.name = str(anime.id)
@@ -559,8 +612,14 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
                     args = que.get()
                     continue
                 except BaseException:
-                    self.log('DISK_ERROR', "[ERROR] Image file is corrupted, deleting, anime",
-                             anime.title, "id", anime.id, "file", filename)
+                    self.log(
+                        'DISK_ERROR',
+                        "[ERROR] Image file is corrupted, deleting, anime",
+                        anime.title,
+                        "id",
+                        anime.id,
+                        "file",
+                        filename)
                     os.remove(filename)
 
             self.log("PICTURE", "Requesting picture for anime id",
@@ -591,11 +650,18 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
                         im.save(filename)
                     except FileNotFoundError:
                         self.log(
-                            "DISK_ERROR", "File not found error while saving image", filename)
+                            "DISK_ERROR",
+                            "File not found error while saving image",
+                            filename)
                     self.imQueue.put((im, can))
                 else:
-                    self.log("PICTURE", "[ERROR] Status code", req.status_code,
-                             "for anime", anime.title, "requesting new picture.")
+                    self.log(
+                        "PICTURE",
+                        "[ERROR] Status code",
+                        req.status_code,
+                        "for anime",
+                        anime.title,
+                        "requesting new picture.")
                     repdata = self.api.animePictures(anime.id)
 
                     if len(repdata) >= 1:
@@ -645,8 +711,7 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
         listrange = (0, (listrange[1] + 50) // self.animePerRow * self.animePerRow - 1)
         posy = self.scrollable_frame.canvas.canvasy(0)
         self.createList(filter, listrange)
-        self.scrollable_frame.canvas.yview_moveto(
-            posy / self.scrollable_frame.canvas.bbox('all')[3])
+        self.scrollable_frame.canvas.yview_moveto(posy / self.scrollable_frame.canvas.bbox('all')[3])
         return
 
     # ___Clean up___
@@ -702,12 +767,13 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
 
         self.loadingWindow()
 
-        reloadFunc = {self.updateCache: "Updating cache",
-                                        self.updateDirs: "Updating directories",
-                                        self.updateTag: "Updating tags",
-                                        self.regroupFiles: "Regrouping files",
-                                        self.updateTitles: "Updating titles",
-                      }  # self.getSchedule:"Updating schedule"}#,self.getCharacters)
+        reloadFunc = {
+            self.updateCache: "Updating cache",
+            self.updateDirs: "Updating directories",
+            self.updateTag: "Updating tags",
+            self.regroupFiles: "Regrouping files",
+            self.updateTitles: "Updating titles",
+        }  # self.getSchedule:"Updating schedule"}#,self.getCharacters)
         self.start = time.time()
         loadStart = 0
         for i, item in enumerate(reloadFunc.items()):
@@ -822,8 +888,12 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
                         file = urllib.parse.unquote(
                             req.headers['content-disposition'].split('"')[-2])
                     except BaseException:
-                        self.log('NETWORK', "[ERROR] - Error downloading file at url", url,
-                                 "status_code", req.status_code if req is not None else "unknown")
+                        self.log(
+                            'NETWORK',
+                            "[ERROR] - Error downloading file at url",
+                            url,
+                            "status_code",
+                            req.status_code if req is not None else "unknown")
                         return
                     self.log('NETWORK', "Downloading", file)
                     filePath = os.path.join(self.torrentPath, file)
@@ -887,10 +957,14 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
                 self.downloadFile(id, file=torrent)
             if len(torrents) > 0:
                 self.log(
-                    'NETWORK', 'Redownloaded {} torrents'.format(len(torrents)))
+                    'NETWORK',
+                    'Redownloaded {} torrents'.format(
+                        len(torrents)))
             else:
                 self.log(
-                    'NETWORK', 'No torrents to download!'.format(len(torrents)))
+                    'NETWORK',
+                    'No torrents to download!'.format(
+                        len(torrents)))
 
         else:
             self.log('NETWORK', "[ERROR] Couldn't find the torrent client!")
@@ -898,100 +972,6 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
     def bluetoothConnect(self):
         pass
         # TODO -> En fait c'est chiant
-
-    def copy_title(self, id):
-        database = self.getDatabase()
-        self.root.clipboard_clear()
-        title = database(id=id, table="anime")['title']
-        self.root.clipboard_append(title)
-
-    def reload(self, id, update=True):
-        def handler(id, que):
-            database = self.getDatabase()
-            keys = database(id=id, table="indexList").get()
-            data = None
-            data = self.api.anime(id)
-            que.put(data)
-
-        if 'TIME' in self.logs:
-            self.start = time.time()
-
-        reloadFen = True
-        if update:
-            que = queue.Queue()
-            thread = threading.Thread(target=handler, args=(id, que))
-            thread.start()
-
-            sql = "DELETE FROM characters WHERE anime_id=?"
-            self.database.sql(sql, (id,), save=True)
-
-            while thread.is_alive():
-                self.root.update()
-                if self.choice is None or not self.choice.winfo_exists():
-                    reloadFen = False
-            data = que.get()
-            if data is not None:
-                self.database(id=id, table="anime").set(data)
-
-        if reloadFen:
-            self.choice.clear()
-            self.optionsWindow(id)
-            self.choice.focus_force()
-
-            self.log('TIME', "Reloading:".ljust(25),
-                     round(time.time() - self.start, 2), "sec")
-
-    def deleteFiles(self, id):
-        def clearFolder(path):
-            if len(os.listdir(path)) >= 1:
-                self.log("DISK_ERROR",
-                         "Some files haven't been removed from folder", path)
-            try:
-                os.rmdir(path)
-            except BaseException:
-                self.log("DISK_ERROR", "Couldn't delete folder", path)
-        folder = self.getFolder(id)
-        path = os.path.join(
-            self.animePath,
-            folder) if folder is not None else ""
-
-        if os.path.exists(path):
-            anime = self.database(id=id, table="anime").get()
-            torrents = json.loads(
-                anime.torrent) if anime.torrent is not None else []
-
-            if self.getQB() == "OK":
-                hashes = [self.getTorrentHash(os.path.join(
-                    self.torrentPath, torrent)) for torrent in torrents]
-                # hashes = [torrent['hash'] for torrent in self.qb.torrents_info() if torrent['name'] + ".torrent" in torrents]
-
-                self.log('DB_UPDATE', "Deleting", path, "-",
-                         len(hashes), "torrents to remove")
-
-                self.qb.torrents_delete(
-                    delete_files=True, torrent_hashes=hashes)  # TODO - NOT WORKING
-
-            try:
-                # rd /S /Q "\\?\D:\Animes\folder."
-                os.system('del /F /S /Q "{}"'.format(path))
-                clearFolder(path)
-            except Exception as e:
-                self.log('DISK_ERROR', "Error while removing file", path)
-                raise e
-        else:
-            self.log("DISK_ERROR", "Folder path doesn't exist:", path)
-        self.log("DB_UPDATE", "Deleted all files")
-        self.reload(id, False)
-
-    def delete(self, id):
-        self.log('DB_UPDATE', "Deleted", self.database(
-            id=id, table="anime")['title'])
-        for anime in self.animeList:
-            if anime.id == id:
-                self.animeList.remove(anime)
-        self.database(id=id).remove()
-        self.createList()
-        self.choice.exit()
 
     # ___Data update___
     def getAnimeDataThread(self, title):
@@ -1042,8 +1022,15 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
                 # elems.append(e)
                 for i, data in enumerate(rep):
                     out.append(data)
-                    elems.append(self.fen.after(
-                        0, lambda a=i, b=data, c=que: self.createElem(a, b, c)))
+                    elems.append(
+                        self.fen.after(
+                            0,
+                            lambda a=i,
+                            b=data,
+                            c=que: self.createElem(
+                                a,
+                                b,
+                                c)))
 
                     if len(self.searchQueue) >= 1:
                         break
@@ -1059,9 +1046,18 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
                 self.animeListReady = True
                 self.createList("")
                 self.lastSearch = None
-                Label(self.scrollable_frame, text="No results", font=("Source Code Pro Medium", 20),
-                      bg=self.colors['Gray2'], fg=self.colors['Gray4'],
-                      ).grid(columnspan=4, row=0, pady=50)
+                Label(
+                    self.scrollable_frame,
+                    text="No results",
+                    font=(
+                        "Source Code Pro Medium",
+                        20),
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['Gray4'],
+                ).grid(
+                    columnspan=4,
+                    row=0,
+                    pady=50)
             elif len(self.searchQueue) == 0:
                 que.put("STOP")
 
@@ -1162,8 +1158,8 @@ class Manager(UpdateUtils,Getters,Logger, *windows.windows):
             if not exists:
                 self.log("CHARACTER", "New character, anime id", id,
                          "id", character['id'], "name", character['name'])
-                sql = "INSERT INTO characters(" + "{}," * (
-                    len(character.keys()) - 1) + "{}) VALUES (" + "?," * (len(character.keys()) - 1) + "?);"
+                sql = "INSERT INTO characters(" + "{}," * (len(character.keys(
+                )) - 1) + "{}) VALUES (" + "?," * (len(character.keys()) - 1) + "?);"
                 sql = sql.format(*character.keys())
                 try:
                     database.sql(sql, character.values())

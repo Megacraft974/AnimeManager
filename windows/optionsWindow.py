@@ -3,6 +3,7 @@ import json
 import threading
 import re
 import subprocess
+import queue
 
 from operator import itemgetter
 from datetime import date, datetime, timedelta, time as datetime_time
@@ -52,8 +53,14 @@ class optionsWindow:
                     "SELECT torrent FROM anime WHERE id = ?", (id,))[0][0]
                 torrents = json.loads(torrents) if torrents is not None else []
                 default = '"' + '" "'.join(torrents) + '"'
-                filepaths = askopenfilenames(parent=self.root, title="Select torrents", initialdir=self.torrentPath,
-                                             initialfile=default, filetypes=[("Torrents files", (".torrent"))])
+                filepaths = askopenfilenames(
+                    parent=self.root,
+                    title="Select torrents",
+                    initialdir=self.torrentPath,
+                    initialfile=default,
+                    filetypes=[
+                        ("Torrents files",
+                         (".torrent"))])
                 torrents = []
                 for path in filepaths:
                     torrents.append(path.rsplit("/")[-1])
@@ -113,8 +120,14 @@ class optionsWindow:
                         self.choice.update()
                     except BaseException:
                         pass
-                    self.choice.after(500, lambda id=id, bar=bar,
-                                      hash=hash: updateLoadingBar(id, bar, text))
+                    self.choice.after(
+                        500,
+                        lambda id=id,
+                        bar=bar,
+                        hash=hash: updateLoadingBar(
+                            id,
+                            bar,
+                            text))
 
             def tag(id, tag):
                 self.database(table='tag').set({'id': id, 'tag': tag})
@@ -175,8 +188,14 @@ class optionsWindow:
                 def callback(var, id):
                     url = var.get()
                     self.downloadFile(id, url=url)
-                self.textPopupWindow(self.choice, "Enter torrent url",
-                                     lambda var, id=id: callback(var, id), fentype="TEXT")
+                self.textPopupWindow(
+                    self.choice,
+                    "Enter torrent url",
+                    lambda var,
+                    id=id: callback(
+                        var,
+                        id),
+                    fentype="TEXT")
 
             def trailer(id):
                 data = self.database(id=id, table="anime").get()
@@ -352,13 +371,21 @@ class optionsWindow:
             if self.choice is None or not self.choice.winfo_exists():
                 size = (self.infoWindowMinWidth, self.infoWindowMinHeight)
                 self.choice = utils.RoundTopLevel(
-                    self.fen, title=anime.title, minsize=size, bg=self.colors['Gray2'], fg=self.colors['Gray3'])
+                    self.fen,
+                    title=anime.title,
+                    minsize=size,
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['Gray3'])
                 self.choice.titleLbl.configure(
                     fg=self.colors[self.tagcolors[self.database(id=id, table='tag')['tag']]])
             else:
                 self.choice.clear()
-                self.choice.titleLbl.configure(text=anime.title, bg=self.colors['Gray2'], fg=self.colors[self.tagcolors[self.database(
-                    id=id, table='tag')['tag']]], font=("Source Code Pro Medium", 15))
+                self.choice.titleLbl.configure(text=anime.title,
+                                               bg=self.colors['Gray2'],
+                                               fg=self.colors[self.tagcolors[self.database(id=id,
+                                                                                           table='tag')['tag']]],
+                                               font=("Source Code Pro Medium",
+                                                     15))
 
         # Title - File buttons
         if True:
@@ -370,39 +397,86 @@ class optionsWindow:
                     titleFrame, orient=HORIZONTAL, mode='determinate')
                 bar.grid(row=0, column=0, columnspan=2,
                          sticky="nsew", padx=2, pady=2)
-                text = Label(titleFrame, text="0%", bg=self.colors['Gray2'], fg=self.colors['Gray4'], font=(
-                    "Source Code Pro Medium", 15))
+                text = Label(
+                    titleFrame,
+                    text="0%",
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['Gray4'],
+                    font=(
+                        "Source Code Pro Medium",
+                        15))
                 text.grid(row=0, column=2, padx=10)
 
                 # self.choice.hash = torrent['hash']
                 updateLoadingBar(id, bar, text)
             else:
                 offRow = 0
-            b = Button(titleFrame, text="Download torrents", bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                       activebackground=self.colors['Gray2'], activeforeground=self.colors[
-                           'White'], bg=self.colors['Gray3'], fg=self.colors['White'],
-                       command=lambda id=id: self.ddlWindow(id)
-                       )
+            b = Button(
+                titleFrame,
+                text="Download torrents",
+                bd=0,
+                height=1,
+                relief='solid',
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                activebackground=self.colors['Gray2'],
+                activeforeground=self.colors['White'],
+                bg=self.colors['Gray3'],
+                fg=self.colors['White'],
+                command=lambda id=id: self.ddlWindow(id))
             b.bind("<Button-3>", lambda e, id=id: ddlFromUrl(id))
             b.grid(row=1 + offRow, column=0, sticky="nsew", padx=2, pady=2)
 
-            Button(titleFrame, text="Locate torrents", bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                   activebackground=self.colors['Gray2'], activeforeground=self.colors[
-                       'White'], bg=self.colors['Gray3'], fg=self.colors['White'],
-                   command=lambda id=id: importTorrent(id)
-                   ).grid(row=1 + offRow, column=1, sticky="nsew", padx=2, pady=2)
+            Button(
+                titleFrame,
+                text="Locate torrents",
+                bd=0,
+                height=1,
+                relief='solid',
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                activebackground=self.colors['Gray2'],
+                activeforeground=self.colors['White'],
+                bg=self.colors['Gray3'],
+                fg=self.colors['White'],
+                command=lambda id=id: importTorrent(id)).grid(
+                row=1 + offRow,
+                column=1,
+                sticky="nsew",
+                padx=2,
+                pady=2)
 
             offCol = 0
             folder = self.getFolder(id)
             showFolderButtons = folder is not None and os.path.isdir(
                 os.path.join(self.animePath, folder))
             if showFolderButtons:
-                Button(titleFrame, text="Open folder", bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                       activebackground=self.colors['Gray2'], activeforeground=self.colors[
-                           'White'], bg=self.colors['Gray3'], fg=self.colors['White'],
-                       command=lambda folder=folder: os.system('explorer "{}"'.format(
-                           os.path.normpath(os.path.join(self.animePath, folder))))
-                       ).grid(row=2 + offRow, column=0, sticky="nsew", padx=2, pady=2)
+                Button(
+                    titleFrame,
+                    text="Open folder",
+                    bd=0,
+                    height=1,
+                    relief='solid',
+                    font=(
+                        "Source Code Pro Medium",
+                        13),
+                    activebackground=self.colors['Gray2'],
+                    activeforeground=self.colors['White'],
+                    bg=self.colors['Gray3'],
+                    fg=self.colors['White'],
+                    command=lambda folder=folder: os.system(
+                        'explorer "{}"'.format(
+                            os.path.normpath(
+                                os.path.join(
+                                    self.animePath,
+                                    folder))))).grid(
+                    row=2 + offRow,
+                    column=0,
+                    sticky="nsew",
+                    padx=2,
+                    pady=2)
 
                 eps = getEpisodes(folder)
                 if len(eps) >= 1 and list(eps)[0] is not None:
@@ -415,11 +489,38 @@ class optionsWindow:
                 var = StringVar()
                 var.set("Watch")
                 epsList = OptionMenu(
-                    titleFrame, var, *titles, command=lambda e, var=var: watch(e, eps, var))
-                epsList.configure(state=state, indicatoron=False, highlightthickness=0, borderwidth=0, font=("Source Code Pro Medium", 13),
-                                  activebackground=self.colors['Gray3'], activeforeground=self.colors['White'], bg=self.colors['Gray3'], fg=self.colors['White'])
-                epsList["menu"].configure(bd=0, borderwidth=0, activeborderwidth=0, font=("Source Code Pro Medium", 13),
-                                          activebackground=self.colors['Gray3'], activeforeground=self.colors['White'], bg=self.colors['Gray2'], fg=self.colors['White'],)
+                    titleFrame,
+                    var,
+                    *titles,
+                    command=lambda e,
+                    var=var: watch(
+                        e,
+                        eps,
+                        var))
+                epsList.configure(
+                    state=state,
+                    indicatoron=False,
+                    highlightthickness=0,
+                    borderwidth=0,
+                    font=(
+                        "Source Code Pro Medium",
+                        13),
+                    activebackground=self.colors['Gray3'],
+                    activeforeground=self.colors['White'],
+                    bg=self.colors['Gray3'],
+                    fg=self.colors['White'])
+                epsList["menu"].configure(
+                    bd=0,
+                    borderwidth=0,
+                    activeborderwidth=0,
+                    font=(
+                        "Source Code Pro Medium",
+                        13),
+                    activebackground=self.colors['Gray3'],
+                    activeforeground=self.colors['White'],
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['White'],
+                )
                 epsList.grid(row=2 + offRow, column=1,
                              sticky="nsew", padx=2, pady=2)
                 epsList.bind("<Button-3>", lambda e,
@@ -457,10 +558,16 @@ class optionsWindow:
                     iconSize)
             # im = im.resize(iconSize)
             # image = ImageTk.PhotoImage(im)
-            likeButton = Button(titleFrame, image=image, bd=0, relief='solid',
-                                activebackground=self.colors['Gray2'], activeforeground=self.colors[
-                                    'White'], bg=self.colors['Gray2'], fg=self.colors['White'],
-                                )
+            likeButton = Button(
+                titleFrame,
+                image=image,
+                bd=0,
+                relief='solid',
+                activebackground=self.colors['Gray2'],
+                activeforeground=self.colors['White'],
+                bg=self.colors['Gray2'],
+                fg=self.colors['White'],
+            )
             likeButton.configure(command=lambda id=id,
                                  b=likeButton: like(id, b))
             likeButton.image = image
@@ -471,46 +578,151 @@ class optionsWindow:
         # Tags
         if True:
             tags = Frame(self.choice, bg=self.colors['Gray2'])
-            Label(tags, text="Tag as:", bg=self.colors['Gray2'], fg=self.colors['Gray4'], font=(
-                "Source Code Pro Medium", 15)).grid(row=0, column=0, pady=10)
-            Button(tags, text="Seen", bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                   activebackground=self.colors['Gray2'], activeforeground=self.colors[
-                       'Green'], bg=self.colors['Gray2'], fg=self.colors['Green'],
-                   command=lambda id=id: tag(id, 'SEEN')
-                   ).grid(row=0, column=1, sticky="nsew", padx=5)
-            Button(tags, text="Watching", bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                   activebackground=self.colors['Gray2'], activeforeground=self.colors[
-                       'Orange'], bg=self.colors['Gray2'], fg=self.colors['Orange'],
-                   command=lambda id=id: tag(id, 'WATCHING')
-                   ).grid(row=0, column=2, sticky="nsew", padx=5)
-            Button(tags, text="To the Watchlist", bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                   activebackground=self.colors['Gray2'], activeforeground=self.colors[
-                       'White'], bg=self.colors['Gray2'], fg=self.colors['Blue'],
-                   command=lambda id=id: tag(id, 'WATCHLIST')
-                   ).grid(row=0, column=3, sticky="nsew", padx=5)
-            Button(tags, text="None", bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                   activebackground=self.colors['Gray2'], activeforeground=self.colors[
-                       'White'], bg=self.colors['Gray2'], fg=self.colors['White'],
-                   command=lambda id=id: tag(id, 'NONE')
-                   ).grid(row=0, column=4, sticky="nsew", padx=5)
+            Label(
+                tags,
+                text="Tag as:",
+                bg=self.colors['Gray2'],
+                fg=self.colors['Gray4'],
+                font=(
+                    "Source Code Pro Medium",
+                    15)).grid(
+                row=0,
+                column=0,
+                pady=10)
+            Button(
+                tags,
+                text="Seen",
+                bd=0,
+                height=1,
+                relief='solid',
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                activebackground=self.colors['Gray2'],
+                activeforeground=self.colors['Green'],
+                bg=self.colors['Gray2'],
+                fg=self.colors['Green'],
+                command=lambda id=id: tag(
+                    id,
+                    'SEEN')).grid(
+                row=0,
+                column=1,
+                sticky="nsew",
+                padx=5)
+            Button(
+                tags,
+                text="Watching",
+                bd=0,
+                height=1,
+                relief='solid',
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                activebackground=self.colors['Gray2'],
+                activeforeground=self.colors['Orange'],
+                bg=self.colors['Gray2'],
+                fg=self.colors['Orange'],
+                command=lambda id=id: tag(
+                    id,
+                    'WATCHING')).grid(
+                row=0,
+                column=2,
+                sticky="nsew",
+                padx=5)
+            Button(
+                tags,
+                text="To the Watchlist",
+                bd=0,
+                height=1,
+                relief='solid',
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                activebackground=self.colors['Gray2'],
+                activeforeground=self.colors['White'],
+                bg=self.colors['Gray2'],
+                fg=self.colors['Blue'],
+                command=lambda id=id: tag(
+                    id,
+                    'WATCHLIST')).grid(
+                row=0,
+                column=3,
+                sticky="nsew",
+                padx=5)
+            Button(
+                tags,
+                text="None",
+                bd=0,
+                height=1,
+                relief='solid',
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                activebackground=self.colors['Gray2'],
+                activeforeground=self.colors['White'],
+                bg=self.colors['Gray2'],
+                fg=self.colors['White'],
+                command=lambda id=id: tag(
+                    id,
+                    'NONE')).grid(
+                row=0,
+                column=4,
+                sticky="nsew",
+                padx=5)
             if anime.trailer is not None:
-                Label(tags, text="-", bg=self.colors['Gray2'], fg=self.colors['Gray4'], font=(
-                    "Source Code Pro Medium", 13)).grid(row=0, column=5, pady=5)
-                Button(tags, text="Watch trailer", bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                       activebackground=self.colors['Gray2'], activeforeground=self.colors[
-                           'White'], bg=self.colors['Gray2'], fg=self.colors['White'],
-                       command=lambda id=id: trailer(id)
-                       ).grid(row=0, column=6, sticky="nsew", padx=5)
+                Label(
+                    tags,
+                    text="-",
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['Gray4'],
+                    font=(
+                        "Source Code Pro Medium",
+                        13)).grid(
+                    row=0,
+                    column=5,
+                    pady=5)
+                Button(
+                    tags,
+                    text="Watch trailer",
+                    bd=0,
+                    height=1,
+                    relief='solid',
+                    font=(
+                        "Source Code Pro Medium",
+                        13),
+                    activebackground=self.colors['Gray2'],
+                    activeforeground=self.colors['White'],
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['White'],
+                    command=lambda id=id: trailer(id)).grid(
+                    row=0,
+                    column=6,
+                    sticky="nsew",
+                    padx=5)
             tags.grid(row=3, column=0)
 
         # Synopsis
         if True:
             if anime.synopsis not in ('', None):
-                synopsis = Label(self.choice, text=anime.synopsis, wraplength=900, font=(
-                    "Source Code Pro Medium", 10), bg=self.colors['Gray2'], fg=self.colors['White'])
+                synopsis = Label(
+                    self.choice,
+                    text=anime.synopsis,
+                    wraplength=900,
+                    font=(
+                        "Source Code Pro Medium",
+                        10),
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['White'])
             else:
-                synopsis = Label(self.choice, text="No synopsis", wraplength=900, font=(
-                    "Source Code Pro Medium", 10), bg=self.colors['Gray2'], fg=self.colors['White'])
+                synopsis = Label(
+                    self.choice,
+                    text="No synopsis",
+                    wraplength=900,
+                    font=(
+                        "Source Code Pro Medium",
+                        10),
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['White'])
             synopsis.grid(row=4, column=0)
 
         # Secondary infos
@@ -519,29 +731,73 @@ class optionsWindow:
             if anime.episodes is not None:
                 text = str(anime.episodes) + \
                     " episode{}".format("s" if anime.episodes > 1 else "")
-                episodes = Label(secondInfos, text=text, font=(
-                    "Source Code Pro Medium", 10), bg=self.colors['Gray2'], fg=self.colors['White'])
+                episodes = Label(
+                    secondInfos,
+                    text=text,
+                    font=(
+                        "Source Code Pro Medium",
+                        10),
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['White'])
             else:
-                episodes = Label(secondInfos, text="No episodes", font=(
-                    "Source Code Pro Medium", 10), bg=self.colors['Gray2'], fg=self.colors['White'])
+                episodes = Label(
+                    secondInfos,
+                    text="No episodes",
+                    font=(
+                        "Source Code Pro Medium",
+                        10),
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['White'])
             if anime.rating is not None and anime.rating != 'None':
-                rating = Label(secondInfos, text="Rating: " + anime.rating, font=(
-                    "Source Code Pro Medium", 10), bg=self.colors['Gray2'], fg=self.colors['White'])
+                rating = Label(
+                    secondInfos,
+                    text="Rating: " + anime.rating,
+                    font=(
+                        "Source Code Pro Medium",
+                        10),
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['White'])
             else:
-                rating = Label(secondInfos, text="No rating", font=(
-                    "Source Code Pro Medium", 10), bg=self.colors['Gray2'], fg=self.colors['White'])
-            if not anime.duration in (None, 'None', 'Unknown'):
+                rating = Label(
+                    secondInfos,
+                    text="No rating",
+                    font=(
+                        "Source Code Pro Medium",
+                        10),
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['White'])
+            if anime.duration not in (None, 'None', 'Unknown'):
                 text = "(" + str(anime.duration) + " min{})".format(
                     " each" if anime.episodes is not None and anime.episodes > 1 else "")
-                duration = Label(secondInfos, text=text, font=(
-                    "Source Code Pro Medium", 10), bg=self.colors['Gray2'], fg=self.colors['White'])
+                duration = Label(
+                    secondInfos,
+                    text=text,
+                    font=(
+                        "Source Code Pro Medium",
+                        10),
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['White'])
             else:
-                duration = Label(secondInfos, text="(Unknown duration)", font=(
-                    "Source Code Pro Medium", 10), bg=self.colors['Gray2'], fg=self.colors['White'])
+                duration = Label(
+                    secondInfos,
+                    text="(Unknown duration)",
+                    font=(
+                        "Source Code Pro Medium",
+                        10),
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['White'])
 
             rating.grid(row=0, column=0)
-            Label(secondInfos, text="-", font=("Source Code Pro Medium", 10),
-                  bg=self.colors['Gray2'], fg=self.colors['White']).grid(row=0, column=1)
+            Label(
+                secondInfos,
+                text="-",
+                font=(
+                    "Source Code Pro Medium",
+                    10),
+                bg=self.colors['Gray2'],
+                fg=self.colors['White']).grid(
+                row=0,
+                column=1)
             episodes.grid(row=0, column=2)
             duration.grid(row=0, column=3)
             secondInfos.grid(row=5, column=0)
@@ -565,10 +821,29 @@ class optionsWindow:
                 txt = self.database(id=genre_id, table="genres")["name"]
                 if txt == "NONE":
                     txt = "Unknown"
-                Label(genresFrame, text=txt, bd=0, height=1, font=("Source Code Pro Medium", 13),
-                      bg=self.colors['Gray2'], fg=self.colors['Gray'],).pack(side="left")
-                lbl = Label(genresFrame, text=" - ", bd=0, height=1, font=("Source Code Pro Medium", 13),
-                            bg=self.colors['Gray2'], fg=self.colors['Gray'],)
+                Label(
+                    genresFrame,
+                    text=txt,
+                    bd=0,
+                    height=1,
+                    font=(
+                        "Source Code Pro Medium",
+                        13),
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['Gray'],
+                ).pack(
+                    side="left")
+                lbl = Label(
+                    genresFrame,
+                    text=" - ",
+                    bd=0,
+                    height=1,
+                    font=(
+                        "Source Code Pro Medium",
+                        13),
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['Gray'],
+                )
                 lbl.pack(side="left")
             if len(genres) >= 1:
                 lbl.pack_forget()
@@ -589,22 +864,54 @@ class optionsWindow:
                 titles = dict(self.database.sql(sql, rel_ids, iterate=True))
                 text = relation[1].capitalize().replace("_", " ")
                 if len(titles) == 1:
-                    Button(relationsFrame, text=text, bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                           activebackground=self.colors['Gray2'], activeforeground=self.colors['Red'], bg=self.colors['Gray2'],
-                           fg=self.colors[self.tagcolors[self.database(
-                               id=rel_ids[0]).setTable('tag')['tag']]],
-                           command=lambda ids=rel_ids: switch(ids[0])
-                           ).grid(row=0, column=column)
+                    Button(relationsFrame,
+                           text=text,
+                           bd=0,
+                           height=1,
+                           relief='solid',
+                           font=("Source Code Pro Medium",
+                                 13),
+                           activebackground=self.colors['Gray2'],
+                           activeforeground=self.colors['Red'],
+                           bg=self.colors['Gray2'],
+                           fg=self.colors[self.tagcolors[self.database(id=rel_ids[0]).setTable('tag')['tag']]],
+                           command=lambda ids=rel_ids: switch(ids[0])).grid(row=0,
+                                                                            column=column)
                 elif len(titles) > 1:
                     var = StringVar()
                     var.set(text)
                     # if len(titles) == 1:
                     epsList = OptionMenu(
-                        relationsFrame, var, *titles.keys(), command=lambda e, titles=titles: switch(e, titles))
-                    epsList.configure(indicatoron=False, highlightthickness=0, borderwidth=0, font=("Source Code Pro Medium", 13),
-                                      activebackground=self.colors['Gray2'], activeforeground=self.colors['White'], bg=self.colors['Gray2'], fg=self.colors['White'])
-                    epsList["menu"].configure(bd=0, borderwidth=0, activeborderwidth=0, font=("Source Code Pro Medium", 13),
-                                              activebackground=self.colors['Gray3'], activeforeground=self.colors['White'], bg=self.colors['Gray2'], fg=self.colors['White'],)
+                        relationsFrame,
+                        var,
+                        *titles.keys(),
+                        command=lambda e,
+                        titles=titles: switch(
+                            e,
+                            titles))
+                    epsList.configure(
+                        indicatoron=False,
+                        highlightthickness=0,
+                        borderwidth=0,
+                        font=(
+                            "Source Code Pro Medium",
+                            13),
+                        activebackground=self.colors['Gray2'],
+                        activeforeground=self.colors['White'],
+                        bg=self.colors['Gray2'],
+                        fg=self.colors['White'])
+                    epsList["menu"].configure(
+                        bd=0,
+                        borderwidth=0,
+                        activeborderwidth=0,
+                        font=(
+                            "Source Code Pro Medium",
+                            13),
+                        activebackground=self.colors['Gray3'],
+                        activeforeground=self.colors['White'],
+                        bg=self.colors['Gray2'],
+                        fg=self.colors['White'],
+                    )
                     epsList.grid(row=0, column=column)
 
                     for i, rel_id in enumerate(rel_ids):
@@ -617,8 +924,17 @@ class optionsWindow:
 
                 if len(titles) > 0:
                     column += 1
-                    lbl = Label(relationsFrame, text="-", bd=0, height=1, font=("Source Code Pro Medium", 13),
-                                bg=self.colors['Gray2'], fg=self.colors['Gray'],)
+                    lbl = Label(
+                        relationsFrame,
+                        text="-",
+                        bd=0,
+                        height=1,
+                        font=(
+                            "Source Code Pro Medium",
+                            13),
+                        bg=self.colors['Gray2'],
+                        fg=self.colors['Gray'],
+                    )
                     lbl.grid(row=0, column=column)
                     column += 1
 
@@ -637,13 +953,30 @@ class optionsWindow:
                 dateto = date.fromisoformat(dateto)
 
             status = self.getStatus(anime)
-            Label(state, text="Status:", bg=self.colors['Gray2'], fg=self.colors['Gray4'], font=(
-                "Source Code Pro Medium", 15)).grid(row=0, column=0, sticky="e")
-            statusLbl = Label(state, text=self.dateStates[status]['text'], bg=self.colors['Gray2'],
-                              fg=self.colors[self.dateStates[status]['color']], font=("Source Code Pro Medium", 13))
+            Label(
+                state,
+                text="Status:",
+                bg=self.colors['Gray2'],
+                fg=self.colors['Gray4'],
+                font=(
+                    "Source Code Pro Medium",
+                    15)).grid(
+                row=0,
+                column=0,
+                sticky="e")
+            statusLbl = Label(state,
+                              text=self.dateStates[status]['text'],
+                              bg=self.colors['Gray2'],
+                              fg=self.colors[self.dateStates[status]['color']],
+                              font=("Source Code Pro Medium",
+                                    13))
             statusLbl.grid(row=0, column=1, sticky="w")
-            dateLbl = Label(state, text="", bg=self.colors['Gray2'], fg=self.colors[self.dateStates[status]['color']], font=(
-                "Source Code Pro Medium", 13))
+            dateLbl = Label(state,
+                            text="",
+                            bg=self.colors['Gray2'],
+                            fg=self.colors[self.dateStates[status]['color']],
+                            font=("Source Code Pro Medium",
+                                  13))
             if status != 'UNKNOWN' and datefrom is not None:
                 dateLbl['text'] = getDateText(
                     datefrom, dateto, anime.broadcast)
@@ -654,18 +987,132 @@ class optionsWindow:
         if True:
             actions = Frame(self.choice, bg=self.colors['Gray2'])
             for i, data in enumerate(self.actionButtons):
-                Button(actions, text=data['text'], bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                       activebackground=self.colors['Gray2'], activeforeground=self.colors[data['color']
-                                                                                           ], bg=self.colors['Gray2'], fg=self.colors[data['color']],
-                       command=lambda c=data['command'], id=id: c(id)
-                       ).grid(row=0, column=i * 2)
+                Button(actions,
+                       text=data['text'],
+                       bd=0,
+                       height=1,
+                       relief='solid',
+                       font=("Source Code Pro Medium",
+                             13),
+                       activebackground=self.colors['Gray2'],
+                       activeforeground=self.colors[data['color']],
+                       bg=self.colors['Gray2'],
+                       fg=self.colors[data['color']],
+                       command=lambda c=data['command'],
+                       id=id: c(id)).grid(row=0,
+                                          column=i * 2)
                 if i < len(self.actionButtons) - 1:
-                    Label(actions, text="-", bd=0, height=1, font=("Source Code Pro Medium", 13),
-                          bg=self.colors['Gray2'], fg=self.colors['Gray'],
-                          ).grid(row=0, column=i * 2 + 1)
+                    Label(
+                        actions,
+                        text="-",
+                        bd=0,
+                        height=1,
+                        font=(
+                            "Source Code Pro Medium",
+                            13),
+                        bg=self.colors['Gray2'],
+                        fg=self.colors['Gray'],
+                    ).grid(
+                        row=0,
+                        column=i * 2 + 1)
 
             actions.grid(row=9, column=0)
 
         self.choice.update()
-        if not 'hash' in self.choice.__dict__.keys():
+        if 'hash' not in self.choice.__dict__.keys():
             threading.Thread(target=findTorrent, args=(id,)).start()
+
+    def copy_title(self, id):
+        database = self.getDatabase()
+        self.root.clipboard_clear()
+        title = database(id=id, table="anime")['title']
+        self.root.clipboard_append(title)
+
+    def reload(self, id, update=True):
+        def handler(id, que):
+            database = self.getDatabase()
+            keys = database(id=id, table="indexList").get()
+            data = None
+            data = self.api.anime(id)
+            que.put(data)
+
+        if 'TIME' in self.logs:
+            self.start = time.time()
+
+        reloadFen = True
+        if update:
+            que = queue.Queue()
+            thread = threading.Thread(target=handler, args=(id, que))
+            thread.start()
+
+            sql = "DELETE FROM characters WHERE anime_id=?"
+            self.database.sql(sql, (id,), save=True)
+
+            while thread.is_alive():
+                self.root.update()
+                if self.choice is None or not self.choice.winfo_exists():
+                    reloadFen = False
+            data = que.get()
+            if data is not None:
+                self.database(id=id, table="anime").set(data)
+
+        if reloadFen:
+            self.choice.clear()
+            self.optionsWindow(id)
+            self.choice.focus_force()
+
+            self.log('TIME', "Reloading:".ljust(25),
+                     round(time.time() - self.start, 2), "sec")
+
+    def deleteFiles(self, id):
+        def clearFolder(path):
+            if len(os.listdir(path)) >= 1:
+                self.log("DISK_ERROR",
+                         "Some files haven't been removed from folder", path)
+            try:
+                os.rmdir(path)
+            except BaseException:
+                self.log("DISK_ERROR", "Couldn't delete folder", path)
+        folder = self.getFolder(id)
+        path = os.path.join(
+            self.animePath,
+            folder) if folder is not None else ""
+
+        if os.path.exists(path):
+            anime = self.database(id=id, table="anime").get()
+            torrents = json.loads(
+                anime.torrent) if anime.torrent is not None else []
+
+            if self.getQB() == "OK":
+                hashes = [self.getTorrentHash(os.path.join(
+                    self.torrentPath, torrent)) for torrent in torrents]
+                # hashes = [torrent['hash'] for torrent in self.qb.torrents_info() if torrent['name'] + ".torrent" in torrents]
+
+                self.log('DB_UPDATE', "Deleting", path, "-",
+                         len(hashes), "torrents to remove")
+
+                self.qb.torrents_delete(
+                    delete_files=True,
+                    torrent_hashes=hashes)  # TODO - NOT WORKING
+
+            try:
+                # rd /S /Q "\\?\D:\Animes\folder."
+                os.system('del /F /S /Q "{}"'.format(path))
+                clearFolder(path)
+            except Exception as e:
+                self.log('DISK_ERROR', "Error while removing folder", path)
+                raise e
+        else:
+            self.log("DISK_ERROR", "Folder path doesn't exist:", path)
+        self.log("DB_UPDATE", "Deleted all files")
+        self.reload(id, False)
+
+    def delete(self, id):
+        self.log('DB_UPDATE', "Deleted", self.database(
+            id=id, table="anime")['title'])
+        for anime in self.animeList:
+            if anime.id == id:
+                self.animeList.remove(anime)
+        self.database(id=id).remove()
+        self.createList()
+        self.choice.exit()

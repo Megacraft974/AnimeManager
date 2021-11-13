@@ -44,8 +44,10 @@ class KitsuIoWrapper(APIUtils):
         return a
 
     def season(self, year, season, save=True):
-        modifier = Filter(seasonYear=year, season=season) + Inclusion("genres",
-                                                                      "mediaRelationships", "mediaRelationships.destination")
+        modifier = Filter(seasonYear=year,
+                          season=season) + Inclusion("genres",
+                                                     "mediaRelationships",
+                                                     "mediaRelationships.destination")
         for a in self.s.iterate('anime', modifier):
             data = self._convertAnime(a)
             if data is None:
@@ -115,7 +117,7 @@ class KitsuIoWrapper(APIUtils):
 
     def _convertAnime(self, a, force=False):
         self._mapAnimes(a)
-        if not force and not a.subtype in self.subtypes:
+        if not force and a.subtype not in self.subtypes:
             return None
         id = self.db.getId("kitsu_id", int(a.id))
 
@@ -143,8 +145,12 @@ class KitsuIoWrapper(APIUtils):
         data['duration'] = int(
             a.episodeLength) if a.episodeLength is not None else None
         data['rating'] = a.ageRating
-        status = {'current': 'AIRING', 'finished': 'FINISHED',
-                  'tba': 'UPCOMING', 'unreleased': 'UNKNOWN', 'upcoming': 'UPCOMING'}
+        status = {
+            'current': 'AIRING',
+            'finished': 'FINISHED',
+            'tba': 'UPCOMING',
+            'unreleased': 'UNKNOWN',
+            'upcoming': 'UPCOMING'}
         data['status'] = self.getStatus(data)
         # data['status'] = 'UPDATE'
         if a.youtubeVideoId is not None and a.youtubeVideoId != "":
@@ -156,21 +162,30 @@ class KitsuIoWrapper(APIUtils):
                 if not self.db.exist("kitsu_id", g.id, "genres"):
                     self.db.sql(
                         "INSERT INTO genres(kitsu_id,name) VALUES(?,?)", (g.id, g.name), save=False)
-                genres.append(self.db.sql(
-                    "SELECT id FROM genres WHERE kitsu_id=?", (g.id,), save=False)[0][0])
+                genres.append(
+                    self.db.sql(
+                        "SELECT id FROM genres WHERE kitsu_id=?",
+                        (g.id,
+                         ),
+                        save=False)[0][0])
         data['genres'] = json.dumps(genres)
 
         if isinstance(
-                a._relationships['mediaRelationships'], relationships.MultiRelationship):
+                a._relationships['mediaRelationships'],
+                relationships.MultiRelationship):
             for f in a.mediaRelationships:
                 if f.destination.type == "anime":  # TODO
                     rel_id = self.db.getId("kitsu_id", f.destination.id)
-                    exist = bool(self.db.sql(
-                        "SELECT EXISTS(SELECT 1 FROM related WHERE id=? AND relation=?);", (id, f.role))[0][0])
+                    exist = bool(
+                        self.db.sql(
+                            "SELECT EXISTS(SELECT 1 FROM related WHERE id=? AND relation=?);",
+                            (id,
+                             f.role))[0][0])
                     if exist:
-                        rel_ids = json.loads(self.db.sql(
-                            "SELECT rel_id FROM related WHERE id=? AND relation=?;", (id, f.role))[0][0])
-                        if not rel_id in rel_ids:
+                        rel_ids = json.loads(
+                            self.db.sql(
+                                "SELECT rel_id FROM related WHERE id=? AND relation=?;", (id, f.role))[0][0])
+                        if rel_id not in rel_ids:
                             rel_ids.append(rel_id)
                         rel_ids = json.dumps(rel_ids)
                         self.db.sql(
@@ -199,7 +214,9 @@ class KitsuIoWrapper(APIUtils):
             temp_id = self.db.getId("mal_id", mal_id, table="characters")
             self.db(id=temp_id).remove()
         self.db.sql(
-            "UPDATE charactersIndex SET mal_id = ? WHERE kitsu_id=?", (mal_id, kitsu_id))
+            "UPDATE charactersIndex SET mal_id = ? WHERE kitsu_id=?",
+            (mal_id,
+             kitsu_id))
 
         try:
             self.db.save()
@@ -237,7 +254,7 @@ class KitsuIoWrapper(APIUtils):
                 if api_exist:
                     temp_id = self.db.getId(api_key, api_id)
                     self.db(id=temp_id).remove()
-                    #Tag / like
+                    # Tag / like
                     tag_kitsu_exist, tag_api_exist = self.db(id=id).exist(
                         table="tag"), self.db(id=temp_id).exist(table="tag")
                     if tag_api_exist and not tag_kitsu_exist:

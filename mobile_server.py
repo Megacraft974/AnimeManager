@@ -146,8 +146,20 @@ def GetHandler(dbPath, manager):
             content = self.database.sql(
                 'SELECT anime.id, title, title_synonyms, picture, synopsis, episodes, duration, rating, status, broadcast, trailer,tag.tag,like.like FROM anime LEFT JOIN tag USING(id) LEFT JOIN like USING(id) WHERE tag.tag in ("WATCHLIST","WATCHING","SEEN")')
             rep = []
-            keys = ("mal_id", "title", "title_synonyms", "image_url", "synopsis", "episodes",
-                    "duration", "rating", "status", "broadcast", "trailer_url", "tag", "like")
+            keys = (
+                "mal_id",
+                "title",
+                "title_synonyms",
+                "image_url",
+                "synopsis",
+                "episodes",
+                "duration",
+                "rating",
+                "status",
+                "broadcast",
+                "trailer_url",
+                "tag",
+                "like")
 
             for c in content:
                 value = dict(zip(keys, c))

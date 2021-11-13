@@ -40,7 +40,7 @@ class JikanMoeWrapper(APIUtils):
         return a['pictures']
 
     def schedule(self, limit=50):
-        #TODO - Limit + status
+        # TODO - Limit + status
         self.delay()
         rep = self.jikan.schedule()
         for day, data in list(rep.items())[3:12]:
@@ -98,10 +98,16 @@ class JikanMoeWrapper(APIUtils):
             datefrom, dateto = a['aired']['prop'].values()
         else:
             datefrom, dateto = {1: None}, {1: None}
-        out['date_from'] = str(date(datefrom['year'], datefrom['month'],
-                               datefrom['day'])) if not None in datefrom.values() else None
-        out['date_to'] = str(date(dateto['year'], dateto['month'],
-                             dateto['day'])) if not None in dateto.values() else None
+        out['date_from'] = str(
+            date(
+                datefrom['year'],
+                datefrom['month'],
+                datefrom['day'])) if None not in datefrom.values() else None
+        out['date_to'] = str(
+            date(
+                dateto['year'],
+                dateto['month'],
+                dateto['day'])) if None not in dateto.values() else None
 
         out['picture'] = a['image_url']
         out['synopsis'] = a['synopsis'] if 'synopsis' in a.keys() else None
@@ -135,8 +141,11 @@ class JikanMoeWrapper(APIUtils):
                     self.db.sql(
                         "INSERT INTO genres(mal_id,name) VALUES(?,?)", (g['mal_id'], g['name']))
 
-                genres.append(self.db.sql(
-                    "SELECT id FROM genres WHERE mal_id=?", (g['mal_id'],))[0][0])
+                genres.append(
+                    self.db.sql(
+                        "SELECT id FROM genres WHERE mal_id=?",
+                        (g['mal_id'],
+                         ))[0][0])
         out['genres'] = json.dumps(genres)
 
         if 'related' in a.keys():

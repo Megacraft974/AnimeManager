@@ -68,8 +68,14 @@ class Player:
         self.root = root
 
     def image(self, file, size):
-        return ImageTk.PhotoImage(Image.open(os.path.join(self.iconPath, file)).resize(
-            size, Image.ANTIALIAS), master=self.parent)
+        return ImageTk.PhotoImage(
+            Image.open(
+                os.path.join(
+                    self.iconPath,
+                    file)).resize(
+                size,
+                Image.ANTIALIAS),
+            master=self.parent)
 
     def initWindow(self):
         if self.root is None:
@@ -79,8 +85,16 @@ class Player:
         self.parent.title("Mpv Media Player")
 
         self.videopanel = Frame(self.parent)
-        Label(self.videopanel, text="Loading...", bg="#181915", fg="#373734", font=("Source Code Pro Medium", 20)
-              ).pack(fill=BOTH, expand=True)
+        Label(
+            self.videopanel,
+            text="Loading...",
+            bg="#181915",
+            fg="#373734",
+            font=(
+                "Source Code Pro Medium",
+                20)).pack(
+            fill=BOTH,
+            expand=True)
         self.videopanel.pack(fill=BOTH, expand=1)
 
         self.initPanel()
@@ -103,54 +117,138 @@ class Player:
         self.hidingFrame = Frame(self.parent, bg="#282923")
 
         self.infoLblFrame = Frame(self.hidingFrame, bg="#181915")
-        self.subLbl = Label(self.infoLblFrame, text="", bd=0, height=1, relief='solid',
-                            font=("Source Code Pro Medium", 13), bg="#181915", fg="#FFFFFF")
+        self.subLbl = Label(
+            self.infoLblFrame,
+            text="",
+            bd=0,
+            height=1,
+            relief='solid',
+            font=(
+                "Source Code Pro Medium",
+                13),
+            bg="#181915",
+            fg="#FFFFFF")
         self.subLbl.pack(side=TOP, expand=True, fill="both")
 
-        self.audioLbl = Label(self.infoLblFrame, text="", bd=0, height=1, relief='solid',
-                              font=("Source Code Pro Medium", 13), bg="#181915", fg="#FFFFFF")
+        self.audioLbl = Label(
+            self.infoLblFrame,
+            text="",
+            bd=0,
+            height=1,
+            relief='solid',
+            font=(
+                "Source Code Pro Medium",
+                13),
+            bg="#181915",
+            fg="#FFFFFF")
         self.audioLbl.pack(side=BOTTOM, expand=True, fill="both")
         self.infoLblFrame.pack(side=TOP, expand=True, fill="both")
 
         img = self.image("back.png", (25, 25))
-        b = Button(self.hidingFrame, image=img, bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                   activebackground="#282923", activeforeground="#FFFFFF", bg="#181915", fg="#FFFFFF",
-                   command=self.timeBack)
+        b = Button(
+            self.hidingFrame,
+            image=img,
+            bd=0,
+            height=1,
+            relief='solid',
+            font=(
+                "Source Code Pro Medium",
+                13),
+            activebackground="#282923",
+            activeforeground="#FFFFFF",
+            bg="#181915",
+            fg="#FFFFFF",
+            command=self.timeBack)
         b.image = img
         b.pack(side=LEFT, expand=True, fill="both")
 
         img = self.image("pause.png", (25, 25))
-        self.playButton = Button(self.hidingFrame, image=img, bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                                 activebackground="#282923", activeforeground="#FFFFFF", bg="#181915", fg="#FFFFFF",
-                                 command=self.togglePause)
+        self.playButton = Button(
+            self.hidingFrame,
+            image=img,
+            bd=0,
+            height=1,
+            relief='solid',
+            font=(
+                "Source Code Pro Medium",
+                13),
+            activebackground="#282923",
+            activeforeground="#FFFFFF",
+            bg="#181915",
+            fg="#FFFFFF",
+            command=self.togglePause)
         self.playButton.image = img
         self.playButton.pack(side=LEFT, expand=True, fill="both")
 
         img = self.image("next.png", (25, 25))
-        b = Button(self.hidingFrame, image=img, bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                   activebackground="#282923", activeforeground="#FFFFFF", bg="#181915", fg="#FFFFFF",
-                   command=self.timeForward)
+        b = Button(
+            self.hidingFrame,
+            image=img,
+            bd=0,
+            height=1,
+            relief='solid',
+            font=(
+                "Source Code Pro Medium",
+                13),
+            activebackground="#282923",
+            activeforeground="#FFFFFF",
+            bg="#181915",
+            fg="#FFFFFF",
+            command=self.timeForward)
         b.image = img
         b.pack(side=LEFT, expand=True, fill="both")
 
         img = self.image("left.png", (25, 25))
-        b = Button(self.hidingFrame, image=img, bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                   activebackground="#282923", activeforeground="#FFFFFF", bg="#181915", fg="#FFFFFF",
-                   command=self.playlistNext)
+        b = Button(
+            self.hidingFrame,
+            image=img,
+            bd=0,
+            height=1,
+            relief='solid',
+            font=(
+                "Source Code Pro Medium",
+                13),
+            activebackground="#282923",
+            activeforeground="#FFFFFF",
+            bg="#181915",
+            fg="#FFFFFF",
+            command=self.playlistNext)
         b.image = img
         b.pack(side=LEFT, expand=True, fill="both")
 
         img = self.image("fullscreen.png", (25, 25))
-        b = Button(self.hidingFrame, image=img, bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                   activebackground="#282923", activeforeground="#FFFFFF", bg="#181915", fg="#FFFFFF",
-                   command=self.toggleFullscreen)
+        b = Button(
+            self.hidingFrame,
+            image=img,
+            bd=0,
+            height=1,
+            relief='solid',
+            font=(
+                "Source Code Pro Medium",
+                13),
+            activebackground="#282923",
+            activeforeground="#FFFFFF",
+            bg="#181915",
+            fg="#FFFFFF",
+            command=self.toggleFullscreen)
         b.image = img
         b.pack(side=LEFT, expand=True, fill="both")
 
         img = self.image("right.png", (25, 25))
-        b = Button(self.hidingFrame, image=img, bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                   activebackground="#282923", activeforeground="#FFFFFF", bg="#181915", fg="#FFFFFF",
-                   command=self.playlistBack)
+        b = Button(
+            self.hidingFrame,
+            image=img,
+            bd=0,
+            height=1,
+            relief='solid',
+            font=(
+                "Source Code Pro Medium",
+                13),
+            activebackground="#282923",
+            activeforeground="#FFFFFF",
+            bg="#181915",
+            fg="#FFFFFF",
+            command=self.playlistBack)
         b.image = img
         b.pack(side=LEFT, expand=True, fill="both")
 
@@ -158,17 +256,45 @@ class Player:
             "Source Code Pro Medium", 13), bg="#282923", fg="#FFFFFF")
         self.posLbl.pack(side=LEFT, fill="both", padx=10)
 
-        Button(self.hidingFrame, text="-", bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-               activebackground="#282923", activeforeground="#FFFFFF", bg="#181915", fg="#FFFFFF",
-               command=self.volumeDown).pack(side=LEFT, expand=True, fill="both")
+        Button(
+            self.hidingFrame,
+            text="-",
+            bd=0,
+            height=1,
+            relief='solid',
+            font=(
+                "Source Code Pro Medium",
+                13),
+            activebackground="#282923",
+            activeforeground="#FFFFFF",
+            bg="#181915",
+            fg="#FFFFFF",
+            command=self.volumeDown).pack(
+            side=LEFT,
+            expand=True,
+            fill="both")
 
         self.soundLbl = Label(self.hidingFrame, text="100%", font=(
             "Source Code Pro Medium", 13), bg="#282923", fg="#FFFFFF")
         self.soundLbl.pack(side=LEFT, fill="both", padx=10)
 
-        Button(self.hidingFrame, text="+", bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-               activebackground="#282923", activeforeground="#FFFFFF", bg="#181915", fg="#FFFFFF",
-               command=self.volumeUp).pack(side=LEFT, expand=True, fill="both")
+        Button(
+            self.hidingFrame,
+            text="+",
+            bd=0,
+            height=1,
+            relief='solid',
+            font=(
+                "Source Code Pro Medium",
+                13),
+            activebackground="#282923",
+            activeforeground="#FFFFFF",
+            bg="#181915",
+            fg="#FFFFFF",
+            command=self.volumeUp).pack(
+            side=LEFT,
+            expand=True,
+            fill="both")
 
         self.titleLabel = Label(self.parent, text="", font=(
             "Source Code Pro Medium", 20), bg="#282923", fg="#FFFFFF")
@@ -776,7 +902,7 @@ class FFPlayer(Player):
                 streams[index][k] = v
 
         for s in list(streams.keys()):
-            if not filter in streams[s]['codec_type']:
+            if filter not in streams[s]['codec_type']:
                 del streams[s]
         return streams
 
@@ -790,8 +916,12 @@ class FFPlayer(Player):
     def updateSubLbl(self):
         streams = self.getSubsList()
         desc = streams[self.spuTrack]['TAG:title']
-        text = "Sub {}/{} - {}".format(list(streams.keys()
-                                            ).index(self.spuTrack) + 1, len(streams), desc)
+        text = "Sub {}/{} - {}".format(
+            list(
+                streams.keys()).index(
+                self.spuTrack) + 1,
+            len(streams),
+            desc)
         self.subLbl['text'] = text
 
     def changeAudio(self, track):
@@ -804,8 +934,12 @@ class FFPlayer(Player):
     def updateAudioLbl(self):
         streams = self.getAudioList()
         desc = streams[self.audioTrack]['TAG:language']
-        text = "Audio {}/{} - {}".format(list(streams.keys()
-                                              ).index(self.audioTrack) + 1, len(streams), desc)
+        text = "Audio {}/{} - {}".format(
+            list(
+                streams.keys()).index(
+                self.audioTrack) + 1,
+            len(streams),
+            desc)
         self.audioLbl['text'] = text
 
     def changeVideo(self, i):
@@ -827,7 +961,7 @@ class FFPlayer(Player):
     # --
     def audioTrackNext(self):
         i = self.player.audio
-        if i == False:
+        if not i:
             i = 0
         track = i + 1
         if track > len(self.audioTracks):
@@ -837,7 +971,7 @@ class FFPlayer(Player):
 
     def audioTrackBack(self):
         i = self.player.audio
-        if i == False:
+        if not i:
             i = len(self.audioTracks) + 1
         track = i - 1
         if track < 0:
@@ -1146,7 +1280,7 @@ class MpvPlayer(Player):
 
     def audioTrackNext(self):
         i = self.player.audio
-        if i == False:
+        if not i:
             i = 0
         track = i + 1
         if track > len(self.audioTracks):
@@ -1156,7 +1290,7 @@ class MpvPlayer(Player):
 
     def audioTrackBack(self):
         i = self.player.audio
-        if i == False:
+        if not i:
             i = len(self.audioTracks) + 1
         track = i - 1
         if track < 0:
@@ -1194,7 +1328,7 @@ class MpvPlayer(Player):
 
     def subTrackNext(self):
         i = self.player.sub
-        if i == False:
+        if not i:
             i = 0
         track = i + 1
         if track > len(self.subTracks):
@@ -1204,7 +1338,7 @@ class MpvPlayer(Player):
 
     def subTrackBack(self):
         i = self.player.sub
-        if i == False:
+        if not i:
             i = len(self.subTracks) + 1
         track = i - 1
         if track < 0:

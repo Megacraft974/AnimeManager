@@ -46,8 +46,12 @@ class Parser():
                     seeds, leechs = map(
                         lambda e: e.text, stats.find_all("span")[:2])
 
-                    out = {'filename': filename, 'torrent_url': torrent_url,
-                           'seeds': seeds, 'leechs': leechs, 'file_size': file_size}
+                    out = {
+                        'filename': filename,
+                        'torrent_url': torrent_url,
+                        'seeds': seeds,
+                        'leechs': leechs,
+                        'file_size': file_size}
                     yield out
                 except Exception as e:
                     print("Tokyotosho - error:", e)

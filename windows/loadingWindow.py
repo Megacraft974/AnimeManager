@@ -22,10 +22,25 @@ class loadingWindow:
             main.grid_rowconfigure(i, weight=1)
         main.grid_columnconfigure(0, weight=1)
 
-        Label(main, text="Loading...", bg=self.colors['Gray2'], fg=self.colors['Gray4'], font=(
-            "Source Code Pro Medium", 20)).grid(row=0, column=0, sticky="s")
+        Label(
+            main,
+            text="Loading...",
+            bg=self.colors['Gray2'],
+            fg=self.colors['Gray4'],
+            font=(
+                "Source Code Pro Medium",
+                20)).grid(
+            row=0,
+            column=0,
+            sticky="s")
         self.loadLabel = Label(
-            main, text="-/-, -:-", bg=self.colors['Gray2'], fg=self.colors['Gray4'], font=("Source Code Pro Medium", 20))
+            main,
+            text="-/-, -:-",
+            bg=self.colors['Gray2'],
+            fg=self.colors['Gray4'],
+            font=(
+                "Source Code Pro Medium",
+                20))
         self.loadLabel.grid(row=1, column=0, sticky="n")
         main.pack(fill="both", expand=True)
 

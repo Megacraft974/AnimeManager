@@ -36,8 +36,12 @@ class Parser:
                             torrent_url = child.find('link').text
                             desc = child.find('description').text
                             seeds, leechs, file_size = pattern.findall(desc)[0]
-                            out = {'filename': filename, 'torrent_url': torrent_url,
-                                   'seeds': seeds, 'leechs': leechs, 'file_size': file_size}
+                            out = {
+                                'filename': filename,
+                                'torrent_url': torrent_url,
+                                'seeds': seeds,
+                                'leechs': leechs,
+                                'file_size': file_size}
                             yield out
                 except Exception as e:
                     print("Anirena - error:", e)

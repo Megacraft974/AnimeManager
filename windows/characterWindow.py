@@ -62,7 +62,11 @@ class characterWindow:
                     self.characterInfoWindowMinHeight)
             if self.characterInfo is None or not self.characterInfo.winfo_exists():
                 self.characterInfo = utils.RoundTopLevel(
-                    self.characterList, title="Loading data...", minsize=size, bg=self.colors['Gray2'], fg=self.colors['Gray3'])
+                    self.characterList,
+                    title="Loading data...",
+                    minsize=size,
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['Gray3'])
             else:
                 self.characterInfo.clear()
             self.characterInfo.grid_rowconfigure(1, weight=1)
@@ -70,7 +74,7 @@ class characterWindow:
 
         # Data check
         if True:
-            if not 'desc' in character.keys() or character['desc'] is None:
+            if 'desc' not in character.keys() or character['desc'] is None:
                 # self.characterInfo.titleLbl.configure(text="Loading data...", bg= self.colors['Gray2'], fg= self.colors['Gray3'], font=("Source Code Pro Medium",18))
 
                 # thread = threading.Thread(target=self.getCharacterData, args=(character['id'],))
@@ -84,7 +88,9 @@ class characterWindow:
                     thread.start()
 
                 data = self.database.sql(
-                    "SELECT * FROM characters WHERE anime_id=? AND id=?;", (character['anime_id'], character['id']))[0]
+                    "SELECT * FROM characters WHERE anime_id=? AND id=?;",
+                    (character['anime_id'],
+                     character['id']))[0]
                 keys = ('id', 'anime_id', 'name', 'role', 'picture', 'desc')
                 # character = {key:(json.loads(data[i]) if type(data[i]) == str else data[i]) for i,key in enumerate(keys)}
                 character['desc'] = data[5]
@@ -124,14 +130,16 @@ class characterWindow:
             titleFrame = Frame(self.characterInfo, bg=self.colors['Gray2'])
             titleFrame.grid_columnconfigure(0, weight=1)
 
-            titleLbl = Label(titleFrame, text=character['name'], wraplength=500, bg=self.colors['Gray2'], font=("Source Code Pro Medium", 18),
-                             fg=self.colors['Blue' if character['role'] == "Main" else 'White'])
+            titleLbl = Label(titleFrame, text=character['name'], wraplength=500, bg=self.colors['Gray2'], font=(
+                "Source Code Pro Medium", 18), fg=self.colors['Blue' if character['role'] == "Main" else 'White'])
             titleLbl.grid(row=0, column=0, sticky="nsew", columnspan=2)
             self.characterInfo.titleLbl = titleLbl
             self.characterInfo.handles = [titleLbl]
             self.characterInfo.update()
 
-            if self.database(id=character['id'], table='characters').exist() and bool(
+            if self.database(
+                    id=character['id'],
+                    table='characters').exist() and bool(
                     self.database['like']):
                 im = Image.open(os.path.join(self.iconPath, "heart.png"))
             else:
@@ -140,14 +148,37 @@ class characterWindow:
             im = im.resize(iconSize)
             image = ImageTk.PhotoImage(im)
 
-            Button(titleFrame, text="Go to anime", bd=0, height=1, relief='solid', font=("Source Code Pro Medium", 13),
-                   activebackground=self.colors['Gray2'], activeforeground=self.colors[
-                       'White'], bg=self.colors['Gray3'], fg=self.colors['White'],
-                   command=lambda id=character['anime_id']: switchAnime(id)
-                   ).grid(row=1, column=0, sticky="nsew", padx=(20, 0))
+            Button(
+                titleFrame,
+                text="Go to anime",
+                bd=0,
+                height=1,
+                relief='solid',
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                activebackground=self.colors['Gray2'],
+                activeforeground=self.colors['White'],
+                bg=self.colors['Gray3'],
+                fg=self.colors['White'],
+                command=lambda id=character['anime_id']: switchAnime(id)).grid(
+                row=1,
+                column=0,
+                sticky="nsew",
+                padx=(
+                    20,
+                    0))
 
-            likeButton = Button(titleFrame, image=image, bd=0, relief='solid',
-                                activebackground=self.colors['Gray2'], activeforeground=self.colors['White'], bg=self.colors['Gray2'], fg=self.colors['White'],)
+            likeButton = Button(
+                titleFrame,
+                image=image,
+                bd=0,
+                relief='solid',
+                activebackground=self.colors['Gray2'],
+                activeforeground=self.colors['White'],
+                bg=self.colors['Gray2'],
+                fg=self.colors['White'],
+            )
             likeButton.configure(
                 command=lambda id=character['id'], b=likeButton: like(id, b))
             likeButton.image = image
@@ -164,23 +195,72 @@ class characterWindow:
                     r'([^\n]{1,40}\S+)|[\n]+', character['desc'], re.M))
                 lines = len(desc.split("\n"))
                 if lines > 50:
-                    Label(infoFrame, text="\n".join(desc.split("\n")[:lines // 2]), wraplength=800, font=("Source Code Pro Medium", 10), bg=self.colors['Gray2'],
-                          fg=self.colors['White']).grid(row=0, column=0, sticky="n")
+                    Label(
+                        infoFrame,
+                        text="\n".join(
+                            desc.split("\n")[
+                                :lines // 2]),
+                        wraplength=800,
+                        font=(
+                            "Source Code Pro Medium",
+                            10),
+                        bg=self.colors['Gray2'],
+                        fg=self.colors['White']).grid(
+                        row=0,
+                        column=0,
+                        sticky="n")
                     Frame(infoFrame, width=2, bg=self.colors['Gray4']).grid(
                         row=0, column=1, sticky="ns", padx=10)
-                    Label(infoFrame, text="\n".join(desc.split("\n")[lines // 2:]), wraplength=800, font=("Source Code Pro Medium", 10), bg=self.colors['Gray2'],
-                          fg=self.colors['White']).grid(row=0, column=2, sticky="n")
+                    Label(
+                        infoFrame,
+                        text="\n".join(
+                            desc.split("\n")[
+                                lines // 2:]),
+                        wraplength=800,
+                        font=(
+                            "Source Code Pro Medium",
+                            10),
+                        bg=self.colors['Gray2'],
+                        fg=self.colors['White']).grid(
+                        row=0,
+                        column=2,
+                        sticky="n")
                 else:
-                    Label(infoFrame, text=desc, wraplength=500, font=("Source Code Pro Medium", 10), bg=self.colors['Gray2'],
-                          fg=self.colors['White']).grid(row=0, column=0)
+                    Label(
+                        infoFrame,
+                        text=desc,
+                        wraplength=500,
+                        font=(
+                            "Source Code Pro Medium",
+                            10),
+                        bg=self.colors['Gray2'],
+                        fg=self.colors['White']).grid(
+                        row=0,
+                        column=0)
             else:
                 if update:
-                    Label(infoFrame, text="Loading...", font=("Source Code Pro Medium", 10), bg=self.colors['Gray2'],
-                          fg=self.colors['White']).grid(row=0, column=0)
+                    Label(
+                        infoFrame,
+                        text="Loading...",
+                        font=(
+                            "Source Code Pro Medium",
+                            10),
+                        bg=self.colors['Gray2'],
+                        fg=self.colors['White']).grid(
+                        row=0,
+                        column=0)
 
                 else:
-                    Label(infoFrame, text="No description", font=("Source Code Pro Medium", 10), bg=self.colors['Gray2'],
-                          fg=self.colors['White']).grid(row=0, column=0)
+                    Label(
+                        infoFrame,
+                        text="No description",
+                        font=(
+                            "Source Code Pro Medium",
+                            10),
+                        bg=self.colors['Gray2'],
+                        fg=self.colors['White']).grid(
+                        row=0,
+                        column=0)
             # desc
             # infoFrame.grid_rowconfigure(0,weight=1)
             infoFrame.grid_columnconfigure(0, weight=1)

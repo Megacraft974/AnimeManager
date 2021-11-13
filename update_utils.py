@@ -54,24 +54,20 @@ class UpdateUtils:
             if folder is not None and os.path.isdir(
                     os.path.join(self.animePath, folder)):
                 if tag != 'WATCHING':
-                    self.log('DB_UPDATE', "Folder '" + folder +
-                             "' id", id, "exists, but tag is", tag)
+                    self.log('DB_UPDATE', "Folder '" + folder + "' id", id, "exists, but tag is", tag)
                     toWatch.append(id)
                     c += 1
             else:
                 if tag == 'WATCHING' and torrent is not None:
-                    self.log('DB_UPDATE', "Folder '" + folder +
-                             "' doesn't have a folder, but tag is", tag)
+                    self.log('DB_UPDATE', "Folder '" + folder + "' doesn't have a folder, but tag is", tag)
                     toSeen.append(id)
                     c += 1
 
         try:
             if len(toWatch) >= 1:
-                database.sql("UPDATE tag SET tag = 'WATCHING' WHERE id IN(?" +
-                             ",?" * (len(toWatch) - 1) + ");", toWatch)
+                database.sql("UPDATE tag SET tag = 'WATCHING' WHERE id IN(?" + ",?" * (len(toWatch) - 1) + ");", toWatch)
             if len(toSeen) >= 1:
-                database.sql(
-                    "UPDATE tag SET tag = 'SEEN' WHERE id IN(?" + ",?" * (len(toSeen) - 1) + ");", toSeen)
+                database.sql("UPDATE tag SET tag = 'SEEN' WHERE id IN(?" + ",?" * (len(toSeen) - 1) + ");", toSeen)
         except sqlite3.OperationalError:
             self.log('DB_UPDATE', 'Error while updating tags')
 

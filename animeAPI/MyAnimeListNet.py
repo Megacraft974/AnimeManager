@@ -89,8 +89,10 @@ class MyAnimeListNetWrapper(APIUtils):
         if 'broadcast' in a.keys():
             weekdays = ('monday', 'tuesday', 'wednesday',
                         'thursday', 'friday', 'saturday', 'sunday')
-            out['broadcast'] = "{}-{}-{}".format(weekdays.index(
-                a['broadcast']['day_of_the_week']), *a['broadcast']['start_time'].split(":"))
+            out['broadcast'] = "{}-{}-{}".format(
+                weekdays.index(
+                    a['broadcast']['day_of_the_week']),
+                *a['broadcast']['start_time'].split(":"))
 
         # out['trailer'] = a['trailer_url'] if 'trailer_url' in a.keys() else None
 

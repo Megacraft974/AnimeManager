@@ -49,8 +49,14 @@ class RoundTopLevel(Frame):
             self.titleFrame.grid(row=0, column=0, pady=(0, self.radius))
             self.titleFrame.grid_columnconfigure(0, weight=1)
 
-            self.titleLbl = Label(self.titleFrame, text=self.titleText,
-                                  bg=self.bg, fg=self.fg, font=("Source Code Pro Medium", 18))
+            self.titleLbl = Label(
+                self.titleFrame,
+                text=self.titleText,
+                bg=self.bg,
+                fg=self.fg,
+                font=(
+                    "Source Code Pro Medium",
+                    18))
             self.titleLbl.grid(row=0, column=0)
 
             self.titleLbl.bind("<ButtonPress-1>", self.start_move)
@@ -82,16 +88,25 @@ class RoundTopLevel(Frame):
                     if x == y == 1:
                         mainFrame = frame
                 else:
-                    can = Canvas(corners, width=self.radius,
-                                 height=self.radius, bg='pink', highlightthickness=0)
+                    can = Canvas(
+                        corners,
+                        width=self.radius,
+                        height=self.radius,
+                        bg='pink',
+                        highlightthickness=0)
                     can.grid(column=x, row=y, sticky="nsew")
                     width = self.radius * 2
                     posx = 0 if x == 0 else -self.radius
                     posy = 0 if y == 0 else -self.radius
                     can.create_oval(posx, posy, posx + width,
                                     posy + width, fill=self.fg, outline="")
-                    can.create_oval(posx + self.bd, posy + self.bd, posx + width -
-                                    self.bd, posy + width - self.bd, fill=self.bg, outline="")
+                    can.create_oval(
+                        posx + self.bd,
+                        posy + self.bd,
+                        posx + width - self.bd,
+                        posy + width - self.bd,
+                        fill=self.bg,
+                        outline="")
         corners.grid_rowconfigure(1, weight=1)
         corners.grid_columnconfigure(1, weight=1)
         corners.pack(expand=True, fill="both")
@@ -257,17 +272,26 @@ class LoadingBar(Frame):
         self.wrapper.place(anchor="nw", relheight=1, relwidth=valueGetter())
         self.wrapper.grid_columnconfigure(1, weight=1)
 
-        left = Canvas(self.wrapper, highlightthickness=0,
-                      height=self.radius * 2, width=self.radius, bg=bg, **kwargs)
-        left.create_oval(0, 0, self.radius * 2, self.radius *
-                         2, fill=self.fg, outline="")
+        left = Canvas(
+            self.wrapper,
+            highlightthickness=0,
+            height=self.radius * 2,
+            width=self.radius,
+            bg=bg,
+            **kwargs)
+        left.create_oval(0, 0, self.radius * 2, self.radius * 2, fill=self.fg, outline="")
         left.grid(row=0, column=0, sticky="nsw")
 
         bar = Frame(self.wrapper, bg=fg)
         bar.grid(row=0, column=1, sticky="nsew")
 
-        right = Canvas(self.wrapper, highlightthickness=0,
-                       height=self.radius * 2, width=self.radius, bg=bg, **kwargs)
+        right = Canvas(
+            self.wrapper,
+            highlightthickness=0,
+            height=self.radius * 2,
+            width=self.radius,
+            bg=bg,
+            **kwargs)
         right.create_oval(-self.radius, 0, self.radius,
                           self.radius * 2, fill=self.fg, outline="")
         right.grid(row=0, column=2, sticky="nse")
@@ -302,8 +326,7 @@ class Timer():
         nameBracks = "[{}]".format(self.name.center(10))
         log(nameBracks, "Total:", time.time() - self.startTime)
         if len(self.timeList) > 0:
-            log(nameBracks, "Average:", sum(self.timeList) /
-                len(self.timeList), "- Loops:", len(self.timeList))
+            log(nameBracks, "Average:", sum(self.timeList) / len(self.timeList), "- Loops:", len(self.timeList))
 
 
 class POINT(Structure):
