@@ -15,8 +15,8 @@ class initWindow:
                 self.menuOptions[e]['command']()
 
             def filter(e):
-                self.searchTerms.set("")
                 self.animeList = None
+                self.searchTerms.set("")
                 self.createList(self.filterOptions[e]['filter'])
 
             def bringToTop(e):
@@ -151,8 +151,7 @@ class initWindow:
                 searchBar.bind("<B1-Motion>", lambda e: do_move(e, self.fen))
                 searchBar.bind(
                     "<Control-Return>",
-                    lambda e: self.getAnimeDataThread(
-                        self.searchTerms.get()) if self.searchTerms.get() != "" else None)
+                    lambda e: self.search(force_search=True))
 
                 self.giflist = [
                     PhotoImage(
@@ -239,8 +238,6 @@ class initWindow:
         self.log('TIME', "Window created:".ljust(25),
                  round(time.time() - self.start, 2), "sec")
 
-        if 'TIME' in self.logs:
-            self.logs.append('TIME_ANIMELIST')
         self.animeList = None
         self.createList()
         checkServer()

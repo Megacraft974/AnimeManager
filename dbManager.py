@@ -233,7 +233,7 @@ class db():
             return self.cur.execute(*args)
         except sqlite3.OperationalError as e:
             if e.args == ('database is locked',):
-                log("[ERROR] - Database is locked!", flush=True)
+                log("[ERROR] - Database is locked!")
                 raise e
             else:
                 log(args)
@@ -336,8 +336,8 @@ class db():
             self.table = table
         return {id: self.setId(id).new() for id in self.allkeys(**args)}
 
-    def allkeys(self, table=None, sort=False,
-                range=None, order=None, filter=None):
+    def allkeys(self, table=None, sort="",
+                range=(0, 50), order=None, filter=None):
         if table is not None:
             self.table = table
         if range or sort:
@@ -347,19 +347,17 @@ class db():
                 start=range[0], stop=range[1]) if range else ""
             filter = "\nWHERE {filter}".format(filter=filter) if filter else ""
             if order is None:
-                sort = "DESC" if sort else sort
+                sort = "DESC" if sort is None else sort
                 order = "anime.date_from"
-            else:
-                sort = ""
             sql = """SELECT {table}.id FROM {table} {join} {filter} \nORDER BY {order} {sort} {limit};""".format(
-                table=self.table, join=join, filter=filter, sort=sort, order=order, limit=limit)
+                table=self.table, join=join, filter=filter, order=order, sort=sort, limit=limit)
             rows = self.sql(sql, iterate=True)
         else:
             rows = self.request('id')
         for id in rows:
             yield id
 
-    def allvalues(self, table=None, **args):
+    def allvalues(self, table=None, **args):  # Not used
         if table is not None:
             self.table = table
         return (dict(self.setId(id)) for id in self.allkeys(**args))

@@ -14,7 +14,8 @@ class MyAnimeListNetWrapper(APIUtils):
         self.CLIENT_SECRET = 'fbf4c615abc334263ac2a3c92386586bafa067619be7a4f3fb7c2f6824f2bf03'
         self.hostName = "127.0.0.1"
         self.serverPort = 2412
-        self.tokenPath = tokenPath
+        self.tokenPath = os.path.join(os.path.dirname(__file__), tokenPath)
+        # self.tokenPath = tokenPath
         self.token = self.getToken()
         self.baseUrl = "https://api.myanimelist.net/v2/"
 
@@ -47,9 +48,11 @@ class MyAnimeListNetWrapper(APIUtils):
         pass
 
     def searchAnime(self, search, save=True, limit=50):
-        data = self.get("anime", q=search, limit=limit)['data']
-        for a in data:
-            yield self._convertAnime(a['node'])
+        data = self.get("anime", q=search, limit=limit)
+        if 'data' in data.keys():
+            data = data['data']
+            for a in data:
+                yield self._convertAnime(a['node'])
 
     def character(self, id):
         pass
@@ -131,6 +134,8 @@ class MyAnimeListNetWrapper(APIUtils):
         pass
 
     def get(self, *args, **kwargs):
+        if self.token is None:
+            return {}
         url = self.baseUrl + "/".join(map(str, args))
         if len(kwargs) > 0:
             url += "?" + "&".join(str(k) + "=" + str(v)
@@ -251,4 +256,8 @@ class MyAnimeListNetWrapper(APIUtils):
         else:
             token = self.getNewToken()
 
-        return token["access_token"]
+        if token is not None:
+            return token["access_token"]
+        else:
+            log("Error while fetching MAL token!")
+            return None

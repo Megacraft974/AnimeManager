@@ -50,15 +50,12 @@ class AnimeAPI():
         if len(self.apis) == 0:
             log("No apis found!")
 
-    def log(self, *args):
-        log(*args)
-
     def wrapper(self, name, *args, **kwargs):
         def handler(api, name, que, *args, **kwargs):
             try:
                 r = getattr(api, name)(*args, **kwargs)
             except Exception as e:
-                apiName = str(r).split(".")[0].split(" ")[-1]
+                apiName = str(api).split(".")[0].split(" ")[-1]
                 log(
                     "Error on API - handler",
                     apiName,

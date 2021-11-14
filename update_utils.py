@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 import os
 import utils
+import json
+from sqlite3 import OperationalError
 
 
 class UpdateUtils:
@@ -68,7 +70,7 @@ class UpdateUtils:
                 database.sql("UPDATE tag SET tag = 'WATCHING' WHERE id IN(?" + ",?" * (len(toWatch) - 1) + ");", toWatch)
             if len(toSeen) >= 1:
                 database.sql("UPDATE tag SET tag = 'SEEN' WHERE id IN(?" + ",?" * (len(toSeen) - 1) + ");", toSeen)
-        except sqlite3.OperationalError:
+        except OperationalError:
             self.log('DB_UPDATE', 'Error while updating tags')
 
         database.save()

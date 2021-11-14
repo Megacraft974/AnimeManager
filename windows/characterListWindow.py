@@ -49,7 +49,7 @@ class characterListWindow:
                         character['id'])
 
                 # im.resize(size)
-                image = ImageTk.PhotoImage(im)
+                image = ImageTk.PhotoImage(im) # TODO - Use getImage instead
                 can.create_image(size[0] / 2, size[1] / 2,
                                  image=image, anchor='center')
                 can.image = image

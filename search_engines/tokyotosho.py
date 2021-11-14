@@ -27,7 +27,6 @@ class Parser():
         except requests.exceptions.ReadTimeout:
             print("Tokyotosho - Timed out!")
         else:
-            # TODO - Error handling
             soup = BeautifulSoup(r.content, "html.parser")
             pattern = re.compile(r'\| Size: (\S*?) \|')
             table = soup.find("table", class_="listing")

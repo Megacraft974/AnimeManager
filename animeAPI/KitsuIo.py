@@ -200,7 +200,7 @@ class KitsuIoWrapper(APIUtils):
         try:
             self.db.save()
         except BaseException:
-            log("Error while saving anime")
+            log("KITSU.IO API", "Error while saving anime")
         return data
 
     def _convertCharacter(self, c, anime_id=None):

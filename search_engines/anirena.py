@@ -23,7 +23,6 @@ class Parser:
         except requests.exceptions.ReadTimeout:
             print("Anirena - Timed out!")
         else:
-            # TODO - Error handling
             tree = lxml.etree.parse(io.BytesIO(r.content))
             pattern = re.compile(
                 r"(\d+?) seeder\(s\), (\d+?) leecher\(s\), \d+? downloads, (\S+? .B)")

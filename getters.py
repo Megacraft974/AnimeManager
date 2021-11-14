@@ -1,7 +1,7 @@
 import threading
 import os
 import hashlib
-import time
+import time,re
 
 import bencoding
 
@@ -18,6 +18,9 @@ class Getters:
         if threading.main_thread() == threading.current_thread() and hasattr(self, "database"):
             return self.database
         else:
+            if not hasattr(self, 'dbPath'):
+                appdata = os.path.join(os.getenv('APPDATA'), "AnimeManager")
+                self.dbPath = os.path.join(appdata, "animeData.db")
             return db(self.dbPath)
 
     def getQB(self, reconnect=False):
@@ -62,7 +65,7 @@ class Getters:
         return state
 
     def getImage(self, path, size=None):
-        if os.path.isfile(path):
+        if path is not None and os.path.isfile(path):
             img = Image.open(path)
         else:
             img = Image.new('RGB', (10, 10), self.colors['Gray'])

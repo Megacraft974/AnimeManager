@@ -21,7 +21,6 @@ class Parser:
             print("Nyaasi - Timed out!")
         else:
             try:
-                # TODO - Error handling
                 tree = lxml.etree.parse(io.BytesIO(r.content))
             except lxml.etree.XMLSyntaxError as e:
                 print("Nyaasi -", e, tree)

@@ -2,6 +2,7 @@ import queue
 import threading
 import time
 import traceback
+import requests
 
 from logger import log
 
@@ -130,13 +131,15 @@ class ItemList(queue.Queue):
             except StopIteration:
                 self.sources.remove(s)
                 break
+            except requests.exceptions.ConnectionError:
+                log("Error on ItemList iterator: No internet connection!")
             except Exception as e:
-                log("Error on API iterator", s, traceback.format_exc())
+                log("Error on ItemList iterator", s, traceback.format_exc())
                 self.sources.remove(s)
                 break
             else:
                 id = self.identifier(e)
-                if id not in self.ids:  # TODO - Identifier func
+                if id not in self.ids:
                     self.list.append(e)
                     self.ids.append(id)
                     if self.new_elem_event["enabled"]:
@@ -166,18 +169,18 @@ class ItemList(queue.Queue):
             t.start()
             self.sourceThreads.append(t)
 
-    def get(self, timeout=None):
+    def get(self, timeout=None, default=None):
         if len(self.list) > 0:
             e = self.list.pop(0)
             return e
         else:
-            return self.get_from_sources(timeout)
+            return self.get_from_sources(timeout, default)
 
-    def get_from_sources(self, timeout=None):
+    def get_from_sources(self, timeout=None, default=None):
         self.new_elem_event["enabled"] = True
         if not self.new_elem_event["event"].wait(timeout=timeout):
             log("Timed out")
-            return None  # Timed out
+            return default  # Timed out
 
         if len(self.list) > 0:
             e = self.list.pop(0)

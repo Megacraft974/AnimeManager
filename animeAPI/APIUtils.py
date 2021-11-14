@@ -7,12 +7,13 @@ try:
     from dbManager import db
     from classes import Anime, AnimeList, Character, CharacterList
     from logger import log
+    from getters import Getters
 except ModuleNotFoundError:
     log("DB module not found!")
     db = None
 
 
-class APIUtils():
+class APIUtils(Getters):
     def __init__(self, dbPath):
         self.states = {
             'airing': 'AIRING',
@@ -26,7 +27,7 @@ class APIUtils():
             'Not yet aired': 'UPCOMING',
             'NONE': 'UNKNOWN'}
         self.dbPath = dbPath
-        self.db = self.getDb()
+        self.db = self.getDatabase()()
 
     def getStatus(self, data, reverse=True):
         if data['date_from'] is None:
@@ -52,8 +53,7 @@ class APIUtils():
             index = "indexList"
         elif table == "characters":
             index = "charactersIndex"
-        # database = db(self.dbPath)
-        database = self.getDb()
+        database = self.getDatabase()()
         api_id = self.db.sql(
             "SELECT {} FROM {} WHERE id=?".format(self.apiKey, index), (id,))
         if api_id == []:
@@ -62,12 +62,6 @@ class APIUtils():
             return None
             # raise Exception("Wrong api")
         return api_id[0][0]
-
-    def getDb(self):
-        if not hasattr(self, 'db') or self.db is not None:
-            return db(self.dbPath)
-        else:
-            return self.db
 
     def save(self, data):
         if isinstance(data, Anime):

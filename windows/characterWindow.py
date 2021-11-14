@@ -1,3 +1,4 @@
+import threading,re
 from tkinter import *
 
 import utils
@@ -20,7 +21,7 @@ class characterWindow:
 
                 iconSize = (30, 30)
                 im = im.resize(iconSize)
-                image = ImageTk.PhotoImage(im)
+                image = ImageTk.PhotoImage(im) # TODO - Use getImage instead
                 b.configure(image=image)
                 b.image = image
                 b.update()
@@ -110,7 +111,7 @@ class characterWindow:
                     im = im.convert('RGB')
                 im.save(filename)
 
-            image = ImageTk.PhotoImage(im)
+            image = ImageTk.PhotoImage(im)# TODO - Use getImage instead
 
             try:
                 can = Canvas(self.characterInfo, width=225, height=310,
@@ -146,7 +147,7 @@ class characterWindow:
                 im = Image.open(os.path.join(self.iconPath, "heart(1).png"))
             iconSize = (30, 30)
             im = im.resize(iconSize)
-            image = ImageTk.PhotoImage(im)
+            image = ImageTk.PhotoImage(im)# TODO - Use getImage instead
 
             Button(
                 titleFrame,

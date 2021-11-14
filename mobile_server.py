@@ -6,6 +6,7 @@ import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from dbManager import db
 from logger import log
+from getters import Getters
 
 
 def startServer(hostName, serverPort, dbPath, manager):
@@ -39,12 +40,12 @@ def stopServer(webServer, manager):
 
 
 def GetHandler(dbPath, manager):
-    class DbServer(BaseHTTPRequestHandler):
+    class DbServer(BaseHTTPRequestHandler, Getters):
         def do_GET(self):
             code = 200
             content = "application/json"
 
-            self.database = db(dbPath)
+            self.database = self.getDatabase()
             log("SERVER", "Received GET request from address {}".format(
                 self.client_address))
             # database = db("D:/Animes/Torrents/Scripts/jikan.moe.db")
@@ -106,7 +107,7 @@ def GetHandler(dbPath, manager):
             # self.wfile.write(bytes(json.dumps(rep),"utf-8"))
 
         def saveAnimes(self, rep):
-            self.database = db("D:/Animes/Torrents/Scripts/jikan.moe.db")
+            self.database = self.getDatabase()
             self.manager = manager
             for anime in rep:
                 id, tag, like = anime.values()
@@ -142,7 +143,7 @@ def GetHandler(dbPath, manager):
             self.database.save()
 
         def getAnimesToSync(self):
-            self.database = db("D:/Animes/Torrents/Scripts/jikan.moe.db")
+            self.database = self.getDatabase()
             content = self.database.sql(
                 'SELECT anime.id, title, title_synonyms, picture, synopsis, episodes, duration, rating, status, broadcast, trailer,tag.tag,like.like FROM anime LEFT JOIN tag USING(id) LEFT JOIN like USING(id) WHERE tag.tag in ("WATCHLIST","WATCHING","SEEN")')
             rep = []

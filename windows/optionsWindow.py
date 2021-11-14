@@ -4,13 +4,16 @@ import threading
 import re
 import subprocess
 import queue
+import time
 
 from operator import itemgetter
 from datetime import date, datetime, timedelta, time as datetime_time
+from sqlite3 import OperationalError
 from tkinter import *
-from tkinter.filedialog import askopenfilename, askopenfilenames, askdirectory
+from tkinter.filedialog import askopenfilenames
 
 import utils
+from playerManager import MpvPlayer
 
 
 class optionsWindow:
@@ -154,7 +157,7 @@ class optionsWindow:
                     os.path.join(self.animePath, folder))
                 iconSize = (50, 50) if showFolderButtons else (30, 30)
                 im = im.resize(iconSize)
-                image = ImageTk.PhotoImage(im)
+                image = ImageTk.PhotoImage(im)# TODO - Use getImage instead
                 b.configure(image=image)
                 b.image = image
                 b.update()
@@ -543,21 +546,17 @@ class optionsWindow:
             iconSize = (50, 50) if showFolderButtons else (30, 30)
             if self.database(id=id, table='like').exist() and bool(
                     self.database(id=id, table='like')['like']):
-                # im = Image.open(os.path.join(self.iconPath, "heart.png"))
                 image = self.getImage(
                     os.path.join(
                         self.iconPath,
                         "heart.png"),
                     iconSize)
             else:
-                # im = Image.open(os.path.join(self.iconPath, "heart(1).png"))
                 image = self.getImage(
                     os.path.join(
                         self.iconPath,
                         "heart(1).png"),
                     iconSize)
-            # im = im.resize(iconSize)
-            # image = ImageTk.PhotoImage(im)
             likeButton = Button(
                 titleFrame,
                 image=image,
