@@ -11,6 +11,7 @@ from datetime import date, datetime, timedelta, time as datetime_time
 from sqlite3 import OperationalError
 from tkinter import *
 from tkinter.filedialog import askopenfilenames
+from tkinter.ttk import Progressbar
 
 import utils
 from playerManager import MpvPlayer

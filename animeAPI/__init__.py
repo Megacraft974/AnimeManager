@@ -59,8 +59,7 @@ class AnimeAPI():
                 log(
                     "Error on API - handler",
                     apiName,
-                    traceback.format_exc(),
-                    flush=True)
+                    traceback.format_exc())
             else:
                 if r is not None:
                     que.put(r)

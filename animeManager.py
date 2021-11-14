@@ -415,7 +415,6 @@ class Manager(UpdateUtils, Getters, Logger, AnimeSearch, *windows.windows):
             return data
 
         if criteria == "DEFAULT" or self.animeList is None:
-            print(criteria, self.animeList)
             if criteria == "DEFAULT":
                 table = "anime"
                 filter = "anime.status != 'UPCOMING'"
