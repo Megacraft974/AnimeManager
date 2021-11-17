@@ -36,9 +36,10 @@ try:
     import animeAPI
     import windows
 
+    from constants import Constants
     from update_utils import UpdateUtils
     from getters import Getters
-    from logger import Logger
+    # from logger import Logger
     from anime_search import AnimeSearch
     from dbManager import db
     from classes import Anime, Character, AnimeList, CharacterList
@@ -49,36 +50,11 @@ except ModuleNotFoundError as e:
     sys.exit()
 
 
-class Manager(UpdateUtils, Getters, Logger, AnimeSearch, *windows.windows):
+class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
     def __init__(self, remote=False):
+        for e in Manager.__mro__:
+            super(e, self).__init__()
         self.start = time.time()
-
-        self.logs = ['DB_ERROR', 'DB_UPDATE', 'MAIN_STATE',
-                     'NETWORK', 'SERVER', 'SETTINGS', 'TIME']
-
-        appid = 'megacraft.anime.manager.1.0'
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appid)
-        # 181915 - 282923 - 373734 - F8F8C4 - 98E22B(G) - E79622(O)
-
-        cwd = os.path.dirname(os.path.abspath(__file__))  # TODO - Constants files / get settings?
-        self.iconPath = os.path.join(cwd, "icons")
-
-        appdata = os.path.join(os.getenv('APPDATA'), "AnimeManager")
-        self.dbPath = os.path.join(appdata, "animeData.db")
-        self.settingsPath = os.path.join(appdata, "settings.json")
-        self.cache = os.path.join(appdata, "cache")
-        self.logsPath = os.path.join(appdata, "logs")
-        if not os.path.exists(appdata):
-            os.mkdir(appdata)
-
-        filesData = os.path.expanduser('~\\Documents\\AnimeManager')
-        if not os.path.exists(filesData):
-            os.mkdir(filesData)
-        self.animePath = os.path.join(filesData, "Animes")
-        self.torrentPath = os.path.join(filesData, "Torrents")
-
-        self.hideRated = True
-        self.enableServer = True
 
         self.remote = remote
         self.animeFolder = []
@@ -92,6 +68,7 @@ class Manager(UpdateUtils, Getters, Logger, AnimeSearch, *windows.windows):
         self.maxLogsSize = 50000  # In bytes
         self.animeListReady = False
         self.blank_image = None
+
         self.qb = None
         self.root = None
         self.fen = None
@@ -103,87 +80,23 @@ class Manager(UpdateUtils, Getters, Logger, AnimeSearch, *windows.windows):
         self.characterInfo = None
         self.settings = None
         self.diskfen = None
-        self.server = None
 
-        self.hostName = "0.0.0.0"
-        self.serverPort = 8081
-
-        self.qb = None
-        self.torrentApiAddress = 'http://' + \
-            str(socket.gethostbyname(socket.gethostname())) + ":8080"
-        self.torrentApiLogin = 'admin'
-        self.torrentApiPassword = '123456'
-
-        if True:
-            self.allLogs = [
-                'CHARACTER',
-                'CONFIG',
-                'DB_ERROR',
-                'DB_UPDATE',
-                'DISK_ERROR',
-                'FILE_SEARCH',
-                'MAIN_STATE',
-                'NETWORK',
-                'NETWORK_DATA',
-                'PICTURE',
-                'RELATED',
-                'SCHEDULE',
-                'SERVER',
-                'SETTINGS',
-                'THREAD',
-                'TIME']
-            self.pathSettings = ["animePath", "torrentPath",
-                                 "iconPath", "cache", "dbPath", "logsPath"]
-            self.websitesViewUrls = {
-                "mal_id": "https://myanimeList.net/anime/{}",
-                "kitsu_id": "https://kitsu.io/anime/{}",
-                "anilist_id": "https://anilist.co/anime/{}",
-                "anidb_id": "https://anidb.net/anime/{}"}
-            self.seasons = {'winter': {'start': 1, 'end': 3},
-                            'spring': {'start': 4, 'end': 6},
-                            'summer': {'start': 7, 'end': 9},
-                            'fall': {'start': 10, 'end': 12}}
-            self.menuOptions = {
-                'Liked characters': {'color': 'Green', 'command': lambda: self.characterListWindow("LIKED")},
-                'Disk manager': {'color': 'Orange', 'command': self.diskWindow},
-                'Clear logs': {'color': 'Green', 'command': self.clearLogs},
-                'Clear cache': {'color': 'Blue', 'command': self.clearCache},
-                'Clear db': {'color': 'Red', 'command': self.clearDb},
-                'Settings': {'color': 'Gray', 'command': self.settingsWindow},
-                'Reload': {'color': 'Orange', 'command': self.reloadAll},
-                'Exit': {'color': 'Red', 'command': self.quit}}
-            self.actionButtons = (
-                {'text': 'Copy title', 'color': 'Green', 'command': self.copy_title},
-                {'text': 'Reload', 'color': 'Blue', 'command': self.reload},
-                {'text': 'Redownload files', 'color': 'Green', 'command': self.redownload},
-                {'text': 'Characters', 'color': 'Green', 'command': self.characterListWindow},
-                {'text': 'Delete files', 'color': 'Red', 'command': self.deleteFiles},
-                {'text': 'Remove from db', 'color': 'Red', 'command': self.delete},)
-            self.filterOptions = {'Liked': {'color': 'Red', 'filter': 'LIKED'},
-                                  'Seen': {'color': 'Green', 'filter': 'SEEN'},
-                                  'Watching': {'color': 'Orange', 'filter': 'WATCHING'},
-                                  'Watchlist': {'color': 'Blue', 'filter': 'WATCHLIST'},
-                                  'Finished': {'color': 'Green', 'filter': 'FINISHED'},
-                                  'Airing': {'color': 'Orange', 'filter': 'AIRING'},
-                                  'Upcoming': {'color': 'Blue', 'filter': 'UPCOMING'},
-                                  'Rated': {'color': 'Red', 'filter': 'RATED'},
-                                  'By season': {'color': 'Blue', 'filter': 'SEASON'},
-                                  'Random': {'color': 'Green', 'filter': 'RANDOM'},
-                                  'No tags': {'color': 'White', 'filter': 'NONE'},
-                                  'No filter': {'color': 'Gray', 'filter': 'DEFAULT'}}
-            self.status = {
-                'airing': 'AIRING',
-                'Currently Airing': 'AIRING',
-                'completed': 'FINISHED',
-                'complete': 'FINISHED',
-                'Finished Airing': 'FINISHED',
-                'to_be_aired': 'UPCOMING',
-                'tba': 'UPCOMING',
-                'upcoming': 'UPCOMING',
-                'Not yet aired': 'UPCOMING',
-                'NONE': 'UNKNOWN',
-                'UPDATE': 'UNKNOWN'}
-
+        self.menuOptions = {
+            'Liked characters': {'color': 'Green', 'command': lambda: self.characterListWindow("LIKED")},
+            'Disk manager': {'color': 'Orange', 'command': self.diskWindow},
+            'Clear logs': {'color': 'Green', 'command': self.clearLogs},
+            'Clear cache': {'color': 'Blue', 'command': self.clearCache},
+            'Clear db': {'color': 'Red', 'command': self.clearDb},
+            'Settings': {'color': 'Gray', 'command': self.settingsWindow},
+            'Reload': {'color': 'Orange', 'command': self.reloadAll},
+            'Exit': {'color': 'Red', 'command': self.quit}}
+        self.actionButtons = (
+            {'text': 'Copy title', 'color': 'Green', 'command': self.copy_title},
+            {'text': 'Reload', 'color': 'Blue', 'command': self.reload},
+            {'text': 'Redownload files', 'color': 'Green', 'command': self.redownload},
+            {'text': 'Characters', 'color': 'Green', 'command': self.characterListWindow},
+            {'text': 'Delete files', 'color': 'Red', 'command': self.deleteFiles},
+            {'text': 'Remove from db', 'color': 'Red', 'command': self.delete},)
 
         self.database = self.getDatabase()
         if not os.path.exists(self.dbPath):
@@ -217,18 +130,24 @@ class Manager(UpdateUtils, Getters, Logger, AnimeSearch, *windows.windows):
             terms = self.searchTerms.get()
             if force_search:
                 self.stopSearch = False
+                self.animeListReady = True
+                self.root.update()
                 self.animeList = self.searchAnime(terms)
                 self.loading()
                 self.createList(None)
             elif len(terms) > 2:
                 animeList = self.searchDb(terms)
                 if animeList is not False:
+                    self.animeListReady = True
+                    self.root.update()
                     self.animeList = animeList
                     self.createList(None)
                 else:
                     self.stopSearch = False
                     self.animeList = self.searchAnime(terms)
                     self.loading()
+                    self.animeListReady = True
+                    self.root.update()
                     self.createList(None)
                     # TODO - Show when there are no results
                     # Label(
@@ -245,8 +164,9 @@ class Manager(UpdateUtils, Getters, Logger, AnimeSearch, *windows.windows):
                     #     pady=50)
             elif self.animeList is not None:
                 self.stopSearch = True
-                self.animeList = None
                 self.animeListReady = True
+                self.root.update()
+                self.animeList = None
                 self.createList()
             self.fen.update()
 
@@ -518,7 +438,7 @@ class Manager(UpdateUtils, Getters, Logger, AnimeSearch, *windows.windows):
             if i % self.animePerRow == 0:
                 self.fen.update()
 
-        self.list_timer.stats()
+        # self.list_timer.stats()
         que.put("STOP")
 
         try:
@@ -599,6 +519,7 @@ class Manager(UpdateUtils, Getters, Logger, AnimeSearch, *windows.windows):
             im = im.resize((225, 310))
             self.imQueue.put((im, can))
         self.log("THREAD", "Started image thread")
+        database = self.getDatabase()
         no_internet = False
         args = que.get()
         while args != "STOP":
@@ -669,7 +590,6 @@ class Manager(UpdateUtils, Getters, Logger, AnimeSearch, *windows.windows):
                         if len(repdata) >= 1:
                             args = list(args)
                             args[2]['picture'] = repdata[-1]['small']
-                            database = self.getDatabase()
                             database.sql("UPDATE anime SET picture = ? WHERE id = ?",
                                          (repdata[-1]['small'], anime.id), save=True)
                             que.put((anime, can))
@@ -815,7 +735,7 @@ class Manager(UpdateUtils, Getters, Logger, AnimeSearch, *windows.windows):
         ids = dict(zip(keys, ids))
         ids.pop("id")
         for api_key, id in ids.items():
-            if id is not None:
+            if id is not None and api_key in self.websitesViewUrls.keys():
                 url = self.websitesViewUrls[api_key].format(id)
                 threading.Thread(target=webbrowser.open, args=(url,)).start()
                 # webbrowser.open(url)
@@ -834,40 +754,6 @@ class Manager(UpdateUtils, Getters, Logger, AnimeSearch, *windows.windows):
         if self.timer_id is not None:
             self.fen.after_cancel(self.timer_id)
         self.timer_id = self.fen.after(30, self.loading, n + 1, True)
-
-    # ___Settings___
-    def checkSettings(self):
-        self.initLogs()
-        self.log('CONFIG', "Settings:")
-        if not os.path.exists(self.settingsPath):
-            shutil.copyfile("settings.json", self.settingsPath)
-        with open(self.settingsPath, 'r') as f:
-            self.settings = json.load(f)
-        updatedSettings = {}
-        for cat, values in self.settings.items():
-            for var, value in values.items():
-                if var in self.pathSettings:
-                    if value == "":
-                        value = getattr(self, var)
-                        updatedSettings[var] = value
-                    if not os.path.exists(value):
-                        os.mkdir(value)
-                setattr(self, var, value)
-                self.log('CONFIG', " ", var.ljust(30), '-', value)
-        if updatedSettings != {}:
-            self.setSettings(updatedSettings)
-
-    def setSettings(self, settings):
-        with open(self.settingsPath, 'r') as f:
-            self.settings = json.load(f)
-        for updateKey, updateValue in settings.items():
-            for cat, values in self.settings.items():
-                if updateKey in values.keys():
-                    self.settings[cat][updateKey] = updateValue
-                    break
-            setattr(self, updateKey, updateValue)
-        with open(self.settingsPath, 'w') as f:
-            json.dump(self.settings, f, sort_keys=True, indent=4)
 
     # ___Misc___
     def downloadFile(self, id, url=None, file=None):
@@ -996,7 +882,8 @@ class Manager(UpdateUtils, Getters, Logger, AnimeSearch, *windows.windows):
         threading.Thread(target=handler, args=(year, season)).start()
 
         self.animeList = iter()
-        # self.animeListReady = True
+        self.animeListReady = True
+        self.root.update()
         self.createList(None, (0, 1000))
 
     def getCharactersData(self, id, callback=None):

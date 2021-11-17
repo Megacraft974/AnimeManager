@@ -48,8 +48,6 @@ def GetHandler(dbPath, manager):
             self.database = self.getDatabase()
             log("SERVER", "Received GET request from address {}".format(
                 self.client_address))
-            # database = db("D:/Animes/Torrents/Scripts/jikan.moe.db")
-            # self.wfile.write(bytes("<p>Request: %s</p>" % self.path, "utf-8"))
             request = self.path.split("/")[1:]
             if request[0] != "":
                 table = request.pop(0)
@@ -128,7 +126,7 @@ def GetHandler(dbPath, manager):
                         pass
                     dbTag = tag
                 else:
-                    dbTag = self.database(id=id, table="tag").get("tag")
+                    dbTag = self.database(id=id, table="tag").get()['tag']
 
                 if not self.database(id=id, table="like").exist():
                     try:
@@ -138,7 +136,7 @@ def GetHandler(dbPath, manager):
                         pass
                     dbLike = like
                 else:
-                    dbLike = self.database(id=id, table="like").get("like")
+                    dbLike = self.database(id=id, table="like").get()['like']
 
             self.database.save()
 
@@ -164,7 +162,10 @@ def GetHandler(dbPath, manager):
 
             for c in content:
                 value = dict(zip(keys, c))
-                value['title_synonyms'] = json.loads(value['title_synonyms'])
+                if value['title_synonyms'] is None:
+                    value['title_synonyms'] = []
+                else:
+                    value['title_synonyms'] = json.loads(value['title_synonyms'])
                 rep.append(value)
 
             return rep

@@ -10,10 +10,11 @@ class db():
 
     def __init__(self, path):
         self.path = path
+        print(path)
         if not os.path.exists(self.path):
             self.createNewDb()
         self.con = sqlite3.connect(path, check_same_thread=False)
-        self.con.row_factory = sqlite3.Row
+        # self.con.row_factory = sqlite3.Row
         self.cur = self.con.cursor()
         self.table = "anime"
         self.updateKeys()
@@ -21,7 +22,7 @@ class db():
     def createNewDb(self):
         open(self.path, "w")
         self.con = sqlite3.connect(self.path)
-        self.con.row_factory = sqlite3.Row
+        # self.con.row_factory = sqlite3.Row
         self.cur = self.con.cursor()
         commands = ('''CREATE TABLE "anime" (
                     "id"    INTEGER NOT NULL UNIQUE,
@@ -182,17 +183,18 @@ class db():
     def get(self):
         if not self.exist():
             log(self.id, "doesn't exist in table", self.table)
-            return {}
-        sql = "SELECT * FROM {} WHERE id=?".format(self.table)
-        try:
-            row = self.sql(sql, (self.id,))[0]
-        except Exception as e:
-            log("", "\nError on id", self.id,
-                "table", self.table, "sql", sql)
-            raise e
-        # rows = self.cur.fetchall()
-        keys = self.keys()
-        out = dict(zip(keys, row))
+            out = {}
+        else:
+            sql = "SELECT * FROM {} WHERE id=?".format(self.table)
+            try:
+                row = self.sql(sql, (self.id,))[0]
+            except Exception as e:
+                log("", "\nError on id:", self.id,
+                    "- table:", self.table, "- sql:", sql)
+                raise e
+            # rows = self.cur.fetchall()
+            keys = self.keys()
+            out = dict(zip(keys, row))
         if self.table == "anime":
             return Anime(out)
         elif self.table == "characters":
@@ -207,19 +209,21 @@ class db():
             index = "charactersIndex"
         sql = "SELECT id FROM {} WHERE {}=?;".format(index, apiKey)
         # e = next(self.sql(sql,(apiId,),iterate=True),None)
-        e = self.sql(sql, (apiId,))
-        if len(e) == 0:
-            e = None
-        else:
-            e = e[0]
-        if e is not None:
-            return e[0]
+        ids = self.sql(sql, (apiId,))
+        if len(ids) > 0:
+            return ids[0][0]
         else:
             isql = "INSERT INTO {}({}) VALUES(?)".format(index, apiKey)
-            self.execute(isql, (apiId,))
+            try:
+                self.execute(isql, (apiId,))
+            except sqlite3.IntegrityError as e:
+                # log(e, "-", sql, apiId, ids)
+                sql = "SELECT id FROM {} WHERE {}=?;".format(index, apiKey)
+                ids = self.sql(sql, (apiId,))
+                return ids[0][0]
             self.save()
-            e = next(self.sql(sql, (apiId,), iterate=True))[0]
-            return e
+            ids = self.sql(sql, (apiId,))
+            return ids[0][0]
 
     def update(self, key, data, save=True):
         sql = "UPDATE " + self.table + " SET {} = ? WHERE id = ?".format(key)
@@ -228,18 +232,18 @@ class db():
         if save:
             self.con.commit()
 
-    def execute(self, *args):
+    def execute(self, sql, *args):
         try:
-            return self.cur.execute(*args)
+            return self.cur.execute(sql, *args)
         except sqlite3.OperationalError as e:
             if e.args == ('database is locked',):
                 log("[ERROR] - Database is locked!")
                 raise e
             else:
-                log(args)
+                log(e, sql, args)
                 raise e
         except sqlite3.InterfaceError as e:
-            log(*args)
+            log(e, sql, *args)
             raise e
 
     def set(self, data, save=True):

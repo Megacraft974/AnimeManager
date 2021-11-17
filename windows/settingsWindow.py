@@ -599,3 +599,15 @@ class settingsWindow:
             logsFrame.grid(row=10, column=0, sticky="nsew")
 
         self.settings.update()
+
+    def setSettings(self, settings):
+        with open(self.settingsPath, 'r') as f:
+            self.settings = json.load(f)
+        for updateKey, updateValue in settings.items():
+            for cat, values in self.settings.items():
+                if updateKey in values.keys():
+                    self.settings[cat][updateKey] = updateValue
+                    break
+            setattr(self, updateKey, updateValue)
+        with open(self.settingsPath, 'w') as f:
+            json.dump(self.settings, f, sort_keys=True, indent=4)

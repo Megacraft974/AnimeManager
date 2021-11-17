@@ -3,6 +3,7 @@ from jikanpy import Jikan
 from datetime import date
 import json
 import time
+import requests
 
 
 class JikanMoeWrapper(APIUtils):
@@ -59,7 +60,11 @@ class JikanMoeWrapper(APIUtils):
 
     def searchAnime(self, search, limit=50):
         self.delay()
-        rep = self.jikan.search('anime', search, parameters={'limit': limit})
+        try:
+            rep = self.jikan.search('anime', search, parameters={'limit': limit})
+        except requests.exceptions.ReadTimeout:
+            log("Jikan.moe timed out!")
+            return
         for a in rep['results']:
             data = self._convertAnime(a)
             if data != {}:

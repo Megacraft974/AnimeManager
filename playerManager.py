@@ -55,7 +55,7 @@ class Player:
         except NameError:
             cwd = os.path.dirname(os.path.realpath(sys.argv[0]))
         self.iconPath = os.path.join(cwd, "icons")
-        appdata = os.path.join(os.getenv('APPDATA'), "AnimeManager")
+        appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
         if os.path.exists(os.path.normpath("settings.json")):
             self.settingsPath = os.path.normpath("settings.json")
         else:

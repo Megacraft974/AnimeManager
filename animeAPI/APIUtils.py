@@ -27,7 +27,7 @@ class APIUtils(Getters):
             'Not yet aired': 'UPCOMING',
             'NONE': 'UNKNOWN'}
         self.dbPath = dbPath
-        self.db = self.getDatabase()()
+        self.db = self.getDatabase()
 
     def getStatus(self, data, reverse=True):
         if data['date_from'] is None:
@@ -53,7 +53,7 @@ class APIUtils(Getters):
             index = "indexList"
         elif table == "characters":
             index = "charactersIndex"
-        database = self.getDatabase()()
+        database = self.getDatabase()
         api_id = self.db.sql(
             "SELECT {} FROM {} WHERE id=?".format(self.apiKey, index), (id,))
         if api_id == []:

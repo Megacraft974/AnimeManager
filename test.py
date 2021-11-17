@@ -59,4 +59,4 @@
 #         print(url)
 #         getTracker(v.scheme,url,v.port,info_hash,size)
 
-print("aa".ljust(3), ".")
+import constants

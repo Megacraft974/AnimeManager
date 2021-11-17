@@ -1,7 +1,8 @@
 import threading
 import os
 import hashlib
-import time,re
+import time
+import re
 
 import bencoding
 
@@ -12,16 +13,28 @@ from dbManager import db
 from PIL import Image, ImageTk
 from classes import Anime
 
+if 'database_threads' not in globals().keys():
+    globals()['database_threads'] = {}
+
 
 class Getters:
     def getDatabase(self):
         if threading.main_thread() == threading.current_thread() and hasattr(self, "database"):
             return self.database
         else:
-            if not hasattr(self, 'dbPath'):
-                appdata = os.path.join(os.getenv('APPDATA'), "AnimeManager")
-                self.dbPath = os.path.join(appdata, "animeData.db")
-            return db(self.dbPath)
+            for db_t in list(globals()['database_threads'].keys()):
+                if not db_t.is_alive():
+                    del globals()['database_threads'][db_t]
+            t = threading.current_thread()
+            if t in globals()['database_threads'].keys():
+                return globals()['database_threads'][t]
+            else:
+                if not hasattr(self, 'dbPath'):
+                    appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
+                    self.dbPath = os.path.join(appdata, "animeData.db")
+                database = db(self.dbPath)
+                globals()['database_threads'][t] = database
+                return database
 
     def getQB(self, reconnect=False):
         try:

@@ -9,7 +9,7 @@ class Logger:
     def __init__(self, logs="DEFAULT"):
         # Not necessary if used as class slave
 
-        appdata = os.path.join(os.getenv('APPDATA'), "AnimeManager")
+        appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
         self.logsPath = os.path.join(appdata, "logs")
         self.maxLogsSize = 50000
         self.logs = ['DB_ERROR', 'DB_UPDATE', 'MAIN_STATE',

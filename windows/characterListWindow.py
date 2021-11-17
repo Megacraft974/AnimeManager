@@ -11,10 +11,7 @@ class characterListWindow:
         # Functions
         if True:
             def characterCell(character, index, queue):
-                if threading.main_thread() == threading.current_thread():
-                    database = self.database
-                else:
-                    database = self.getDatabase()
+                database = self.getDatabase()
 
                 size = (225, 310)
                 cell = Frame(self.characterListTable, bg=self.colors['Gray3'])

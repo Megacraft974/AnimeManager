@@ -10,24 +10,25 @@ from logger import log
 class Item(dict):
     def __init__(self, data=None):
         super().__init__(self)
-        if not hasattr(self, "data_keys"):
+        if "data_keys" not in self.__dict__.keys():
             self.data_keys = ()
-        if not hasattr(self, "meta_data_keys"):
+        if "meta_data_keys" not in self.__dict__.keys():
             self.meta_data_keys = ()
         if data is not None:
             self.__add__(data)
 
     def __getattr__(self, key):
         if key in ("data_keys", "meta_data_keys"):
-            return self.__dict__["data_keys"]
-        if key in self.data_keys and key not in self.keys():
-            return None
-        else:
-            return self[key]
+            return self.__dict__[key]
+        if key in self.data_keys:
+            if key not in self.keys():
+                return None
+            else:
+                return self[key]
 
     def __setattr__(self, key, value):
         if key in ("data_keys", "meta_data_keys"):
-            self.__dict__["data_keys"] = value
+            self.__dict__[key] = value
             return
         if key in self.data_keys:
             self[key] = value
@@ -67,6 +68,7 @@ class Anime(Item):
             'episodes',
             'genres',
             'id',
+            'last_seen',
             'picture',
             'rating',
             'status',

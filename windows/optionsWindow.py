@@ -24,19 +24,7 @@ class optionsWindow:
             def importTorrent(id):
                 def removeOld(self, t_id, t_torrents):
                     self.log('DB_UPDATE', "Removing torrent duplicates")
-                    if threading.main_thread() == threading.current_thread():
-                        database = self.database
-                    else:
-                        try:
-                            database = self.getDatabase()
-                        except OperationalError as e:
-                            if e.args == ('unable to open database file',):
-                                self.log(
-                                    "[DB_ERROR]", "Error while connecting to database")
-                                return
-                            else:
-                                self.log("ERROR", e.args)
-                                raise e
+                    database = self.getDatabase()
                     for id, torrents in database.sql(
                             "SELECT id,torrent FROM anime WHERE torrent is not null AND id != ?;", (t_id,), iterate=True):
                         torrents = json.loads(torrents)
@@ -76,10 +64,7 @@ class optionsWindow:
 
             def findTorrent(id):
                 if self.getQB() == "OK":
-                    if threading.main_thread() == threading.current_thread():
-                        database = self.database
-                    else:
-                        database = self.getDatabase()
+                    database = self.getDatabase()
 
                     torrents = database.sql(
                         "SELECT torrent FROM anime WHERE id = ?", (id,))[0][0]
@@ -148,17 +133,16 @@ class optionsWindow:
                 d.set({'id': id, 'like': not liked})
 
                 if not liked:
-                    im = Image.open(os.path.join(self.iconPath, "heart.png"))
+                    im_path = os.path.join(self.iconPath, "heart.png")
                 else:
-                    im = Image.open(os.path.join(
-                        self.iconPath, "heart(1).png"))
+                    im_path = os.path.join(self.iconPath, "heart(1).png")
 
                 folder = self.getFolder(id)
                 showFolderButtons = folder is not None and os.path.isdir(
                     os.path.join(self.animePath, folder))
+                
                 iconSize = (50, 50) if showFolderButtons else (30, 30)
-                im = im.resize(iconSize)
-                image = ImageTk.PhotoImage(im)# TODO - Use getImage instead
+                image = self.getImage(im_path, iconSize)
                 b.configure(image=image)
                 b.image = image
                 b.update()
@@ -360,7 +344,7 @@ class optionsWindow:
                 data = self.api.anime(id)
 
                 database(id=id, table="anime").set(data)
-                if 'status' in data.keys() and anime.status != 'UPDATE':
+                if 'status' in data.keys() and data.status != 'UPDATE':
                     self.choice.after(1, lambda id=id: self.reload(id))
 
         # Window init - Fancy corners - Main frame

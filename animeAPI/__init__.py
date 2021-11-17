@@ -133,7 +133,7 @@ class AnimeAPI():
 # anisearch.com
 
 if __name__ == "__main__":
-    appdata = os.path.join(os.getenv('APPDATA'), "AnimeManager")
+    appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
     dbPath = os.path.join(appdata, "animeData.db")
     api = AnimeAPI('all', dbPath)
     s = api.searchAnime("boku")
