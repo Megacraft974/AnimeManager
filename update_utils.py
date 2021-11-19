@@ -4,6 +4,8 @@ import utils
 import json
 from sqlite3 import OperationalError
 
+from classes import Anime
+
 
 class UpdateUtils:
     def updateAll(self, schedule=True):
@@ -48,11 +50,14 @@ class UpdateUtils:
         toSeen = []
 
         torrentDb = database.sql(
-            'SELECT anime.id,tag.tag,anime.torrent FROM anime LEFT JOIN tag on tag.id = anime.id')
+            'SELECT anime.*,tag.tag FROM anime LEFT JOIN tag using(id)', iterate=True)
         self.animeFolder = os.listdir(self.animePath)
         c = 0
-        for id, tag, torrent in torrentDb:
-            folder = self.getFolder(id)
+        keys = list(database(table="anime").keys()) + ['tag']
+        for data in torrentDb:
+            anime = Anime(dict(zip(keys, data)))
+            id, tag, torrent = anime.id, anime.tag, anime.torrent
+            folder = self.getFolder(id, anime=anime)
             if folder is not None and os.path.isdir(
                     os.path.join(self.animePath, folder)):
                 if tag != 'WATCHING':

@@ -46,6 +46,9 @@ class Item(dict):
                 self[k] = v
         return self
 
+    def __contains__(self, e):
+        return e in self.keys()
+
     def save_format(self):
         main_keys = {}
         meta_data = {}
@@ -69,10 +72,12 @@ class Anime(Item):
             'genres',
             'id',
             'last_seen',
+            'like',
             'picture',
             'rating',
             'status',
             'synopsis',
+            'tag',
             'title',
             'title_synonyms',
             'trailer',
@@ -136,7 +141,7 @@ class ItemList(queue.Queue):
             except requests.exceptions.ConnectionError:
                 log("Error on ItemList iterator: No internet connection!")
             except Exception as e:
-                log("Error on ItemList iterator", s, traceback.format_exc())
+                log("Error on ItemList iterator", s, iterator, "\n", traceback.format_exc())
                 self.sources.remove(s)
                 break
             else:

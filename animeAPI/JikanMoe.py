@@ -1,4 +1,4 @@
-from APIUtils import APIUtils, EnhancedSession, Anime, Character
+from APIUtils import APIUtils, EnhancedSession, Anime, Character, log
 from jikanpy import Jikan
 from datetime import date
 import json
@@ -126,7 +126,7 @@ class JikanMoeWrapper(APIUtils):
             weekdays = ('Mondays', 'Tuesdays', 'Wednesdays',
                         'Thursdays', 'Fridays', 'Saturdays', 'Sundays')
             a['broadcast'] = a['broadcast'].split(" (")[0].split(' at ')
-            out['broadcast'] = "{}-{}-{}".format(weekdays.index(
+            out['broadcast'] = "{}-{}-{}".format(weekdays.index(  # TODO - ValueError: tuple.index(x): x not in tuple
                 a['broadcast'][0]), *a['broadcast'][1].split(":"))
 
         # out['broadcast'] = a['broadcast'] if 'broadcast' in a.keys() else None

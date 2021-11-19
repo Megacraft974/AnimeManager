@@ -1,7 +1,8 @@
 import os
 import threading
 import time
-import json,re
+import json
+import re
 from tkinter import *
 from PIL import Image, ImageTk
 from dbManager import db

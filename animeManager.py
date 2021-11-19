@@ -52,9 +52,9 @@ except ModuleNotFoundError as e:
 
 class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
     def __init__(self, remote=False):
+        self.start = time.time()
         for e in Manager.__mro__:
             super(e, self).__init__()
-        self.start = time.time()
 
         self.remote = remote
         self.animeFolder = []
@@ -107,7 +107,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
             self.checkSettings()
 
         self.api = animeAPI.AnimeAPI('all', self.dbPath)
-        self.getQB()
+        self.getQB(use_thread=True)
         self.imQueue = queue.Queue()
 
         if not self.remote:
@@ -149,19 +149,6 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
                     self.animeListReady = True
                     self.root.update()
                     self.createList(None)
-                    # TODO - Show when there are no results
-                    # Label(
-                    #     self.scrollable_frame,
-                    #     text="No results",
-                    #     font=(
-                    #         "Source Code Pro Medium",
-                    #         20),
-                    #     bg=self.colors['Gray2'],
-                    #     fg=self.colors['Gray4'],
-                    # ).grid(
-                    #     columnspan=4,
-                    #     row=0,
-                    #     pady=50)
             elif self.animeList is not None:
                 self.stopSearch = True
                 self.animeListReady = True
@@ -172,9 +159,9 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
 
     def searchDb(self, terms):
         def enumerator(terms):
-            sql = "SELECT anime.* FROM searchTitles JOIN anime on searchTitles.id = anime.id WHERE searchTitles.title LIKE '%{}%' GROUP BY anime.id ORDER BY anime.date_from DESC;".format(
+            sql = "SELECT anime.*,tag.tag,like.like FROM searchTitles JOIN anime using(id) LEFT JOIN tag using(id) LEFT JOIN like using(id) WHERE searchTitles.title LIKE '%{}%' GROUP BY anime.id ORDER BY anime.date_from DESC;".format(
                 terms)
-            keys = self.database(table="anime").keys()
+            keys = list(self.database(table="anime").keys()) + ['tag', 'like']
             for data in self.database.sql(sql):
                 data = Anime(dict(zip(keys, data)))
                 yield data
@@ -306,14 +293,9 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
 
     # ___Main List generation___
     def createList(self, criteria="DEFAULT", listrange=(0, 50)):
-        def enumerator(ids):
-            ids = list(ids)
-            for id in ids:
-                yield self.database(id=id[0], table="anime").get()
-
         def wait_for_next(animelist, default):
             que = queue.Queue()
-            if type(animelist) == AnimeList:
+            if isinstance(animelist, AnimeList):
                 t = threading.Thread(
                     target=lambda que, animelist, default:
                         que.put(animelist.get(timeout=30, default=None)),
@@ -336,7 +318,6 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
 
         if criteria == "DEFAULT" or self.animeList is None:
             if criteria == "DEFAULT":
-                table = "anime"
                 filter = "anime.status != 'UPCOMING'"
                 if self.hideRated:
                     filter += " AND (rating NOT IN('R+','Rx') OR rating IS null)"
@@ -344,7 +325,6 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
                 order = "anime.date_from"
             else:
                 # \nAND rating NOT IN('R+','Rx')"
-                table = 'anime'
                 commonFilter = "\nAND anime.id NOT IN(SELECT anime.id FROM anime WHERE status = 'UPCOMING')"
                 order = "anime.date_from"
                 sort = "DESC"
@@ -352,11 +332,9 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
                     commonFilter += " \nAND (rating NOT IN('R+','Rx') OR rating IS null)"
 
                 if criteria == 'LIKED':
-                    table = 'like'
                     filter = "like.like = 1" + commonFilter
 
                 elif criteria == 'NONE':
-                    table = 'tag'
                     filter = "tag.tag = 'NONE' OR anime.id NOT IN(SELECT id FROM tag)" + commonFilter
 
                 elif criteria in ['UPCOMING', 'FINISHED', 'AIRING']:
@@ -390,17 +368,13 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
                         order = order.format(
                             sort_date.day, sort_date.hour, sort_date.minute)
                         # Depend on timezone - TODO
-                    table = 'tag'
                     filter = "tag.tag = '{}'".format(criteria) + commonFilter
 
-            ids = self.database.allkeys(
-                table=table,
+            self.animeList = self.database.filter(
                 sort=sort,
                 range=listrange,
                 order=order,
                 filter=filter)
-
-            self.animeList = enumerator(ids)
 
         self.animeListReady = True  # Interrupt previous list generation
         self.root.update()
@@ -432,6 +406,21 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
                 if self.animeListReady:
                     return
                 if data is None:
+                    if i == listrange[0]:
+                        # TODO - Show when there are no results
+                        Label(
+                            self.scrollable_frame,
+                            text="No results",
+                            font=(
+                                "Source Code Pro Medium",
+                                20),
+                            bg=self.colors['Gray2'],
+                            fg=self.colors['Gray4'],
+                        ).grid(
+                            columnspan=self.animePerRow,
+                            row=0,
+                            pady=50)
+                        print("NO RESULTS")
                     break
                 self.createElem(i, data, que)
 
@@ -461,6 +450,13 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
             self.blank_image = self.getImage(None, (225, 310))
         # im = Image.new('RGB', (225, 310), self.colors['Gray'])
         # image = ImageTk.PhotoImage(im)  # TODO - Use getImage instead
+        title = anime.title
+        if title is None:
+            print("No title for id:", anime.id)
+            self.list_timer.stop()
+            return
+        if len(title) > 35:
+            title = title[:35] + "..."
 
         img_can = Canvas(self.scrollable_frame, width=225, height=310, highlightthickness=0, bg=self.colors['Gray3'])
         img_can.bind("<Button-1>", lambda e,
@@ -472,18 +468,22 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
         img_can.create_image(0, 0, image=self.blank_image, anchor='nw')
         img_can.image = self.blank_image
 
-        title = anime.title
-        if len(title) > 35:
-            title = title[:35] + "..."
-
-        if self.database(id=anime.id, table='like').exist() and bool(
-                self.database(id=anime.id, table='like')['like']):
+        if 'tag' in anime:
+            tag = anime.tag
+            if tag is None:
+                tag = "NONE"
+        else:
+            tag = self.database(id=anime.id, table='tag')['tag']
+        if 'like' in anime:
+            like = anime.like
+        else:
+            like = self.database(id=anime.id, table='like')['like']
+        if like == 1:
             title += " ❤"
         lbl = Label(self.scrollable_frame,
                     text=title,
                     bg=self.colors['Gray2'],
-                    fg=self.colors[self.tagcolors[self.database(id=anime.id,
-                                                                table='tag')['tag']]],
+                    fg=self.colors[self.tagcolors[tag]],
                     font=("Source Code Pro Medium", 13),
                     bd=0,
                     wraplength=220)
@@ -823,7 +823,8 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
             database(table="anime").set(
                 {'id': id, 'torrent': json.dumps(torrents)})
 
-            if id not in database.allkeys('tag') or database(
+            # TODO
+            if not database(id=id, table='tag').exist() or database(
                     id=id, table='tag')['tag'] in (None, 'NONE'):
                 database(table='tag').set({'id': id, 'tag': 'WATCHING'})
 

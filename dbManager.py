@@ -1,6 +1,8 @@
 import sqlite3
 import json
 import os
+import traceback
+import threading
 from classes import Anime, Character
 from logger import log
 
@@ -10,14 +12,14 @@ class db():
 
     def __init__(self, path):
         self.path = path
-        print(path)
         if not os.path.exists(self.path):
             self.createNewDb()
         self.con = sqlite3.connect(path, check_same_thread=False)
         # self.con.row_factory = sqlite3.Row
         self.cur = self.con.cursor()
         self.table = "anime"
-        self.updateKeys()
+        self.alltable_keys = {}
+        # self.updateKeys()
 
     def createNewDb(self):
         open(self.path, "w")
@@ -99,17 +101,13 @@ class db():
         self.save()
         self.con.close()
 
-    def setId(self, id):
-        self.id = id
-        return self
-
-    def setTable(self, table):
-        self.table = table
-        return self
-
     def updateKeys(self):
-        self.tablekeys = list(d[1] for d in self.sql(
-            "PRAGMA table_info({});".format(self.table), iterate=True))
+        if self.table not in self.alltable_keys:
+            self.tablekeys = list(d[1] for d in self.sql(
+                "PRAGMA table_info({});".format(self.table)))
+            self.alltable_keys[self.table] = self.tablekeys
+        else:
+            self.tablekeys = self.alltable_keys[self.table]
 
     def __call__(self, id=None, table=None):
         if id is not None:
@@ -124,8 +122,11 @@ class db():
     def __getitem__(self, key):
         sql = "SELECT {} FROM {} WHERE id=?".format(key, self.table)
         try:
-            e = next(self.sql(sql, (self.id,), iterate=True), ("NONE",))
-            return e[0]
+            e = self.sql(sql, (self.id,))
+            if len(e) == 0:
+                return "NONE"
+            else:
+                return e[0][0]
         except BaseException:
             log("", "\nError on id", self.id,
                 "table", self.table, "sql", sql)
@@ -149,6 +150,10 @@ class db():
     def __str__(self):
         return str(self.__repr__())
 
+    def __del__(self):
+        log("Deleting db instance")
+        self.cur.close()
+
     def keys(self):
         self.updateKeys()
         return self.tablekeys
@@ -166,33 +171,33 @@ class db():
         self.updateKeys()
         return [(self.tablekeys[i], v) for i, v in enumerate(self.values())]
 
-    def new(self):
-        # Placeholder
-        return db(self.path).setId(self.id).setTable(self.table)
-
-    def exist(self, key='id', value=None, table=None):
-        if table is None:
-            table = self.table
-        if value is None:
-            value = self.id
-        sql = "SELECT EXISTS(SELECT 1 FROM " + table + \
-            " WHERE {}=?);".format(key)
-        self.execute(sql, (value,))
-        return bool(self.cur.fetchall()[0][0])
+    def exist(self, key='id', value=None, table=None, release_lock=True):
+        lock = self.get_lock()
+        try:
+            if table is None:
+                table = self.table
+            if value is None:
+                value = self.id
+            sql = "SELECT EXISTS(SELECT 1 FROM " + table + \
+                " WHERE {}=?);".format(key)
+            self.execute(sql, (value,), release_lock=False)
+            return bool(self.cur.fetchall()[0][0])
+        finally:
+            if release_lock:
+                lock.release()
 
     def get(self):
-        if not self.exist():
-            log(self.id, "doesn't exist in table", self.table)
-            out = {}
+        sql = "SELECT * FROM {} WHERE id=?".format(self.table)
+        try:
+            rows = self.sql(sql, (self.id,))
+        except Exception as e:
+            log("", "\nError on id:", self.id,
+                "- table:", self.table, "- sql:", sql)
+            raise e
+        if len(rows) == 0:
+            out = {}  # Not found
         else:
-            sql = "SELECT * FROM {} WHERE id=?".format(self.table)
-            try:
-                row = self.sql(sql, (self.id,))[0]
-            except Exception as e:
-                log("", "\nError on id:", self.id,
-                    "- table:", self.table, "- sql:", sql)
-                raise e
-            # rows = self.cur.fetchall()
+            row = rows[0]
             keys = self.keys()
             out = dict(zip(keys, row))
         if self.table == "anime":
@@ -208,7 +213,6 @@ class db():
         elif table == "characters":
             index = "charactersIndex"
         sql = "SELECT id FROM {} WHERE {}=?;".format(index, apiKey)
-        # e = next(self.sql(sql,(apiId,),iterate=True),None)
         ids = self.sql(sql, (apiId,))
         if len(ids) > 0:
             return ids[0][0]
@@ -217,7 +221,6 @@ class db():
             try:
                 self.execute(isql, (apiId,))
             except sqlite3.IntegrityError as e:
-                # log(e, "-", sql, apiId, ids)
                 sql = "SELECT id FROM {} WHERE {}=?;".format(index, apiKey)
                 ids = self.sql(sql, (apiId,))
                 return ids[0][0]
@@ -232,9 +235,20 @@ class db():
         if save:
             self.con.commit()
 
-    def execute(self, sql, *args):
+    def get_lock(self):
+        if 'db_lock' not in globals().keys():
+            lock = threading.Lock()
+            globals()['db_lock'] = lock
+            return lock
+        else:
+            return globals()['db_lock']
+
+    def execute(self, sql, *args, release_lock=True, ignore_lock=False):
+        lock = self.get_lock()
         try:
-            return self.cur.execute(sql, *args)
+            if not ignore_lock:
+                lock.acquire(True)
+            self.cur.execute(sql, *args)
         except sqlite3.OperationalError as e:
             if e.args == ('database is locked',):
                 log("[ERROR] - Database is locked!")
@@ -245,12 +259,16 @@ class db():
         except sqlite3.InterfaceError as e:
             log(e, sql, *args)
             raise e
+        finally:
+            if release_lock:
+                lock.release()
 
     def set(self, data, save=True):
         if len(data) == 0:
             return
         keys = []
         values = []
+        self.updateKeys()
         for k, v in data.items():
             if (self.table != "anime" or k in self.tablekeys):
                 keys.append(k)
@@ -261,18 +279,18 @@ class db():
                 else:
                     values.append(v)
 
-        if self.exist("id", data["id"]):
+        if self.exist("id", data["id"], release_lock=False):
             sql = "UPDATE " + self.table + " SET " + \
                 "{} = ?," * (len(keys) - 1) + "{} = ? WHERE {} = ?"
             sql = sql.format(*keys, "id")
-            self.execute(sql, (*values, data["id"]))
+            self.execute(sql, (*values, data["id"]), release_lock=False, ignore_lock=True)
         else:
             sql = "INSERT INTO " + self.table + \
                 "(" + "{}," * (len(keys) - 1) + \
                   "{}) VALUES(" + "?," * (len(keys) - 1) + "?)"
             sql = sql.format(*keys)
             try:
-                self.execute(sql, (*values,))
+                self.execute(sql, (*values,), release_lock=False, ignore_lock=True)
             except Exception as e:
                 log(sql)
                 for v in values:
@@ -280,6 +298,8 @@ class db():
                 raise e
         if save:
             self.con.commit()
+        lock = self.get_lock()
+        lock.release()
 
     def insert(self, data, save=True):
         keys = ['id']
@@ -302,6 +322,7 @@ class db():
         if save:
             self.con.commit()
 
+    # TODO
     def addRelated(self, id, relation, rel_id):
         sql = "SELECT rel_id FROM related WHERE id=? AND relation=?"
         self.execute(sql, (str(id), relation))
@@ -335,45 +356,28 @@ class db():
         if save:
             self.con.commit()
 
-    def all(self, table=None, **args):
+    def filter(self, table=None, sort="",
+               range=(0, 50), order=None, filter=None):
         if table is not None:
             self.table = table
-        return {id: self.setId(id).new() for id in self.allkeys(**args)}
-
-    def allkeys(self, table=None, sort="",
-                range=(0, 50), order=None, filter=None):
-        if table is not None:
-            self.table = table
-        if range or sort:
-            join = "\nJOIN anime on {table}.id = anime.id ".format(
-                table=self.table) if self.table != "anime" else ""
-            limit = "\nLIMIT {start},{stop}".format(
-                start=range[0], stop=range[1]) if range else ""
-            filter = "\nWHERE {filter}".format(filter=filter) if filter else ""
-            if order is None:
-                sort = "DESC" if sort is None else sort
-                order = "anime.date_from"
-            sql = """SELECT {table}.id FROM {table} {join} {filter} \nORDER BY {order} {sort} {limit};""".format(
-                table=self.table, join=join, filter=filter, order=order, sort=sort, limit=limit)
-            rows = self.sql(sql, iterate=True)
-        else:
-            rows = self.request('id')
-        for id in rows:
-            yield id
-
-    def allvalues(self, table=None, **args):  # Not used
-        if table is not None:
-            self.table = table
-        return (dict(self.setId(id)) for id in self.allkeys(**args))
-
-    def request(self, data, table=None):
-        if table is not None:
-            self.table = table
-        sql = "SELECT {} FROM " + self.table
-        sql = sql.format(data)
-        self.execute(sql)
-        for row in self.cur:
-            yield row
+        limit = "\nLIMIT {start},{stop}".format(
+            start=range[0], stop=range[1]) if range else ""
+        filter = "\nWHERE {filter}".format(filter=filter) if filter else ""
+        if order is None:
+            sort = "DESC" if sort is None else sort
+            order = "anime.date_from"
+        sql = """SELECT anime.*,tag.tag,like.like FROM anime LEFT JOIN tag using(id) LEFT JOIN like using(id) {filter} \nORDER BY {order} {sort} {limit};""".format(
+            filter=filter, order=order, sort=sort, limit=limit)
+        self.updateKeys()
+        lock = self.get_lock()
+        try:
+            self.execute(sql, release_lock=False)
+            data_list = self.cur.fetchall()
+        finally:
+            lock.release()
+        keys = list(self.tablekeys) + ['tag', 'like']
+        for data in data_list:
+            yield Anime(dict(zip(keys, data)))
 
     def sql(self, sql, values=[], save=False, iterate=False):
         def sql_iterate(cur):
@@ -381,19 +385,23 @@ class db():
                 yield row
         if not isinstance(values, list):
             values = list(values)
+
+        lock = self.get_lock()
         try:
-            self.execute(sql, values)
+            self.execute(sql, values, release_lock=False)
         except sqlite3.ProgrammingError as e:
             log(sql, values, list(map(type, values)))
             raise e
-        if save:
-            self.save()
         else:
-            if iterate:
-                return sql_iterate(self.cur)
+            if save:
+                self.save()
             else:
-                rows = self.cur.fetchall()
-                return rows
+                if iterate:
+                    return sql_iterate(self.cur)
+                else:
+                    return self.cur.fetchall()
+        finally:
+            lock.release()
 
     def save(self):
         self.con.commit()

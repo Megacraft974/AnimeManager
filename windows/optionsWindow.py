@@ -140,7 +140,7 @@ class optionsWindow:
                 folder = self.getFolder(id)
                 showFolderButtons = folder is not None and os.path.isdir(
                     os.path.join(self.animePath, folder))
-                
+
                 iconSize = (50, 50) if showFolderButtons else (30, 30)
                 image = self.getImage(im_path, iconSize)
                 b.configure(image=image)
@@ -844,8 +844,7 @@ class optionsWindow:
                 rel_ids = json.loads(relation[2])
                 sql = "SELECT title,id FROM anime WHERE id IN (?" + ",?" * (
                     len(rel_ids) - 1) + ");"
-                # sql = sql.format()
-                titles = dict(self.database.sql(sql, rel_ids, iterate=True))
+                titles = dict(self.database.sql(sql, rel_ids))
                 text = relation[1].capitalize().replace("_", " ")
                 if len(titles) == 1:
                     Button(relationsFrame,
@@ -858,7 +857,7 @@ class optionsWindow:
                            activebackground=self.colors['Gray2'],
                            activeforeground=self.colors['Red'],
                            bg=self.colors['Gray2'],
-                           fg=self.colors[self.tagcolors[self.database(id=rel_ids[0]).setTable('tag')['tag']]],
+                           fg=self.colors[self.tagcolors[self.database(id=rel_ids[0], table='tag')['tag']]],
                            command=lambda ids=rel_ids: switch(ids[0])).grid(row=0,
                                                                             column=column)
                 elif len(titles) > 1:

@@ -25,6 +25,7 @@ class Getters:
             for db_t in list(globals()['database_threads'].keys()):
                 if not db_t.is_alive():
                     del globals()['database_threads'][db_t]
+
             t = threading.current_thread()
             if t in globals()['database_threads'].keys():
                 return globals()['database_threads'][t]
@@ -36,7 +37,10 @@ class Getters:
                 globals()['database_threads'][t] = database
                 return database
 
-    def getQB(self, reconnect=False):
+    def getQB(self, use_thread=False, reconnect=False):
+        if use_thread:
+            threading.Thread(target=self.getQB, args=(False, reconnect)).start()
+            return
         try:
             if reconnect:
                 if self.qb is not None:

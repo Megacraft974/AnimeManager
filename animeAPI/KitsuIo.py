@@ -56,7 +56,7 @@ class KitsuIoWrapper(APIUtils):
                 self.db(table="anime").set(data)
             yield data
 
-    def schedule(self, save=True, limit=100):
+    def schedule(self, limit=100):
         def getSchedule():
             modifier = Inclusion("genres", "mediaRelationships",
                                  "mediaRelationships.destination", "mappings")
@@ -84,8 +84,6 @@ class KitsuIoWrapper(APIUtils):
             if data is None:
                 continue
 
-            if save:
-                self.db(id=id, table="anime").set(data)
             yield data
             if c >= limit:
                 break
@@ -116,6 +114,7 @@ class KitsuIoWrapper(APIUtils):
             return self._convertCharacter(rep[0])
 
     def _convertAnime(self, a, force=False):
+        self.db = self.getDatabase()
         self._mapAnimes(a)
         if not force and a.subtype not in self.subtypes:
             return None
@@ -247,9 +246,7 @@ class KitsuIoWrapper(APIUtils):
             site = m.externalSite
             if site in self.mappedSites.keys():
                 api_key = self.mappedSites[site]
-                # api_id = self.db.sql(sql.format(api_key),(id,))
-                api_exist = bool(self.db.sql(sql.format(
-                    api_key), (kitsu_id, api_id,))[0][0])
+                api_exist = bool(self.db.sql(sql.format(api_key), (kitsu_id, api_id,))[0][0])
                 id = self.db.getId("kitsu_id", kitsu_id)
                 if api_exist:
                     temp_id = self.db.getId(api_key, api_id)
