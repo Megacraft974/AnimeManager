@@ -54,6 +54,8 @@ class AnimeAPI():
         def handler(api, name, que, *args, **kwargs):
             try:
                 r = getattr(api, name)(*args, **kwargs)
+            except requests.exceptions.ConnectionError:
+                log("Error on API - handler: No internet connection!")
             except Exception as e:
                 apiName = str(api).split(".")[0].split(" ")[-1]
                 log(

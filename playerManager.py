@@ -1230,7 +1230,15 @@ class MpvPlayer(Player):
 
         h = self.videopanel.winfo_id()
         self.player = mpv.MPV(wid=str(int(h)), ytdl=url)
-        # log(self.player.property_observer('time-remaining')(self.auto_loop),flush=True) - TODO
+
+        @self.player.property_observer('time-remaining')
+        def auto_loop(_name, time):
+            if time is None:
+                return
+            if time == 0.0:
+                log("NEXT FILE")
+                self.playlistNext()
+
         self.player.play(self.playlist[self.index])
 
         self.volume = 100
@@ -1394,11 +1402,17 @@ class MpvPlayer(Player):
 
     def timeForward(self, t=0):
         t = int(t)
-        self.player.seek(t)
+        try:
+            self.player.seek(t)
+        except SystemError as e:
+            log(e)
 
     def timeBack(self, t=0):
         t = int(t)
-        self.player.seek(-t)
+        try:
+            self.player.seek(-t)
+        except SystemError as e:
+            log(e)
 
     def volumeUp(self, value=0):
         value = int(value)
@@ -1526,14 +1540,6 @@ class MpvPlayer(Player):
                 self.hidden = True
 
         self.parent.after(100, self.OnTick)
-
-    def auto_loop(self, _name, time):
-        if time is None:
-            return
-        log(time, flush=True)
-        if time < 0.5:
-            log("NEXT FILE")
-            self.playlistNext()
 
     def updateDb(self):
         # log("Updating last_seen db",flush=True)

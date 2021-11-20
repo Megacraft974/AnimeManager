@@ -34,6 +34,7 @@ class characterListWindow:
                 if "c" + str(character['id']) + \
                         ".jpg" in os.listdir(self.cache):
                     im = Image.open(filename)
+                    image = self.getImage(filename)
                     loadImg = False
                 else:
                     im = Image.new('RGB', (225, 310), self.colors['Gray'])
@@ -44,9 +45,8 @@ class characterListWindow:
                         character['name'],
                         "id",
                         character['id'])
+                    image = ImageTk.PhotoImage(im)
 
-                # im.resize(size)
-                image = ImageTk.PhotoImage(im)  # TODO - Use getImage instead
                 can.create_image(size[0] / 2, size[1] / 2,
                                  image=image, anchor='center')
                 can.image = image

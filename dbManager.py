@@ -151,7 +151,6 @@ class db():
         return str(self.__repr__())
 
     def __del__(self):
-        log("Deleting db instance")
         self.cur.close()
 
     def keys(self):
@@ -368,7 +367,7 @@ class db():
             order = "anime.date_from"
         sql = """SELECT anime.*,tag.tag,like.like FROM anime LEFT JOIN tag using(id) LEFT JOIN like using(id) {filter} \nORDER BY {order} {sort} {limit};""".format(
             filter=filter, order=order, sort=sort, limit=limit)
-        self.updateKeys()
+        self(table="anime").updateKeys()
         lock = self.get_lock()
         try:
             self.execute(sql, release_lock=False)

@@ -126,7 +126,9 @@ class JikanMoeWrapper(APIUtils):
             weekdays = ('Mondays', 'Tuesdays', 'Wednesdays',
                         'Thursdays', 'Fridays', 'Saturdays', 'Sundays')
             a['broadcast'] = a['broadcast'].split(" (")[0].split(' at ')
-            out['broadcast'] = "{}-{}-{}".format(weekdays.index(  # TODO - ValueError: tuple.index(x): x not in tuple
+            if a['broadcast'][0] not in weekdays:
+                raise ValueError(a['broadcast'][0] + " is not in weekdays!")
+            out['broadcast'] = "{}-{}-{}".format(weekdays.index(
                 a['broadcast'][0]), *a['broadcast'][1].split(":"))
 
         # out['broadcast'] = a['broadcast'] if 'broadcast' in a.keys() else None

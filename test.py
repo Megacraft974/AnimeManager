@@ -59,4 +59,7 @@
 #         print(url)
 #         getTracker(v.scheme,url,v.port,info_hash,size)
 
-import constants
+from datetime import datetime
+
+d = datetime.now()
+print(str(d))

@@ -1,5 +1,6 @@
 import threading
 import os
+import io
 import hashlib
 import time
 import re
@@ -82,7 +83,7 @@ class Getters:
         return state
 
     def getImage(self, path, size=None):
-        if path is not None and os.path.isfile(path):
+        if (isinstance(path, str) and os.path.isfile(path)) or isinstance(path, io.IOBase):
             img = Image.open(path)
         else:
             img = Image.new('RGB', (10, 10), self.colors['Gray'])

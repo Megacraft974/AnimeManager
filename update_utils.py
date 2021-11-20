@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import os
 import utils
 import json
+import threading
 from sqlite3 import OperationalError
 
 from classes import Anime
@@ -16,6 +17,26 @@ class UpdateUtils:
         self.updateTitles()
         if schedule:
             self.getSchedule()
+
+    def updateAllProgression(self, schedule=False):
+        def wrapper(f):
+            try:
+                f()
+            except BaseException as e:
+                log(e)
+        reloadFunc = {
+            self.updateCache: "Updating cache",
+            self.updateDirs: "Updating directories",
+            self.updateTag: "Updating tags",
+            self.regroupFiles: "Regrouping files",
+            self.updateTitles: "Updating titles",
+        }
+        yield len(reloadFunc)
+
+        for f, text in reloadFunc.items():
+            thread = threading.Thread(target=wrapper,args=(f,))
+            thread.start()
+            yield thread, text
 
     def updateCache(self):
         c = 0

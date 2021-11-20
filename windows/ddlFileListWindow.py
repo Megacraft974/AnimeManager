@@ -13,6 +13,8 @@ class ddlFileListWindow:
                     label.configure(fg=self.colors['Blue'])
                 except BaseException:
                     pass
+            table.update()
+            self.fileChooser.update()
 
         # Window init - Fancy corners - Main frame - Events
         if True:

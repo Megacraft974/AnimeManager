@@ -13,6 +13,8 @@ from tkinter import *
 from tkinter.filedialog import askopenfilenames
 from tkinter.ttk import Progressbar
 
+import qbittorrentapi.exceptions
+
 import utils
 from playerManager import MpvPlayer
 
@@ -97,6 +99,9 @@ class optionsWindow:
                     torrent = self.qb.torrents_properties(hash)
                 except qbittorrentapi.exceptions.NotFound404Error:
                     value = 100
+                except qbittorrentapi.exceptions.APIConnectionError:
+                    self.log("NETWORK", "[ERROR] - Couldn't find the torrent client!")
+                    value = 100
                 else:
                     value = torrent.pieces_have / torrent.pieces_num * 100
                 if value == 100:
@@ -117,6 +122,16 @@ class optionsWindow:
                             id,
                             bar,
                             text))
+
+            def colorFileEntries(last_seen, eps, epsList):
+                if len(eps) >= 1 and list(eps)[0] is not None:
+                    pathList = [os.path.normpath(i['path']) for i in eps]
+                else:
+                    pathList = []
+                if last_seen is not None and os.path.normpath(last_seen) in pathList:
+                    for i in range(pathList.index(os.path.normpath(last_seen)) + 1):
+                        epsList['menu'].entryconfig(
+                            i, foreground=self.colors['Green'])
 
             def tag(id, tag):
                 self.database(table='tag').set({'id': id, 'tag': tag})
@@ -511,20 +526,11 @@ class optionsWindow:
                 )
                 epsList.grid(row=2 + offRow, column=1,
                              sticky="nsew", padx=2, pady=2)
+
+                colorFileEntries(anime.last_seen, eps, epsList)
                 epsList.bind("<Button-3>", lambda e,
                              var=var: openEps(e, eps, var))
-
-                last_seen = anime.last_seen
-                if len(eps) >= 1 and list(eps)[0] is not None:
-                    pathList = [os.path.normpath(i['path']) for i in eps]
-                else:
-                    pathList = []
-                if last_seen is not None and os.path.normpath(
-                        last_seen) in pathList:
-                    for i in range(pathList.index(
-                            os.path.normpath(last_seen)) + 1):
-                        epsList['menu'].entryconfig(
-                            i, foreground=self.colors['Green'])
+                epsList.bind("<Button-1>", lambda e, a=anime.last_seen, b=eps, c=epsList: colorFileEntries(a, b, c))
 
             [titleFrame.grid_columnconfigure(i, weight=1) for i in range(2)]
 

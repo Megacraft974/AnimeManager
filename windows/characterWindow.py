@@ -15,14 +15,12 @@ class characterWindow:
                 d.set({'id': id, 'like': not liked})
 
                 if not liked:
-                    im = Image.open(os.path.join(self.iconPath, "heart.png"))
+                    im_path = os.path.join(self.iconPath, "heart.png")
                 else:
-                    im = Image.open(os.path.join(
-                        self.iconPath, "heart(1).png"))
+                    im_path = os.path.join(self.iconPath, "heart(1).png")
 
                 iconSize = (30, 30)
-                im = im.resize(iconSize)
-                image = ImageTk.PhotoImage(im)  # TODO - Use getImage instead
+                self.getImage(im_path, iconSize)
                 b.configure(image=image)
                 b.image = image
                 b.update()
@@ -103,7 +101,7 @@ class characterWindow:
                 self.cache, "c" + str(character['id']) + ".jpg")
 
             if "c" + str(character['id']) + ".jpg" in os.listdir(self.cache):
-                im = Image.open(filename)
+                im = self.getImage(filename)
             else:
                 raw_data = requests.get(character['picture']).content
                 im = Image.open(io.BytesIO(raw_data))
@@ -112,7 +110,7 @@ class characterWindow:
                     im = im.convert('RGB')
                 im.save(filename)
 
-            image = ImageTk.PhotoImage(im)  # TODO - Use getImage instead
+                image = ImageTk.PhotoImage(im)
 
             try:
                 can = Canvas(self.characterInfo, width=225, height=310,
@@ -143,12 +141,11 @@ class characterWindow:
                     id=character['id'],
                     table='characters').exist() and bool(
                     self.database['like']):
-                im = Image.open(os.path.join(self.iconPath, "heart.png"))
+                im_path = os.path.join(self.iconPath, "heart.png")
             else:
-                im = Image.open(os.path.join(self.iconPath, "heart(1).png"))
+                im_path = os.path.join(self.iconPath, "heart(1).png")
             iconSize = (30, 30)
-            im = im.resize(iconSize)
-            image = ImageTk.PhotoImage(im)  # TODO - Use getImage instead
+            image = self.getImage(im_path, iconSize)
 
             Button(
                 titleFrame,

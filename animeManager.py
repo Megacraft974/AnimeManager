@@ -448,11 +448,9 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
         self.list_timer.start()
         if self.blank_image is None:
             self.blank_image = self.getImage(None, (225, 310))
-        # im = Image.new('RGB', (225, 310), self.colors['Gray'])
-        # image = ImageTk.PhotoImage(im)  # TODO - Use getImage instead
         title = anime.title
         if title is None:
-            print("No title for id:", anime.id)
+            print("No title for id:", anime.id,anime)
             self.list_timer.stop()
             return
         if len(title) > 35:
@@ -502,7 +500,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
             if data != "STOP":
                 im, can = data
                 try:
-                    image = ImageTk.PhotoImage(im)  # TODO - Use getImage instead
+                    image = ImageTk.PhotoImage(im)
                     can.create_image(0, 0, image=image, anchor='nw')
                     can.image = image
                 except BaseException:
@@ -674,10 +672,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
 
     # ___Utils___
     def reloadAll(self):
-        try:
-            self.log('MAIN_STATE', "Reloading")
-        except AttributeError:
-            pass
+        self.log('MAIN_STATE', "Reloading")
         self.onClose()
         try:
             self.fen.destroy()
@@ -687,25 +682,21 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
 
         self.loadingWindow()
 
-        reloadFunc = {
-            self.updateCache: "Updating cache",
-            self.updateDirs: "Updating directories",
-            self.updateTag: "Updating tags",
-            self.regroupFiles: "Regrouping files",
-            self.updateTitles: "Updating titles",
-        }  # self.getSchedule:"Updating schedule"}#,self.getCharacters)
+        processes = self.updateAllProgression()
+        lenght = next(processes)
+
         self.start = time.time()
         loadStart = 0
-        for i, item in enumerate(reloadFunc.items()):
-            f, text = item
-            thread = threading.Thread(target=f)
-            thread.start()
+        for i, item in enumerate(processes):
+            thread, text = item
+            # thread = threading.Thread(target=f)
+            # thread.start()
             try:
                 self.loadLabel['text'] = text
             except BaseException:
                 if not self.loadfen.winfo_exists():
                     break
-            loadStop = (i + 1) / len(reloadFunc) * 100
+            loadStop = (i + 1) / lenght * 100
             while thread.is_alive():
                 time.sleep(1 / 60)
                 loadStart += (loadStop - loadStart) / max(100 - loadStop, 2)
@@ -726,7 +717,9 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
                      round(time.time() - self.start, 2), 'sec')
         except AttributeError:
             pass
-        Manager()
+        self.__init__()
+        # del self
+        # Manager()
 
     def view(self, id):
         index = "indexList"
@@ -805,7 +798,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
                         torrent_files=torrent_url, save_path=path)  # urls=url
                 except qbittorrentapi.exceptions.APIConnectionError:
                     self.log(
-                        'NETWORK', "[ERROR] Couldn't find the torrent client!")
+                        'NETWORK', "[ERROR] - Couldn't find the torrent client!")
                 else:
 
                     torrenthash = self.getTorrentHash(filePath)
@@ -813,7 +806,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
                         location=path, torrent_hashes=[torrenthash])
             else:
                 self.log(
-                    'NETWORK', "[ERROR] Couldn't find the torrent client!")
+                    'NETWORK', "[ERROR] - Couldn't find the torrent client!")
 
             torrents = database.sql(
                 "SELECT torrent FROM anime WHERE id = ?", (id,))[0][0]
@@ -822,6 +815,8 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
             torrents = list(set(torrents))
             database(table="anime").set(
                 {'id': id, 'torrent': json.dumps(torrents)})
+
+            print(database(id=id, table='tag')['tag'])
 
             # TODO
             if not database(id=id, table='tag').exist() or database(
@@ -853,7 +848,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
                         len(torrents)))
 
         else:
-            self.log('NETWORK', "[ERROR] Couldn't find the torrent client!")
+            self.log('NETWORK', "[ERROR] - Couldn't find the torrent client!")
 
     def bluetoothConnect(self):
         pass
@@ -925,7 +920,6 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
         database = self.getDatabase()
 
         self.log("NETWORK", "Requesting data for character id", id)
-        # data = self.jikan.character(id)
         sql = "SELECT * FROM charactersIndex WHERE id=?"
         keys = database(table="charactersIndex").keys()[1:]
         api_keys = dict(zip(keys, database.sql(sql, (id,))[0][1:]))
