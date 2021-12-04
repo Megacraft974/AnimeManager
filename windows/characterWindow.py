@@ -11,8 +11,8 @@ class characterWindow:
         if True:
             def like(id, b):
                 d = self.database(id=id, table='characters')
-                liked = d.exist() and bool(d['like'])
-                d.set({'id': id, 'like': not liked})
+                liked = self.database.exist(id=id, table='characters') and bool(d['like'])
+                self.database.set({'id': id, 'like': not liked})
 
                 if not liked:
                     im_path = os.path.join(self.iconPath, "heart.png")
@@ -137,10 +137,7 @@ class characterWindow:
             self.characterInfo.handles = [titleLbl]
             self.characterInfo.update()
 
-            if self.database(
-                    id=character['id'],
-                    table='characters').exist() and bool(
-                    self.database['like']):
+            if self.database.exist(id=character['id'], table='characters') and bool(self.database(id=character['id'], table='characters')['like']):
                 im_path = os.path.join(self.iconPath, "heart.png")
             else:
                 im_path = os.path.join(self.iconPath, "heart(1).png")

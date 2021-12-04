@@ -133,7 +133,6 @@ class initWindow:
                         i, foreground=self.colors[color])
 
                 self.searchTerms = StringVar(self.fen)
-                self.searchTerms.trace_add(("write"), self.search)
 
                 searchBar = Entry(
                     head,
@@ -146,13 +145,12 @@ class initWindow:
                     bg=self.colors['Gray2'],
                     fg=self.colors['White'])
                 searchBar.grid(row=0, column=1, sticky="nsew", pady=10)
-                # searchBar.bind("<Return>", search)
-                searchBar.bind("<ButtonPress-1>",
-                               lambda e: start_move(e, self.fen))
+                searchBar.bind("<ButtonPress-1>", lambda e: start_move(e, self.fen))
                 searchBar.bind("<B1-Motion>", lambda e: do_move(e, self.fen))
-                searchBar.bind(
-                    "<Control-Return>",
-                    lambda e: self.search(force_search=True))
+                # self.searchTerms.trace_add("write", self.search)
+                searchBar.bind("<KeyRelease>", self.search)
+                searchBar.bind("<Return>", self.search)
+                searchBar.bind("<Control-Return>", lambda e: self.search(force_search=True))
 
                 self.giflist = [
                     PhotoImage(
@@ -205,10 +203,12 @@ class initWindow:
                     head,
                     image=closeIcon,
                     bd=0,
+                    height=40,
                     relief='solid',
                     activebackground=self.colors['Gray2'],
                     bg=self.colors['Gray2'],
-                    command=self.quit).grid(
+                    command=self.quit
+                ).grid(
                     row=0,
                     column=4,
                     padx=10)

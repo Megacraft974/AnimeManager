@@ -33,9 +33,12 @@ class MyAnimeListNetWrapper(APIUtils):
             return {}
 
         a = self.get("anime", mal_id, fields=self.fields)
+        if not a:
+            return {}
         data = self._convertAnime(a)
         if save:
-            self.db(id=id, table="anime").set(data)
+            data['id'] = id  # TODO - Needed?
+            self.database.set(data, table="anime")
         return data
 
     def animeCharacters(self, id):
@@ -58,7 +61,7 @@ class MyAnimeListNetWrapper(APIUtils):
         pass
 
     def _convertAnime(self, a, relations=False):
-        id = self.db.getId("mal_id", int(a["id"]))
+        id = self.database.getId("mal_id", int(a["id"]))
         out = Anime()
 
         out["id"] = id
@@ -108,11 +111,11 @@ class MyAnimeListNetWrapper(APIUtils):
         genres = []
         if 'genres' in a.keys():
             for g in a['genres']:
-                if not self.db.exist("mal_id", g['id'], "genres"):
-                    self.db.sql(
+                if not self.database.exist(g['id'], "genres", "mal_id"):
+                    self.database.sql(
                         "INSERT INTO genres(mal_id,name) VALUES(?,?)", (g['id'], g['name']))
 
-                genres.append(self.db.sql(
+                genres.append(self.database.sql(
                     "SELECT id FROM genres WHERE mal_id=?", (g['id'],))[0][0])
         out['genres'] = json.dumps(genres)
 
@@ -120,13 +123,13 @@ class MyAnimeListNetWrapper(APIUtils):
             for relation, rel_data_list in a['related'].items():
                 for rel_data in rel_data_list:
                     if rel_data['type'] == "anime":
-                        rel_id = self.db.getId("mal_id", rel_data["id"])
-                        if not self.db.sql(
+                        rel_id = self.database.getId("mal_id", rel_data["id"])
+                        if not self.database.sql(
                                 "SELECT EXISTS(SELECT 1 FROM related WHERE id=? AND rel_id=?);", (id, rel_id)):
                             rel = {"id": id, "relation": relation,
                                    "rel_id": rel_id}
-                            self.db(table="related").set(rel, save=False)
-        self.db.save()
+                            self.database.set(rel, table="related", save=False)
+        self.database.save()
 
         return out
 

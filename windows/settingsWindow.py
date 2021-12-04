@@ -102,7 +102,7 @@ class settingsWindow:
                     elif field == "PORT":
                         self.setSettings({"serverPort": int(value)})
                     else:
-                        raise Exception
+                        raise
 
                 if self.enableServer:
                     mobile_server.stopServer(self.server, self)
@@ -119,7 +119,7 @@ class settingsWindow:
                     elif field == "PASSWORD":
                         self.setSettings({"torrentApiPassword": value})
                     else:
-                        raise Exception
+                        raise
 
                 auth = self.getQB(reconnect=True)
                 if entries is not None:

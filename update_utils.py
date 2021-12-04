@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import os
 import utils
 import json
@@ -23,7 +23,7 @@ class UpdateUtils:
             try:
                 f()
             except BaseException as e:
-                log(e)
+                self.log(e)
         reloadFunc = {
             self.updateCache: "Updating cache",
             self.updateDirs: "Updating directories",
@@ -34,9 +34,50 @@ class UpdateUtils:
         yield len(reloadFunc)
 
         for f, text in reloadFunc.items():
-            thread = threading.Thread(target=wrapper,args=(f,))
+            thread = threading.Thread(target=wrapper, args=(f,))
             thread.start()
             yield thread, text
+
+    def regroupFiles(self):
+        self.log("DB_UPDATE", "Regrouping files")
+        database = self.getDatabase()
+
+        files = []
+        for file in os.listdir(self.animePath):
+            if os.path.isfile(os.path.join(self.animePath, file)):
+                files.append(file)
+
+        if self.getQB() == "OK":
+            torrents = self.qb.torrents_info()
+        else:
+            torrents = []
+
+        if not os.path.isdir(self.torrentPath):
+            self.log("DISK_ERROR", "Torrent folder doesn't exists!")
+            return
+
+        keys = ('id', 'title', 'torrent')
+        torrentDb = database.sql(
+            'SELECT id,title,torrent FROM anime WHERE torrent is not null',
+            iterate=True)
+        torrentData = (dict(zip(keys, d)) for d in torrentDb)
+        c = 0
+
+        for data in torrentData:
+            anime = Anime(data)
+            path = self.getFolder(anime=anime)
+            if os.path.isdir(path):
+                hashes = []
+                for t in json.loads(anime.torrent):
+                    filePath = os.path.join(self.torrentPath, t)
+                    if os.path.isfile(filePath):
+                        torrent_hash = self.getTorrentHash(filePath)
+                        hashes.append(torrent_hash)
+                if self.getQB() == "OK":
+                    self.qb.torrents_set_location(
+                        location=path, torrent_hashes=hashes)
+
+        self.log("DB_UPDATE", "Files regrouped!")
 
     def updateCache(self):
         c = 0
@@ -48,7 +89,7 @@ class UpdateUtils:
             delta = datetime.today() - date
             if delta > maxDate:
                 c += 1
-                os.unlink(path)
+                os.remove(path)
         self.log("DB_UPDATE", "Updated cache, {} image{} deleted.".format(
             c if c > 0 else "no", "s" if c >= 2 else ""))
 
@@ -69,13 +110,14 @@ class UpdateUtils:
         # files = [file for file in os.listdir(self.animePath)]
         toWatch = []
         toSeen = []
+        statusUpdate = []
 
-        torrentDb = database.sql(
+        anime_db = database.sql(
             'SELECT anime.*,tag.tag FROM anime LEFT JOIN tag using(id)', iterate=True)
         self.animeFolder = os.listdir(self.animePath)
         c = 0
-        keys = list(database(table="anime").keys()) + ['tag']
-        for data in torrentDb:
+        keys = list(database.keys(table="anime")) + ['tag']
+        for data in anime_db:
             anime = Anime(dict(zip(keys, data)))
             id, tag, torrent = anime.id, anime.tag, anime.torrent
             folder = self.getFolder(id, anime=anime)
@@ -90,6 +132,18 @@ class UpdateUtils:
                     self.log('DB_UPDATE', "Folder '" + folder + "' doesn't have a folder, but tag is", tag)
                     toSeen.append(id)
                     c += 1
+            # self.log('DB_UPDATE', anime.tag, anime.title, anime.date_from)
+            if anime.status == "UPCOMING" and anime.date_from is not None:
+                delta = date.today() - date.fromisoformat(anime.date_from)
+                if delta > timedelta():  # == delta < 0
+                    statusUpdate.append(anime)
+
+        for anime in statusUpdate:
+            old_status = anime.status
+            anime.status = None
+            anime.status = self.getStatus(anime)
+            database.set(anime, table="anime")
+            self.log('DB_UPDATE', "Updated status for anime: {}, from {} to {}".format(anime.title, old_status, anime.status))
 
         try:
             if len(toWatch) >= 1:
@@ -132,8 +186,8 @@ class UpdateUtils:
                 if not bool(database.sql(sql, (title, id))[0][0]):
                     self.log('DB_UPDATE', id, "- title not in db:", title)
                     c += 1
-                    database(id=id, table='searchTitles').insert(
-                        {"id": id, 'title': title}, save=False)
+                    database.insert(
+                        {"id": id, 'title': title}, table='searchTitles', save=False)
                     needSave = True
 
         if needSave:
@@ -151,10 +205,10 @@ class UpdateUtils:
         for anime in data:
             id = anime['id']
             # not id in dbKeys:
-            if not database(id=id, table="indexList").exist():
+            if not database.exist(id=id, table="indexList"):
                 c += 1
                 title = anime['title']
-                database(table="anime").set(anime)
+                database.set(anime, table="anime")
                 self.log('SCHEDULE', "Added anime",
                          id, title, "from schedule")
 

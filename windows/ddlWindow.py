@@ -1,3 +1,7 @@
+import queue
+import threading
+import time
+
 from tkinter import *
 
 import utils
@@ -5,41 +9,39 @@ import utils
 
 class ddlWindow:
     def ddlWindow(self, id):
-        # Window init - Fancy corners - Main frame - Events
-        if True:
-            size = (self.publisherDDLWindowMinWidth,
-                    self.publisherDDLWindowMinHeight)
-            if self.publisherChooser is None or not self.publisherChooser.winfo_exists():
-                self.publisherChooser = utils.RoundTopLevel(
-                    self.choice,
-                    title="Loading...",
-                    minsize=size,
-                    bg=self.colors['Gray3'],
-                    fg=self.colors['Gray2'])
-            else:
-                self.publisherChooser.clear()
-                self.publisherChooser.titleLbl.configure(
-                    text="Loading...",
-                    bg=self.colors['Gray3'],
-                    fg=self.colors['Gray2'],
-                    font=(
-                        "Source Code Pro Medium",
-                        18))
+        # Functions
+        def updateTable(fetcher, table):
+            def handler(fetcher, que):
+                try:
+                    titles = next(fetcher)
+                except StopIteration:
+                    que.put("STOP")
+                else:
+                    que.put(titles)
 
-            table = utils.ScrollableFrame(
-                self.publisherChooser, bg=self.colors['Gray3'])
-            table.grid_columnconfigure(0, weight=1)
-            table.grid()
+            que = queue.Queue()
+            while True:
+                threading.Thread(target=handler, args=(fetcher, que)).start()
+                while que.empty():
+                    for i in range(int(2 / 0.01)):
+                        try:
+                            self.root.update()
+                        except AttributeError:
+                            pass
+                        time.sleep(0.01)
 
-            self.publisherChooser.update()
-            if not self.publisherChooser.winfo_exists():
-                return
+                titles = que.get()
+                if titles == "STOP":
+                    return
 
-        # Torrent publisher list
-        if True:
-            self.log("FILE_SEARCH", "Looking files for id:", id)
-            titles = self.searchTorrents(id)
-            # titles = self.getTorrentFiles(title)
+                try:
+                    for w in table.winfo_children():
+                        w.destroy()
+                except BaseException:
+                    pass
+                draw_table(titles)
+
+        def draw_table(titles):
             rowHeight = 25
             empty = True
 
@@ -87,4 +89,39 @@ class ddlWindow:
                 pass
 
             table.update()
-            # self.publisherChooser.update()
+
+        # Window init - Fancy corners - Main frame - Events
+        if True:
+            size = (self.publisherDDLWindowMinWidth,
+                    self.publisherDDLWindowMinHeight)
+            if self.publisherChooser is None or not self.publisherChooser.winfo_exists():
+                self.publisherChooser = utils.RoundTopLevel(
+                    self.choice,
+                    title="Loading...",
+                    minsize=size,
+                    bg=self.colors['Gray3'],
+                    fg=self.colors['Gray2'])
+            else:
+                self.publisherChooser.clear()
+                self.publisherChooser.titleLbl.configure(
+                    text="Loading...",
+                    bg=self.colors['Gray3'],
+                    fg=self.colors['Gray2'],
+                    font=(
+                        "Source Code Pro Medium",
+                        18))
+
+            table = utils.ScrollableFrame(
+                self.publisherChooser, bg=self.colors['Gray3'])
+            table.grid_columnconfigure(0, weight=1)
+            table.grid()
+
+            self.publisherChooser.update()
+            if not self.publisherChooser.winfo_exists():
+                return
+
+        # Torrent publisher list
+        if True:
+            self.log("FILE_SEARCH", "Looking files for id:", id)
+            fetcher = self.searchTorrents(id)
+            updateTable(fetcher, table)

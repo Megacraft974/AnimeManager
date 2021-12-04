@@ -42,7 +42,7 @@ try:
     # from logger import Logger
     from anime_search import AnimeSearch
     from dbManager import db
-    from classes import Anime, Character, AnimeList, CharacterList
+    from classes import Anime, Character, AnimeList, CharacterList, TorrentList, SortedList, SortedDict
 except ModuleNotFoundError as e:
     print(e)
     print("Please verify your app installation!")
@@ -62,7 +62,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
         self.relationIds = []
         self.characterIds = []
         self.timer_id = None
-        self.lastSearch = None
+        self.searching = False
         self.searchThread = None
         self.stopSearch = False
         self.maxLogsSize = 50000  # In bytes
@@ -75,6 +75,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
         self.choice = None
         self.publisherChooser = None
         self.fileChooser = None
+        self.torrentFilesChooser = None
         self.loadfen = None
         self.characterList = None
         self.characterInfo = None
@@ -95,7 +96,8 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
             {'text': 'Reload', 'color': 'Blue', 'command': self.reload},
             {'text': 'Redownload files', 'color': 'Green', 'command': self.redownload},
             {'text': 'Characters', 'color': 'Green', 'command': self.characterListWindow},
-            {'text': 'Delete files', 'color': 'Red', 'command': self.deleteFiles},
+            {'text': 'Delete seen episodes', 'color': 'Blue', 'command': self.deleteSeenEpisodes},
+            {'text': 'Delete all files', 'color': 'Red', 'command': self.deleteFiles},
             {'text': 'Remove from db', 'color': 'Red', 'command': self.delete},)
 
         self.database = self.getDatabase()
@@ -124,47 +126,55 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
 
     # ___Search___
     def search(self, *args, force_search=False):
+        # if not self.searching:
+        #     self.searching = True
+        # else:
+        #     return
         terms = None
         loop = True
-        while terms != self.searchTerms.get() and loop:
-            terms = self.searchTerms.get()
-            if force_search:
-                self.stopSearch = False
+        # while terms != self.searchTerms.get() and loop:
+        terms = self.searchTerms.get()
+        if force_search:
+            self.stopSearch = False
+            self.animeListReady = True
+            self.root.update()
+            self.animeList = self.searchAnime(terms)
+            self.loading()
+            self.createList(None)
+        elif len(terms) > 2:
+            animeList = self.searchDb(terms)
+            if animeList is not False:
                 self.animeListReady = True
                 self.root.update()
+                self.animeList = animeList
+                self.createList(None)
+            else:
+                self.stopSearch = False
                 self.animeList = self.searchAnime(terms)
                 self.loading()
-                self.createList(None)
-            elif len(terms) > 2:
-                animeList = self.searchDb(terms)
-                if animeList is not False:
-                    self.animeListReady = True
-                    self.root.update()
-                    self.animeList = animeList
-                    self.createList(None)
-                else:
-                    self.stopSearch = False
-                    self.animeList = self.searchAnime(terms)
-                    self.loading()
-                    self.animeListReady = True
-                    self.root.update()
-                    self.createList(None)
-            elif self.animeList is not None:
-                self.stopSearch = True
                 self.animeListReady = True
                 self.root.update()
-                self.animeList = None
-                self.createList()
-            self.fen.update()
+                self.createList(None)
+        elif self.animeList is not None:
+            print(self.animeList, dir(self.animeList))
+            self.stopSearch = True
+            self.animeListReady = True
+            self.root.update()
+            self.animeList = None
+            self.createList()
+        self.fen.update()
 
     def searchDb(self, terms):
         def enumerator(terms):
             sql = "SELECT anime.*,tag.tag,like.like FROM searchTitles JOIN anime using(id) LEFT JOIN tag using(id) LEFT JOIN like using(id) WHERE searchTitles.title LIKE '%{}%' GROUP BY anime.id ORDER BY anime.date_from DESC;".format(
                 terms)
-            keys = list(self.database(table="anime").keys()) + ['tag', 'like']
+            keys = list(self.database.keys(table="anime")) + ['tag', 'like']
+            anime_list = AnimeList(Anime(dict(zip(keys, data))) for data in self.database.sql(sql))
+            return anime_list
+            # TODO - Efficient?
             for data in self.database.sql(sql):
                 data = Anime(dict(zip(keys, data)))
-                yield data
+                # yield data
 
         self.updateTitles()
         terms = "".join([c for c in terms if c.isalnum()]).lower()
@@ -176,52 +186,6 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
             return False
 
     def searchTorrents(self, id):
-        def handler(titles, que):
-            for a in search_engines.search(titles):
-                que.put(a)
-
-        database = self.getDatabase()
-        titles = json.loads(database(id=id, table="anime")['title_synonyms'])
-        titles.append(database(id=id, table="anime")['title'])
-        pattern = re.compile(r'^\[(.*?)\]+')
-
-        que = queue.Queue()
-        data = []
-        thread = threading.Thread(target=handler, args=(titles, que))
-        timer = utils.Timer("Torrent search")
-        thread.start()
-
-        titles = {}
-        while thread.is_alive() or not que.empty():
-            if que.empty():
-                self.root.update()
-                time.sleep(1 / 60)
-                continue
-
-            a = que.get()
-            title = a['filename']
-            if title.rsplit(".", 1)[0] in {
-                    d['filename'].rsplit(".", 1)[0] for d in data}:
-                continue
-
-            result = pattern.findall(a['filename'])
-            if len(result) >= 1:
-                publisher = result[0]
-            else:
-                publisher = None
-            if publisher in titles.keys():
-                if not a['filename'] in (e['filename']
-                                         for e in titles[publisher]):
-                    titles[publisher].append(a)
-            else:
-                titles[publisher] = [a]
-
-        timer.stats()
-
-        for publisher, titlelist in titles.items():
-            titles[publisher] = sorted(
-                titlelist, key=itemgetter('seeds'), reverse=True)
-
         def sortkey(k):
             score = 0
             if k[0] in self.topPublishers:
@@ -239,81 +203,71 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
                     break
             return score
 
-        titles = sorted(titles.items(), key=lambda k: max(
-            (t['seeds'] for t in k[1])), reverse=True)
-        titles = sorted(titles, key=sortkey, reverse=True)
-
-        for p, d in titles:
-            obj = []
-            for t in d:
-                # obj.append({'title':t['name'],'size':t['size'],'link':['link'],'seeds':['seeds']})
-                obj.append(t)
-            yield p, obj
-
-    def regroupFiles(self):
-        self.log("DB_UPDATE", "Regrouping files")
         database = self.getDatabase()
+        data = database(id=id, table="anime")
+        titles = json.loads(data['title_synonyms'])
+        titles.append(data['title'])
+        publisher_pattern = re.compile(r'^\[(.*?)\]+')
 
-        files = []
-        for file in os.listdir(self.animePath):
-            if os.path.isfile(os.path.join(self.animePath, file)):
-                files.append(file)
+        data = []
+        torrents = TorrentList(search_engines.search(titles))
+        timer = utils.Timer("Torrent search")
 
-        if self.getQB() == "OK":
-            torrents = self.qb.torrents_info()
-        else:
-            torrents = []
+        keys = (
+            (lambda k: max((t['seeds'] for t in k[1])), True),
+            (sortkey, True)
+        )
 
-        if not os.path.isdir(self.torrentPath):
-            self.log("DISK_ERROR", "Torrent folder doesn't exists!")
-            return
+        titles = SortedDict(keys=keys)
+        while not torrents.empty():  # thread.is_alive() or
+            while not torrents.is_ready():
+                if self.root is not None:
+                    self.root.update()
+                time.sleep(0.001)
+                continue
 
-        keys = ('id', 'title', 'torrent')
-        torrentDb = database.sql(
-            'SELECT id,title,torrent FROM anime WHERE torrent is not null',
-            iterate=True)
-        torrentData = (dict(zip(keys, d)) for d in torrentDb)
-        c = 0
+            a = torrents.get()
+            title = a['filename']
 
-        for data in torrentData:
-            anime = Anime(data)
-            path = self.getFolder(anime=anime)
-            if os.path.isdir(path):
-                hashes = []
-                for t in json.loads(anime.torrent):
-                    filePath = os.path.join(self.torrentPath, t)
-                    if os.path.isfile(filePath):
-                        torrent_hash = self.getTorrentHash(filePath)
-                        hashes.append(torrent_hash)
-                if self.getQB() == "OK":
-                    self.qb.torrents_set_location(
-                        location=path, torrent_hashes=hashes)
+            result = publisher_pattern.findall(a['filename'])
+            if len(result) >= 1:
+                publisher = result[0]
+            else:
+                publisher = None
+            if publisher in titles.keys():
+                if not a['filename'].replace(" ", "") in (e['filename'].replace(" ", "") for e in titles[publisher]):
+                    titles[publisher].append(a)
+            else:
+                titles[publisher] = SortedList(keys=((itemgetter('seeds'), True),))
+                titles[publisher].append(a)
 
-        self.log("DB_UPDATE", "Files regrouped!")
+            if not torrents.is_ready():
+                yield titles.items()
+
+        timer.stats()
 
     # ___Main List generation___
     def createList(self, criteria="DEFAULT", listrange=(0, 50)):
         def wait_for_next(animelist, default):
-            que = queue.Queue()
             if isinstance(animelist, AnimeList):
-                t = threading.Thread(
-                    target=lambda que, animelist, default:
-                        que.put(animelist.get(timeout=30, default=None)),
-                    args=(que, animelist, default))
+                empty_test = "not animelist.is_ready()"
             else:
+                que = queue.Queue()
                 t = threading.Thread(
                     target=lambda que, animelist, default: que.put(
                         next(
                             animelist, default)), args=(
                         que, animelist, default))
-            t.start()
-            while que.empty():
+                t.start()
+                animelist = que
+                empty_test = "que.empty()"
+            while eval(empty_test):
                 try:
                     self.root.update()
                 except AttributeError:
                     pass
                 time.sleep(0.01)
-            data = que.get()
+            data = animelist.get()
             return data
 
         if criteria == "DEFAULT" or self.animeList is None:
@@ -366,7 +320,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
                         """
                         sort_date = datetime.today() - timedelta(hours=5)
                         order = order.format(
-                            sort_date.day, sort_date.hour, sort_date.minute)
+                            sort_date.weekday(), sort_date.hour, sort_date.minute)
                         # Depend on timezone - TODO
                     filter = "tag.tag = '{}'".format(criteria) + commonFilter
 
@@ -381,6 +335,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
 
         if listrange == (0, 50):
             self.scrollable_frame.canvas.yview_moveto(0)
+
         for child in self.scrollable_frame.winfo_children():
             child.destroy()
 
@@ -408,6 +363,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
                 if data is None:
                     if i == listrange[0]:
                         # TODO - Show when there are no results
+                        self.log("MAIN_STATE", "No results!")
                         Label(
                             self.scrollable_frame,
                             text="No results",
@@ -450,7 +406,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
             self.blank_image = self.getImage(None, (225, 310))
         title = anime.title
         if title is None:
-            print("No title for id:", anime.id,anime)
+            print("No title for id:", anime.id, anime)
             self.list_timer.stop()
             return
         if len(title) > 35:
@@ -466,16 +422,17 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
         img_can.create_image(0, 0, image=self.blank_image, anchor='nw')
         img_can.image = self.blank_image
 
+        data = self.database(id=anime.id, table='tag')
         if 'tag' in anime:
             tag = anime.tag
             if tag is None:
                 tag = "NONE"
         else:
-            tag = self.database(id=anime.id, table='tag')['tag']
+            tag = data['tag']
         if 'like' in anime:
             like = anime.like
         else:
-            like = self.database(id=anime.id, table='like')['like']
+            like = data['like']
         if like == 1:
             title += " ❤"
         lbl = Label(self.scrollable_frame,
@@ -628,6 +585,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
     def loadMore(self, listrange, filter):
         listrange = (0, (listrange[1] + 50) // self.animePerRow * self.animePerRow - 1)
         posy = self.scrollable_frame.canvas.canvasy(0)
+        self.animeList = None
         self.createList(filter, listrange)
         self.scrollable_frame.canvas.yview_moveto(posy / self.scrollable_frame.canvas.bbox('all')[3])
         return
@@ -723,7 +681,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
 
     def view(self, id):
         index = "indexList"
-        keys = self.database(table="indexList").keys()
+        keys = self.database.keys(table="indexList")
         ids = self.database.sql("SELECT * FROM indexList WHERE id=?", (id,))[0]
         ids = dict(zip(keys, ids))
         ids.pop("id")
@@ -813,15 +771,12 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
             torrents = json.loads(torrents) if torrents is not None else []
             torrents.append(file)
             torrents = list(set(torrents))
-            database(table="anime").set(
-                {'id': id, 'torrent': json.dumps(torrents)})
+            database.set(
+                {'id': id, 'torrent': json.dumps(torrents)},
+                table="anime")
 
-            print(database(id=id, table='tag')['tag'])
-
-            # TODO
-            if not database(id=id, table='tag').exist() or database(
-                    id=id, table='tag')['tag'] in (None, 'NONE'):
-                database(table='tag').set({'id': id, 'tag': 'WATCHING'})
+            if database(id=id, table='tag')['tag'] in (None, 'NONE'):
+                database.set({'id': id, 'tag': 'WATCHING'}, table='tag')
 
         assert url is not None or file is not None, "You need to specify either an url or a file path"
         threading.Thread(target=handler, args=(id, url, file)).start()
@@ -888,7 +843,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
         self.log('NETWORK_DATA', "Requesting characters data for id", id)
         characters = []
 
-        keys = database(id=id, table="indexList").get()
+        keys = database(id=id, table="indexList")
 
         data = self.api.animeCharacters(id)
 
@@ -896,7 +851,6 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
             if c['id'] not in (b['id'] for b in characters):
                 characters.append(c)
 
-        # self.log("CHARACTER",len(characters),"characters found for anime id",id,"title",database(id=id,table="anime")['title'])
         for character in characters:
             sql = "SELECT EXISTS(SELECT 1 FROM characters WHERE id = ? AND anime_id = ?);"
             exists = bool(database.sql(
@@ -921,7 +875,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
 
         self.log("NETWORK", "Requesting data for character id", id)
         sql = "SELECT * FROM charactersIndex WHERE id=?"
-        keys = database(table="charactersIndex").keys()[1:]
+        keys = database.keys(table="charactersIndex")[1:]
         api_keys = dict(zip(keys, database.sql(sql, (id,))[0][1:]))
 
         character = self.api.character(id)
@@ -948,8 +902,8 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
             #         sql = sql.format(*character.keys())
             #     try:
             #         database.sql(sql,values,save=True)
-            #     except Exception as e:
-            #         raise e
+            #     except Exception:
+            #         raise
 
         return character
 

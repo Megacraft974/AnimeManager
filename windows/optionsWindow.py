@@ -10,7 +10,6 @@ from operator import itemgetter
 from datetime import date, datetime, timedelta, time as datetime_time
 from sqlite3 import OperationalError
 from tkinter import *
-from tkinter.filedialog import askopenfilenames
 from tkinter.ttk import Progressbar
 
 import qbittorrentapi.exceptions
@@ -23,53 +22,14 @@ class optionsWindow:
     def optionsWindow(self, id):
         # Functions
         if True:
-            def importTorrent(id):
-                def removeOld(self, t_id, t_torrents):
-                    self.log('DB_UPDATE', "Removing torrent duplicates")
-                    database = self.getDatabase()
-                    for id, torrents in database.sql(
-                            "SELECT id,torrent FROM anime WHERE torrent is not null AND id != ?;", (t_id,), iterate=True):
-                        torrents = json.loads(torrents)
-                        for t_torrent in t_torrents:
-                            if id != t_id and t_torrent in torrents:
-                                torrents.remove(t_torrent)
-                                if len(torrents) >= 1:
-                                    data = json.dumps(torrents)
-                                else:
-                                    data = None
-                                self.log('DB_UPDATE', "Id", id,
-                                         "has torrent", t_id, "removing")
-                                database(id=id, table="anime").update(
-                                    'torrent', data)
-                    self.log('DB_UPDATE', "Done!")
-
-                torrents = self.database.sql(
-                    "SELECT torrent FROM anime WHERE id = ?", (id,))[0][0]
-                torrents = json.loads(torrents) if torrents is not None else []
-                default = '"' + '" "'.join(torrents) + '"'
-                filepaths = askopenfilenames(
-                    parent=self.root,
-                    title="Select torrents",
-                    initialdir=self.torrentPath,
-                    initialfile=default,
-                    filetypes=[
-                        ("Torrents files",
-                         (".torrent"))])
-                torrents = []
-                for path in filepaths:
-                    torrents.append(path.rsplit("/")[-1])
-                if len(torrents) >= 1:
-                    self.database(id=id, table="anime").set(
-                        {'id': id, 'torrent': json.dumps(torrents)})
-                    threading.Thread(target=removeOld, args=(
-                        self, id, torrents)).start()
-
             def findTorrent(id):
                 if self.getQB() == "OK":
                     database = self.getDatabase()
 
                     torrents = database.sql(
-                        "SELECT torrent FROM anime WHERE id = ?", (id,))[0][0]
+                        "SELECT torrent FROM anime WHERE id = ?", (id,))[0]
+                    if len(torrents) is not None:
+                        torrents = torrents[0]
                     torrents = json.loads(
                         torrents) if torrents is not None else []
                     target = None
@@ -83,14 +43,17 @@ class optionsWindow:
                         if os.path.exists(path):
                             torrent_hash = self.getTorrentHash(path)
                             torrent_hashes.append(torrent_hash)
-
-                    qbtorrents = self.qb.torrents_info(
-                        status_filter="downloading", torrent_hashes="|".join(torrent_hashes))
-
-                    if len(qbtorrents) > 0:
-                        self.choice.hash = qbtorrents[0].hash
-                        self.choice.after(
-                            1, lambda id=id: self.reload(id, False))
+                    try:
+                        qbtorrents = self.qb.torrents_info(
+                            status_filter="downloading", torrent_hashes="|".join(torrent_hashes))
+                    except qbittorrentapi.exceptions.APIConnectionError:
+                        self.log('MAIN_STATE',
+                                 '[ERROR] - Error while connecting to torrent client')
+                    else:
+                        if len(qbtorrents) > 0:
+                            self.choice.hash = qbtorrents[0].hash
+                            self.choice.after(
+                                1, lambda id=id: self.reload(id, False))
                     # return target
 
             def updateLoadingBar(id, bar, text):
@@ -134,7 +97,7 @@ class optionsWindow:
                             i, foreground=self.colors['Green'])
 
             def tag(id, tag):
-                self.database(table='tag').set({'id': id, 'tag': tag})
+                self.database.set({'id': id, 'tag': tag}, table='tag')
 
                 for lbl in self.scrollable_frame.winfo_children():
                     if lbl.winfo_class() == 'Label' and lbl.name == str(id):
@@ -144,8 +107,8 @@ class optionsWindow:
 
             def like(id, b):
                 d = self.database(id=id, table='like')
-                liked = d.exist() and bool(d['like'])
-                d.set({'id': id, 'like': not liked})
+                liked = self.database.exist(id=id, table='like') and bool(d['like'])
+                self.database.set({'id': id, 'like': not liked}, table='like')
 
                 if not liked:
                     im_path = os.path.join(self.iconPath, "heart.png")
@@ -201,94 +164,13 @@ class optionsWindow:
                     fentype="TEXT")
 
             def trailer(id):
-                data = self.database(id=id, table="anime").get()
+                data = self.database(id=id, table="anime")
                 trailer = anime.trailer
                 if trailer is not None:
                     self.log('MAIN_STATE', "Watching trailer for anime",
                              anime.title, "url", trailer)
                     # threading.Thread(target=MpvPlayer, args=((trailer,), 0, None, None, True)).start()
                     MpvPlayer((trailer,), 0, url=True)
-
-            def getEpisodes(folder):
-                def folderLister(folder):
-                    if folder == "" or folder is None or not os.path.isdir(
-                            folder):
-                        return
-                    for f in os.listdir(folder):
-                        path = os.path.join(folder, f)
-                        if os.path.isdir(path):
-                            for f in folderLister(path):
-                                yield f
-                        else:
-                            yield path
-                eps = []
-                videoSuffixes = ("mkv", "mp4", "avi")
-                blacklist = ("Specials", "Extras")
-
-                if folder == "" or folder is None or not os.path.isdir(
-                        os.path.join(self.animePath, folder)):
-                    return {}
-
-                folder = folder + "/"
-                files = folderLister(os.path.join(self.animePath, folder))
-
-                publisherPattern = re.compile(r'^\[(.*?)\]')
-
-                epsPatternsFormat = (
-                    r"-\s(\d+)",
-                    r"(?:E|Episode|Ep|Eps)(\d+)",
-                    r" (\d+) ")
-                epsPatterns = list(re.compile(p) for p in epsPatternsFormat)
-
-                seasonPatternsFormat = (
-                    r'(?:S|Season|Seasons)\s?([0-9]{1,2})',
-                    r'([0-9])(?:|st|nd|rd|th)\s?(?:S|Season|Seasons)')
-                seasonPatterns = list(re.compile(p)
-                                      for p in seasonPatternsFormat)
-
-                for file in files:
-                    if os.path.isfile(file) and file.split(
-                            ".")[-1] in videoSuffixes:
-                        filename = os.path.basename(file)
-                        self.log('FILE_SEARCH', filename, end=" - ")
-
-                        result = re.findall(publisherPattern, file)  # [...]
-                        if len(result) >= 1:
-                            publisher = result[0] + " "
-                        else:
-                            publisher = "None"
-
-                        episode = "?"
-                        # (r'(?:E|Episode|Ep|Eps|-|_) ?([0-9]{1,2})(?: |_|\.|v\d )'),)
-
-                        for p in epsPatterns:
-                            m = re.findall(p, filename)
-                            if len(m) > 0:
-                                episode = m[0]
-                                break
-                        # self.log('FILE_SEARCH',"/",episode,"/",end=" - ")
-                        if episode == "?":
-                            episode = str(len(eps) + 1).zfill(2)  # Hacky
-
-                        season = ""
-                        for p in seasonPatterns:
-                            result = re.findall(p, file)
-                            if len(result) >= 1:
-                                season = result[0]
-                                break
-
-                        # seasonText = "S"+str(season) if season != "" else ""
-                        # title = "[{}] - {}E{}: {}".format(publisher, seasonText, episode, filename)
-                        # self.log('FILE_SEARCH',filename)
-                        title = filename.rsplit(".", 1)[0]
-                        title = re.sub(r'([\._])', ' ', title)  # ./,/-/_
-                        title = re.sub(r'  +?', '', title)  # "  "
-                        eps.append({'title': title, 'path': file,
-                                   'season': season, 'episode': episode})
-
-                eps.sort(key=lambda d: int(
-                    str(d['season']) + str(d['episode'])))
-                return eps
 
             def getDateText(datefrom, dateto, broadcast):
                 today = date.today()
@@ -357,17 +239,17 @@ class optionsWindow:
             def dataUpdate(id):
                 database = self.getDatabase()
                 data = self.api.anime(id)
+                data['id'] = id  # TODO - Needed?
 
-                database(id=id, table="anime").set(data)
+                database.set(data, table="anime")
                 if 'status' in data.keys() and data.status != 'UPDATE':
                     self.choice.after(1, lambda id=id: self.reload(id))
 
         # Window init - Fancy corners - Main frame
         if True:
-            anime = self.database(id=id, table="anime").get()
+            anime = self.database(id=id, table="anime")
 
-            if not self.database(id=id, table="anime").exist(
-            ) or anime.status == 'UPDATE':
+            if not self.database.exist(id=id, table="anime") or anime.status == 'UPDATE':
                 threading.Thread(target=dataUpdate, args=(id,)).start()
                 anime.title = "Loading..."
 
@@ -433,7 +315,7 @@ class optionsWindow:
 
             Button(
                 titleFrame,
-                text="Locate torrents",
+                text="Manage torrents",
                 bd=0,
                 height=1,
                 relief='solid',
@@ -444,7 +326,8 @@ class optionsWindow:
                 activeforeground=self.colors['White'],
                 bg=self.colors['Gray3'],
                 fg=self.colors['White'],
-                command=lambda id=id: importTorrent(id)).grid(
+                command=lambda id=id: self.torrentFilesWindow(id)
+            ).grid(
                 row=1 + offRow,
                 column=1,
                 sticky="nsew",
@@ -481,7 +364,7 @@ class optionsWindow:
                     padx=2,
                     pady=2)
 
-                eps = getEpisodes(folder)
+                eps = self.getEpisodes(folder)
                 if len(eps) >= 1 and list(eps)[0] is not None:
                     titles = [e['title'] for e in eps]
                     state = "normal"
@@ -535,7 +418,7 @@ class optionsWindow:
             [titleFrame.grid_columnconfigure(i, weight=1) for i in range(2)]
 
             iconSize = (50, 50) if showFolderButtons else (30, 30)
-            if self.database(id=id, table='like').exist() and bool(
+            if self.database.exist(id=id, table='like') and bool(
                     self.database(id=id, table='like')['like']):
                 image = self.getImage(
                     os.path.join(
@@ -808,7 +691,7 @@ class optionsWindow:
                 # else:
                 #     txt = "Unknown"
                 #     self.log("DB_ERROR","Unknown genre for id",genre_id,"on key",key)
-                txt = self.database(id=genre_id, table="genres")["name"]
+                txt = self.database(id=genre_id, table="genres")["name"]  # TODO - Inefficient
                 if txt == "NONE":
                     txt = "Unknown"
                 Label(
@@ -905,7 +788,7 @@ class optionsWindow:
 
                     for i, rel_id in enumerate(rel_ids):
                         epsList['menu'].entryconfig(
-                            i, foreground=self.colors[self.tagcolors[self.database(id=rel_id).setTable('tag')['tag']]])
+                            i, foreground=self.colors[self.tagcolors[self.database(id=rel_id, table="tag")['tag']]])
                 else:
                     self.log("ERROR", "id:{}, rel_ids:{}, titles:{}".format(
                         str(id), str(rel_ids), str(titles)))
@@ -1020,30 +903,38 @@ class optionsWindow:
     def reload(self, id, update=True):
         def handler(id, que):
             database = self.getDatabase()
-            keys = database(id=id, table="indexList").get()
-            data = None
+            keys = database(id=id, table="indexList")
             data = self.api.anime(id)
             que.put(data)
 
         if 'TIME' in self.logs:
             self.start = time.time()
 
+        thread_files = threading.Thread(target=self.regroupFiles)
+        thread_files.start()
+
         reloadFen = True
         if update:
             que = queue.Queue()
-            thread = threading.Thread(target=handler, args=(id, que))
-            thread.start()
+            thread_data = threading.Thread(target=handler, args=(id, que))
+            thread_data.start()
 
             sql = "DELETE FROM characters WHERE anime_id=?"
             self.database.sql(sql, (id,), save=True)
 
-            while thread.is_alive():
+            while thread_data.is_alive():
                 self.root.update()
                 if self.choice is None or not self.choice.winfo_exists():
                     reloadFen = False
+                time.sleep(0.01)
             data = que.get()
             if data is not None:
-                self.database(id=id, table="anime").set(data)
+                data['id'] = id  # TODO - Needed?
+                self.database.set(data, table="anime")
+
+        while thread_files.is_alive():
+            time.sleep(0.01)
+            self.root.update()
 
         if reloadFen:
             self.choice.clear()
@@ -1068,29 +959,28 @@ class optionsWindow:
             folder) if folder is not None else ""
 
         if os.path.exists(path):
-            anime = self.database(id=id, table="anime").get()
+            anime = self.database(id=id, table="anime")
             torrents = json.loads(
                 anime.torrent) if anime.torrent is not None else []
 
             if self.getQB() == "OK":
                 hashes = [self.getTorrentHash(os.path.join(
                     self.torrentPath, torrent)) for torrent in torrents]
-                # hashes = [torrent['hash'] for torrent in self.qb.torrents_info() if torrent['name'] + ".torrent" in torrents]
 
                 self.log('DB_UPDATE', "Deleting", path, "-",
                          len(hashes), "torrents to remove")
 
                 self.qb.torrents_delete(
                     delete_files=True,
-                    torrent_hashes=hashes)  # TODO - NOT WORKING
+                    torrent_hashes=hashes)
 
             try:
                 # rd /S /Q "\\?\D:\Animes\folder."
                 os.system('del /F /S /Q "{}"'.format(path))
                 clearFolder(path)
-            except Exception as e:
+            except Exception:
                 self.log('DISK_ERROR', "Error while removing folder", path)
-                raise e
+                raise
         else:
             self.log("DISK_ERROR", "Folder path doesn't exist:", path)
         self.log("DB_UPDATE", "Deleted all files")
@@ -1102,6 +992,68 @@ class optionsWindow:
         for anime in self.animeList:
             if anime.id == id:
                 self.animeList.remove(anime)
-        self.database(id=id).remove()
+        self.database.remove("id", id=id, table="anime")
         self.createList()
         self.choice.exit()
+
+    def deleteSeenEpisodes(self, id):
+        folder = self.getFolder(id)
+        path = os.path.join(
+            self.animePath,
+            folder) if folder is not None else ""
+
+        if os.path.exists(path):
+            toDelete = []
+            anime = self.database(id=id, table="anime")
+            last_seen = os.path.normpath(anime.last_seen)
+
+            eps = self.getEpisodes(folder)
+            if len(eps) >= 1 and list(eps)[0] is not None:
+                pathList = {os.path.normpath(e['path']): e for e in eps}
+            else:
+                pathList = []
+            if last_seen is not None and last_seen in pathList.keys():
+                for p, e in pathList.items():
+                    if p == os.path.normpath(last_seen):
+                        break
+                    toDelete.append(p)
+
+            torrents = json.loads(
+                anime.torrent) if anime.torrent is not None else []
+
+            if self.getQB() == "OK":
+                hashes = [self.getTorrentHash(os.path.join(
+                    self.torrentPath, torrent)) for torrent in torrents]
+                hashesToDelete = []
+
+                for t_hash in hashes:
+                    try:
+                        root = self.qb.torrents_properties(t_hash).save_path
+                    except qbittorrentapi.exceptions.NotFound404Error:
+                        continue
+
+                    for f in self.qb.torrents_files(t_hash):
+                        sub_p = os.path.normpath(os.path.join(path, f.name))
+                        if sub_p in toDelete:
+                            hashesToDelete.append(t_hash)
+                            break
+
+                self.log('DB_UPDATE', "Deleting", len(toDelete), "files from", path, "-",
+                         len(hashesToDelete), "torrents to remove")
+
+                self.qb.torrents_delete(
+                    torrent_hashes=hashes)
+
+                cmd = 'del /F /Q "{}"'.format('" "'.join(toDelete))
+                try:
+                    os.system(cmd)
+                except Exception:
+                    self.log('DISK_ERROR', "Error while removing folder", path)
+                    raise
+            else:
+                self.log("MAIN_STATE", "qBittorrent API not found!")
+                return
+        else:
+            self.log("DISK_ERROR", "Folder path doesn't exist:", path)
+        self.log("DB_UPDATE", "Deleted all files")
+        self.reload(id, False)

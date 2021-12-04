@@ -21,7 +21,8 @@ class KitsuIoWrapper(APIUtils):
         rep = self.s.get('anime/' + str(kitsu_id), modifier).resource
         data = self._convertAnime(rep, force=True)
         if save:
-            self.db(id=id, table="anime").set(data)
+            data["id"] = id  # TODO - Needed?
+            self.database.set(data, table="anime")
         return data
 
     def animeCharacters(self, id):
@@ -53,7 +54,7 @@ class KitsuIoWrapper(APIUtils):
             if data is None:
                 continue
             if save:
-                self.db(table="anime").set(data)
+                self.database.set(data, table="anime")
             yield data
 
     def schedule(self, limit=100):
@@ -97,7 +98,7 @@ class KitsuIoWrapper(APIUtils):
             if data is None:
                 continue
             if save:
-                self.db(table="anime").set(data)
+                self.database.set(data, table="anime")
             yield data
             c += 1
             if c >= limit:
@@ -114,11 +115,11 @@ class KitsuIoWrapper(APIUtils):
             return self._convertCharacter(rep[0])
 
     def _convertAnime(self, a, force=False):
-        self.db = self.getDatabase()
+        self.database = self.getDatabase()
         self._mapAnimes(a)
         if not force and a.subtype not in self.subtypes:
             return None
-        id = self.db.getId("kitsu_id", int(a.id))
+        id = self.database.getId("kitsu_id", int(a.id))
 
         data = Anime()
         # data['kitsu_id'] = int(a.id)
@@ -158,11 +159,11 @@ class KitsuIoWrapper(APIUtils):
         genres = []
         if isinstance(a.relationships.genres, relationships.MultiRelationship):
             for g in a.genres:
-                if not self.db.exist("kitsu_id", g.id, "genres"):
-                    self.db.sql(
+                if not self.database.exist(g.id, "genres", "kitsu_id"):
+                    self.database.sql(
                         "INSERT INTO genres(kitsu_id,name) VALUES(?,?)", (g.id, g.name), save=False)
                 genres.append(
-                    self.db.sql(
+                    self.database.sql(
                         "SELECT id FROM genres WHERE kitsu_id=?",
                         (g.id,
                          ),
@@ -174,30 +175,30 @@ class KitsuIoWrapper(APIUtils):
                 relationships.MultiRelationship):
             for f in a.mediaRelationships:
                 if f.destination.type == "anime":  # TODO
-                    rel_id = self.db.getId("kitsu_id", f.destination.id)
+                    rel_id = self.database.getId("kitsu_id", f.destination.id)
                     exist = bool(
-                        self.db.sql(
+                        self.database.sql(
                             "SELECT EXISTS(SELECT 1 FROM related WHERE id=? AND relation=?);",
                             (id,
                              f.role))[0][0])
                     if exist:
                         rel_ids = json.loads(
-                            self.db.sql(
+                            self.database.sql(
                                 "SELECT rel_id FROM related WHERE id=? AND relation=?;", (id, f.role))[0][0])
                         if rel_id not in rel_ids:
                             rel_ids.append(rel_id)
                         rel_ids = json.dumps(rel_ids)
-                        self.db.sql(
+                        self.database.sql(
                             "UPDATE related SET rel_id=? WHERE id=? AND relation=?;", (rel_ids, id, f.role))
                     else:
                         rel_ids = json.dumps([rel_id])
-                        self.db.sql(
+                        self.database.sql(
                             "INSERT INTO related(id,relation,rel_id) VALUES(?,?,?)", (id, f.role, rel_ids))
-                    if not self.db(id=rel_id, table="anime").exist():
-                        self.db(id=rel_id, table="anime").set(
-                            {'id': rel_id, 'title': a.canonicalTitle, 'status': 'UPDATE'}, save=False)
+                    if not self.database.exist(id=rel_id, table="anime"):
+                        self.database.set(
+                            {'id': rel_id, 'title': a.canonicalTitle, 'status': 'UPDATE'}, table="anime", save=False)
         try:
-            self.db.save()
+            self.database.save()
         except BaseException:
             log("KITSU.IO API", "Error while saving anime")
         return data
@@ -207,22 +208,22 @@ class KitsuIoWrapper(APIUtils):
         kitsu_id = int(c.character.id)
 
         sql = "SELECT EXISTS(SELECT 1 FROM charactersIndex WHERE (kitsu_id != ? or kitsu_id is null) and mal_id=?)"
-        api_exist = bool(self.db.sql(sql, (kitsu_id, mal_id,))[0][0])
-        id = self.db.getId("kitsu_id", kitsu_id, table="characters")
+        api_exist = bool(self.database.sql(sql, (kitsu_id, mal_id,))[0][0])
+        id = self.database.getId("kitsu_id", kitsu_id, table="characters")
         if api_exist:
-            temp_id = self.db.getId("mal_id", mal_id, table="characters")
-            self.db(id=temp_id).remove()
-        self.db.sql(
+            temp_id = self.database.getId("mal_id", mal_id, table="characters")
+            self.database.remove("id", id=temp_id, table=table)
+        self.database.sql(
             "UPDATE charactersIndex SET mal_id = ? WHERE kitsu_id=?",
             (mal_id,
              kitsu_id))
 
         try:
-            self.db.save()
+            self.database.save()
         except BaseException:
             pass
 
-        id = self.db.getId("kitsu_id", kitsu_id, table="characters")
+        id = self.database.getId("kitsu_id", kitsu_id, table="characters")
         out = Character()
         out['id'] = id
         if anime_id is not None:
@@ -246,32 +247,30 @@ class KitsuIoWrapper(APIUtils):
             site = m.externalSite
             if site in self.mappedSites.keys():
                 api_key = self.mappedSites[site]
-                api_exist = bool(self.db.sql(sql.format(api_key), (kitsu_id, api_id,))[0][0])
-                id = self.db.getId("kitsu_id", kitsu_id)
+                api_exist = bool(self.database.sql(sql.format(api_key), (kitsu_id, api_id,))[0][0])
+                id = self.database.getId("kitsu_id", kitsu_id)
                 if api_exist:
-                    temp_id = self.db.getId(api_key, api_id)
-                    self.db(id=temp_id).remove()
+                    temp_id = self.database.getId(api_key, api_id)
+                    self.database.remove(None, id=temp_id)
                     # Tag / like
-                    tag_kitsu_exist, tag_api_exist = self.db(id=id).exist(
-                        table="tag"), self.db(id=temp_id).exist(table="tag")
+                    tag_kitsu_exist, tag_api_exist = self.database.exist(id=id, table="tag"), self.database.exist(id=temp_id, table="tag")
                     if tag_api_exist and not tag_kitsu_exist:
-                        tag = self.db(id=temp_id, table="tag").get()
+                        tag = self.database(id=temp_id, table="tag")
                         tag['id'] = id
-                        self.db(id=id, table="tag").set(tag)
-                        self.db(id=temp_id, table="tag").remove()
+                        self.database.set(tag, table="tag")
+                        self.database.remove("id", id=temp_id, table="tag")
 
-                    like_kitsu_exist, like_api_exist = self.db(id=id).exist(
-                        table="like"), self.db(id=temp_id).exist(table="like")
+                    like_kitsu_exist, like_api_exist = self.database.exist(id=id, table="like"), self.database.exist(id=temp_id, table="like")
                     if like_api_exist and not like_kitsu_exist:
-                        like = self.db(id=temp_id, table="like").get()
+                        like = self.database(id=temp_id, table="like")
                         like['id'] = id
-                        self.db(id=id, table="like").set(like)
-                        self.db(id=temp_id, table="like").remove()
-                self.db.sql("UPDATE indexList SET {} = ? WHERE kitsu_id=?".format(
+                        self.database.set(like, table="like")
+                        self.database.remove("id", id=temp_id, table="like")
+                self.database.sql("UPDATE indexList SET {} = ? WHERE kitsu_id=?".format(
                     api_key), (api_id, kitsu_id))
 
         try:
-            self.db.save()
+            self.database.save()
         except BaseException:
             pass
         return True

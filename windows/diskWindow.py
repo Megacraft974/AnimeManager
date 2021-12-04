@@ -50,7 +50,7 @@ class diskWindow:
             usedSize = length * used / total
             usedPrct = used / total * 100
             for p, c in list(usageColors.items())[::-1]:
-                if usedPrct < p:
+                if usedPrct <= p:
                     color = c
 
             # self.diskfen.titleLbl.configure(text="Disk "+disk, font=("Source Code Pro Medium",20),

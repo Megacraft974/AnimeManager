@@ -77,7 +77,7 @@ class JikanMoeWrapper(APIUtils):
         return self._convertCharacter(c)
 
     def _convertAnime(self, a):
-        id = self.db.getId("mal_id", int(a["mal_id"]))
+        id = self.database.getId("mal_id", int(a["mal_id"]))
         out = Anime()
 
         out["id"] = id
@@ -122,7 +122,7 @@ class JikanMoeWrapper(APIUtils):
         out['status'] = None  # a['status'] if 'status' in a.keys() else None
         out['rating'] = a['rating'].split(
             "-")[0].rstrip() if 'rating' in a.keys() else None
-        if 'broadcast' in a.keys() and a['broadcast'] is not None:
+        if 'broadcast' in a.keys() and a['broadcast'] not in (None, 'Unknown'):
             weekdays = ('Mondays', 'Tuesdays', 'Wednesdays',
                         'Thursdays', 'Fridays', 'Saturdays', 'Sundays')
             a['broadcast'] = a['broadcast'].split(" (")[0].split(' at ')
@@ -144,12 +144,12 @@ class JikanMoeWrapper(APIUtils):
         genres = []
         if 'genres' in a.keys():
             for g in a['genres']:
-                if not self.db.exist("mal_id", g['mal_id'], "genres"):
-                    self.db.sql(
+                if not self.database.exist(g['mal_id'], "genres", "mal_id"):
+                    self.database.sql(
                         "INSERT INTO genres(mal_id,name) VALUES(?,?)", (g['mal_id'], g['name']))
 
                 genres.append(
-                    self.db.sql(
+                    self.database.sql(
                         "SELECT id FROM genres WHERE mal_id=?",
                         (g['mal_id'],
                          ))[0][0])
@@ -159,18 +159,18 @@ class JikanMoeWrapper(APIUtils):
             for relation, rel_data_list in a['related'].items():
                 for rel_data in rel_data_list:
                     if rel_data['type'] == "anime":
-                        rel_id = self.db.getId("mal_id", rel_data["mal_id"])
-                        if not self.db.sql(
+                        rel_id = self.database.getId("mal_id", rel_data["mal_id"])
+                        if not self.database.sql(
                                 "SELECT EXISTS(SELECT 1 FROM related WHERE id=? AND rel_id=?);", (id, rel_id)):
                             rel = {"id": id, "relation": relation,
                                    "rel_id": rel_id}
-                            self.db(table="related").set(rel, save=False)
-        self.db.save()
+                            self.database.set(rel, table="related", save=False)
+        self.database.save()
 
         return out
 
     def _convertCharacter(self, c, anime_id=None):
-        c_id = self.db.getId("mal_id", int(c["mal_id"]), table="characters")
+        c_id = self.database.getId("mal_id", int(c["mal_id"]), table="characters")
         keys = {'name': 'name', 'role': 'role', 'picture': 'image_url',
                 'desc': 'about', 'animeography': 'animeography'}
         out = Character()

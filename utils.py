@@ -363,19 +363,37 @@ def peek(iter):
         return first, new_iter(first, iter)
 
 
-def lines_in_dir(root="./"):
-    c = 0
+def project_stats(root="./"):
+    def pp_bytes(size):
+        units = ('o', 'Ko', 'Mo', 'Go', 'To')
+        i = 0
+        while size / 1000 > 1:
+            size = size // 1000
+            i += 1
+        return str(size) + " " + units[i]
+    ignore = ("__pycache__", ".git")
+    lines, files, folders, size = 0, 0, 0, 0
     for f in os.listdir(root):
+        if f in ignore:
+            continue
         end = f.split(".")[-1]
         path = os.path.join(root, f)
         if os.path.isfile(path):
+            size += os.path.getsize(path)
             if end == "py":
+                files += 1
                 with open(path, encoding="utf-8") as file:
-                    c += len(file.readlines()) + 1
+                    lines += len(file.readlines()) + 1
         elif os.path.isdir(path):
-            c += lines_in_dir(path)
-    return c
+            t_lines, t_files, t_folders, t_size = project_stats(path)
+            lines += t_lines
+            files += t_files
+            folders += t_folders + 1
+            size += t_size
+    if root == "./":
+        print("{} lines in the project, {} files, {} folders, total size: {}".format(lines, files, folders, pp_bytes(size)))
+    return lines, files, folders, size
 
 
 if __name__ == "__main__":
-    print(lines_in_dir(), "lines of code in the project!")
+    project_stats()

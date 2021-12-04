@@ -49,4 +49,4 @@ class textPopupWindow:
                     20))
         else:
             self.log("ERROR", "Unknown window type", fentype)
-            raise Exception
+            raise

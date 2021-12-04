@@ -64,7 +64,7 @@ def GetHandler(dbPath, manager):
                     data = self.getAnimesToSync()
                     content = "application/json"
                 elif id is not None:
-                    data = dict(self.database(id=id, table=table))
+                    data = self.database(id=id, table=table)
                     if data['id'] == "NONE":
                         # data = "404 - Id not in db"
                         # code = 404
@@ -109,34 +109,35 @@ def GetHandler(dbPath, manager):
             self.manager = manager
             for anime in rep:
                 id, tag, like = anime.values()
-                if not self.database(id=id, table="anime").exist():
+                if not self.database.exist(id=id, table="anime"):
                     try:
                         log("SERVER", "Fetching data for id", id)
                         data = self.manager.getData(id)
-                        self.database(id=id, table="anime").set(
-                            data, save=False)
+                        data['id'] = id  # TODO - Needed?
+                        self.database.set(
+                            data, table="anime", save=False)
                     except BaseException:
                         pass
 
-                if not self.database(id=id, table="tag").exist():
+                if not self.database.exist(id=id, table="tag"):
                     try:
-                        self.database(id=id, table="tag").set(
-                            {"id": id, "tag": tag}, save=False)
+                        self.database.set(
+                            {"id": id, "tag": tag}, table="tag", save=False)
                     except BaseException:
                         pass
                     dbTag = tag
                 else:
-                    dbTag = self.database(id=id, table="tag").get()['tag']
+                    dbTag = self.database(id=id, table="tag")['tag']
 
-                if not self.database(id=id, table="like").exist():
+                if not self.database.exist(id=id, table="like"):
                     try:
-                        self.database(id=id, table="like").set(
-                            {"id": id, "like": like}, save=False)
+                        self.database.set(
+                            {"id": id, "like": like}, table="like", save=False)
                     except BaseException:
                         pass
                     dbLike = like
                 else:
-                    dbLike = self.database(id=id, table="like").get()['like']
+                    dbLike = self.database(id=id, table="like")['like']
 
             self.database.save()
 

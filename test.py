@@ -58,8 +58,3 @@
 #         url = urllib.parse.urlunparse(v)
 #         print(url)
 #         getTracker(v.scheme,url,v.port,info_hash,size)
-
-from datetime import datetime
-
-d = datetime.now()
-print(str(d))

@@ -54,10 +54,7 @@ class characterListWindow:
                 title = character['name']
                 if len(title) >= 20:
                     title = title[:15] + "..."
-                if database(
-                        id=character['id'],
-                        table='characters').exist() and bool(
-                        database['like']):
+                if database.exist(id=character['id'], table='characters') and bool(database(id=character['id'], table='characters')['like']):
                     title += " ❤"
                 color = 'Blue' if character['role'] == 'main' else 'White'
                 b = Button(

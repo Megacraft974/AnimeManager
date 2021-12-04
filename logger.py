@@ -30,7 +30,10 @@ class Logger:
                    for f in logsList)
 
         while size >= self.maxLogsSize and len(logsList) > 1:
-            os.remove(os.path.join(self.logsPath, logsList[0]))
+            try:
+                os.remove(os.path.join(self.logsPath, logsList[0]))
+            except FileNotFoundError:
+                pass
             logsList = os.listdir(self.logsPath)
             size = sum(os.path.getsize(os.path.join(self.logsPath, f))
                        for f in logsList)

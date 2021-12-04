@@ -43,6 +43,13 @@
             "SEEN": "Green",
             "WATCHING": "Orange",
             "WATCHLIST": "Blue"
+        },
+        "torrentsStateColors": {
+            "COMPLETE": "Green",
+            "DOWNLOADING": "Orange",
+            "UNKNOWN": "Gray4",
+            "DELETED": "White",
+            "NOT_FOUND": "Red"
         }
     },
     "anime": {
@@ -154,6 +161,8 @@
         "settingsWindowMinHeight": 400,
         "settingsWindowMinWidth": 600,
         "torrentDDLWindowMinHeight": 500,
-        "torrentDDLWindowMinWidth": 1500
+        "torrentDDLWindowMinWidth": 1500,
+        "torrentFilesWindowMinHeight": 500,
+        "torrentFilesWindowMinWidth": 1500
     }
 }

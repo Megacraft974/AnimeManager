@@ -140,6 +140,8 @@ class ItemList(queue.Queue):
                 break
             except requests.exceptions.ConnectionError:
                 log("Error on ItemList iterator: No internet connection!")
+                self.sources.remove(s)
+                break
             except Exception as e:
                 log("Error on ItemList iterator", s, iterator, "\n", traceback.format_exc())
                 self.sources.remove(s)
@@ -165,8 +167,7 @@ class ItemList(queue.Queue):
     def addSource(self, source):
         if isinstance(source, type(self)):
             return
-        if isinstance(source, tuple) and isinstance(source[0], queue.Queue):
-            # self.sources.append(source)
+        if isinstance(source, tuple) and isinstance(source[0], queue.Queue):  # TODO - Doc?
             t = threading.Thread(target=self.queueListener, args=source)
             t.start()
             self.sourceThreads.append(t)
@@ -181,12 +182,15 @@ class ItemList(queue.Queue):
             e = self.list.pop(0)
             return e
         else:
-            return self.get_from_sources(timeout, default)
+            if self.empty():
+                return default
+            else:
+                return self.get_from_sources(timeout, default)
 
     def get_from_sources(self, timeout=None, default=None):
         self.new_elem_event["enabled"] = True
         if not self.new_elem_event["event"].wait(timeout=timeout):
-            log("Timed out")
+            log("Error on ItemList iterator: Timed out")
             return default  # Timed out
 
         if len(self.list) > 0:
@@ -195,6 +199,9 @@ class ItemList(queue.Queue):
 
     def empty(self):
         return len(self.sources) == 0 and len(self.list) == 0
+
+    def is_ready(self):
+        return len(self.list) > 0
 
 
 class AnimeList(ItemList):
@@ -215,16 +222,198 @@ class CharacterList(ItemList):
         self.identifier = lambda c: c["id"]
 
 
+class NoneDict(dict):
+    """Just a normal dict, but return "NONE" instead of raising a KeyError"""
+
+    def __getitem__(self, key):
+        if key in self.keys():
+            return super().__getitem__(key)
+        else:
+            return "NONE"
+
+
+class SortedList(list):
+    def __init__(self, keys=None):
+        if keys is None:  # Keys must be either None or a list of tuples containing the key and a "reverse" bool
+            self.keys = ((lambda e: e, False),)
+        else:
+            self.keys = keys
+
+    def append(self, e):
+        length = len(self)
+        if length == 0:
+            super().append(e)
+        else:
+            self.binary_insert(e, 0, length)
+
+    def __contains__(self, e):
+        length = len(self)
+        if length == 0:
+            return False
+        else:
+            return self.binary_search(e, 0, length) is not False
+
+    def compare(self, a, b):
+        """ Return True if a > b, False if a < b, and None if a == b """
+        for key, reverse in self.keys:
+            try:
+                k_a, k_b = key(a), key(b)
+            except Exception:
+                # Loop
+                continue
+            if k_a > k_b:
+                return not reverse
+            elif k_a < k_b:
+                return reverse
+            # Loop if a == b
+        return None
+
+    def binary_insert(self, e, start, stop):
+        middle = (stop + start) // 2
+        if self.compare(e, self[middle]):  # Hacky - see reverse truth table
+            if middle == start:
+                super().insert(start + 1, e)
+                return start + 1
+            else:
+                return self.binary_insert(e, middle, stop)
+        else:
+            if middle == stop:
+                super().insert(stop, e)
+                return stop
+            else:
+                return self.binary_insert(e, start, middle)
+
+    def binary_search(self, e, start, stop):
+        middle = (stop + start) // 2
+        comp = self.compare(e, self[middle])
+        if comp is None:  # e == self.middle
+            return middle
+        elif comp != self.reverse:  # Hacky - see reverse truth table
+            if middle == start:
+                return False
+            else:
+                return self.binary_search(e, middle, stop)
+        else:
+            if middle == stop:
+                return False
+            else:
+                return self.binary_search(e, start, middle)
+
+
+class SortedDict():
+    """Actually a sorted list of tuples, but behave like a dict"""
+
+    def __init__(self, keys=None):
+        super().__init__()
+        if keys is None:  # Keys must be either None or a list of tuples containing the key and a "reverse" bool
+            self._keys = ((lambda e: e[0], False),)
+        else:
+            self._keys = keys
+        self.data_list = SortedList(keys=self._keys)
+        # self.data_list.compare = self.compare
+
+    def __contains__(self, key):
+        return key in self.keys()
+
+    def __repr__(self):
+        return "{" + ", ".join(":".join(map(str, item)) for item in self.data_list) + "}"
+
+    def __getitem__(self, key):
+        i = self.search_key(key)
+        if i is not False:
+            return self.data_list[i][1]
+        raise KeyError(key)
+
+    def __setitem__(self, key, value):
+        i = self.search_key(key)
+        if i is not False:
+            self.data_list[i] = (key, value)
+            return
+        self.data_list.append((key, value))
+
+    def keys(self):
+        return tuple(e[0] for e in self.data_list)
+
+    def values(self):
+        return tuple(e[1] for e in self.data_list)
+
+    def items(self):
+        return self.data_list
+
+    def get(self, key, default=None):
+        try:
+            return self.__getitem__(key)
+        except KeyError:
+            return default
+
+    def search_key(self, key):
+        length = len(self.data_list)
+        if length == 0:
+            return False
+        else:
+            match = self.binary_search(key, 0, length)
+            if key == match:
+                return match
+            else:
+                for i, e in enumerate(self.data_list):
+                    if e[0] == key:
+                        return i
+                return False
+
+    def compare(self, a, b):
+        """ Return True if a > b, False if a < b, and None if a == b """
+        a = (a, None)
+        for key, reverse in self._keys:
+            try:
+                k_a, k_b = key(a), key(b)
+            except Exception:
+                # Loop
+                pass
+            else:
+                if k_a > k_b:
+                    return not reverse
+                elif k_a < k_b:
+                    return reverse
+                # Loop if a == b
+        return None
+
+    def binary_search(self, e, start, stop):
+        middle = (stop + start) // 2
+        comp = self.compare(e, self.data_list[middle])
+        if comp is None:  # e == self.middle
+            return middle
+        elif comp != self.reverse:  # Hacky - see reverse truth table
+            if middle == start:
+                return False
+            else:
+                return self.binary_search(e, middle, stop)
+        else:
+            if middle == stop:
+                return False
+            else:
+                return self.binary_search(e, start, middle)
+
+
 if __name__ == "__main__":
-    def slow_iter(msg, t=1, length=10):
-        for i in range(length):
-            time.sleep(t)
-            # log(msg+str(i))
-            yield msg + str(i)
-    items = ItemList(range(5), ('a', 'b', 'c'), slow_iter(
-        "haha", 1, 3), slow_iter("hehe", 5, 2))
-    for e in items:
-        log(e)
+    sl = SortedList(reverse=True)
+
+    for i in random.sample(list(range(100)), 100):
+        sl.append(i)
+
+    sd = SortedDict()
+
+    for i in range(100):
+        sd[random.randint(0, 100)] = random.randint(0, 100)
+
+    # def slow_iter(msg, t=1, length=10):
+    #     for i in range(length):
+    #         time.sleep(t)
+    #         # log(msg+str(i))
+    #         yield msg + str(i)
+    # items = ItemList(range(5), ('a', 'b', 'c'), slow_iter(
+    #     "haha", 1, 3), slow_iter("hehe", 5, 2))
+    # for e in items:
+    #     log(e)
 
     # a = Anime()
     # log(a.title)

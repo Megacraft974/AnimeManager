@@ -1247,7 +1247,7 @@ class MpvPlayer(Player):
         self.videoSize = (self.videopanel.winfo_width(),
                           self.videopanel.winfo_height())
 
-        log("Playing")
+        log("Playing", self.playlist[self.index])
 
         self.showTitle()
         self.updateDb()
@@ -1546,8 +1546,8 @@ class MpvPlayer(Player):
         def handler(self):
             if self.id is not None and self.database is not None:
                 filename = self.playlist[self.index]
-                db(self.database)(table="anime").set(
-                    {'id': self.id, 'last_seen': str(filename)})
+                db(self.database).set(
+                    {'id': self.id, 'last_seen': str(filename)}, table="anime")
         self.thread = threading.Thread(target=handler, args=(self,))
         self.thread.start()
 
@@ -1605,7 +1605,6 @@ class MpvPlayer(Player):
     def OnClose(self):
         if self.stopped:
             return
-        log("Closing")
         self.stopped = True
         self.parent.destroy()
         self.updateDb()
@@ -1613,7 +1612,7 @@ class MpvPlayer(Player):
             self.player.stop()
         except Exception as e:
             log("Error while stopping player:", type(e), e)
-        log("Closed")
+        log("Closed media player")
         # self.parent.quit()
 
 
