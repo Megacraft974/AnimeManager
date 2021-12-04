@@ -239,7 +239,6 @@ class optionsWindow:
             def dataUpdate(id):
                 database = self.getDatabase()
                 data = self.api.anime(id)
-                data['id'] = id  # TODO - Needed?
 
                 database.set(data, table="anime")
                 if 'status' in data.keys() and data.status != 'UPDATE':
@@ -684,14 +683,10 @@ class optionsWindow:
             else:
                 genres = []
 
+            all_genres = dict(self.database.sql("SELECT id, name FROM genres"))
+
             for genre_id in genres:
-                # values = self.database.sql("SELECT name FROM genres WHERE id=?",(genre_id,))
-                # if len(values) >= 1:
-                #     txt = values[0][0]
-                # else:
-                #     txt = "Unknown"
-                #     self.log("DB_ERROR","Unknown genre for id",genre_id,"on key",key)
-                txt = self.database(id=genre_id, table="genres")["name"]  # TODO - Inefficient
+                txt = all_genres[genre_id]
                 if txt == "NONE":
                     txt = "Unknown"
                 Label(
@@ -929,7 +924,6 @@ class optionsWindow:
                 time.sleep(0.01)
             data = que.get()
             if data is not None:
-                data['id'] = id  # TODO - Needed?
                 self.database.set(data, table="anime")
 
         while thread_files.is_alive():

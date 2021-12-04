@@ -7,7 +7,7 @@ import re
 sys.path.append(os.path.abspath("../"))
 try:
     from dbManager import db
-    from classes import Anime, AnimeList, Character, CharacterList
+    from classes import Anime, Character
     from logger import log
     from getters import Getters
 except ModuleNotFoundError:

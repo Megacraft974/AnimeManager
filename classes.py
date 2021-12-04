@@ -167,7 +167,7 @@ class ItemList(queue.Queue):
     def addSource(self, source):
         if isinstance(source, type(self)):
             return
-        if isinstance(source, tuple) and isinstance(source[0], queue.Queue):  # TODO - Doc?
+        if isinstance(source, tuple) and isinstance(source[0], queue.Queue):  # Add a tuple like (data_queue, data_threads)
             t = threading.Thread(target=self.queueListener, args=source)
             t.start()
             self.sourceThreads.append(t)

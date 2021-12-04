@@ -156,7 +156,6 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
                 self.root.update()
                 self.createList(None)
         elif self.animeList is not None:
-            print(self.animeList, dir(self.animeList))
             self.stopSearch = True
             self.animeListReady = True
             self.root.update()
@@ -169,12 +168,8 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
             sql = "SELECT anime.*,tag.tag,like.like FROM searchTitles JOIN anime using(id) LEFT JOIN tag using(id) LEFT JOIN like using(id) WHERE searchTitles.title LIKE '%{}%' GROUP BY anime.id ORDER BY anime.date_from DESC;".format(
                 terms)
             keys = list(self.database.keys(table="anime")) + ['tag', 'like']
-            anime_list = AnimeList(Anime(dict(zip(keys, data))) for data in self.database.sql(sql))
+            anime_list = AnimeList(Anime(dict(zip(keys, data))) for data in self.database.sql(sql, iterate=True))
             return anime_list
-            # TODO - Efficient?
-            for data in self.database.sql(sql):
-                data = Anime(dict(zip(keys, data)))
-                # yield data
 
         self.updateTitles()
         terms = "".join([c for c in terms if c.isalnum()]).lower()
@@ -406,7 +401,6 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
             self.blank_image = self.getImage(None, (225, 310))
         title = anime.title
         if title is None:
-            print("No title for id:", anime.id, anime)
             self.list_timer.stop()
             return
         if len(title) > 35:

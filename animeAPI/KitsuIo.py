@@ -21,7 +21,6 @@ class KitsuIoWrapper(APIUtils):
         rep = self.s.get('anime/' + str(kitsu_id), modifier).resource
         data = self._convertAnime(rep, force=True)
         if save:
-            data["id"] = id  # TODO - Needed?
             self.database.set(data, table="anime")
         return data
 

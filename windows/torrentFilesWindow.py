@@ -13,7 +13,7 @@ class torrentFilesWindow:
     def torrentFilesWindow(self, id):
         # Functions
         if True:
-            def import_torrent(id):  # TODO
+            def import_torrent(id):
                 def removeOld(self, t_id, t_torrents):
                     self.log('DB_UPDATE', "Removing torrent duplicates")
                     database = self.getDatabase()

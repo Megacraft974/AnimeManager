@@ -37,7 +37,6 @@ class MyAnimeListNetWrapper(APIUtils):
             return {}
         data = self._convertAnime(a)
         if save:
-            data['id'] = id  # TODO - Needed?
             self.database.set(data, table="anime")
         return data
 

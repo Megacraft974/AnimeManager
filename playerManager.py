@@ -104,6 +104,8 @@ class Player:
         x = int(self.parent.winfo_screenwidth() / 2 - size[0] / 2)
         y = int(self.parent.winfo_screenheight() / 2 - size[1] / 2)
         self.parent.geometry("{}x{}+{}+{}".format(*size, x, y))
+        path = os.path.join(self.iconPath, "favicon.png")
+        self.parent.iconphoto(False, self.getImage(path))
 
         self.parent.update()
         self.parent.minsize(width=550, height=300)
@@ -114,7 +116,6 @@ class Player:
         self.parent.lift()
 
     def initPanel(self):
-        # TODO - Add icon
         self.hidingFrame = Frame(self.parent, bg="#282923")
 
         self.infoLblFrame = Frame(self.hidingFrame, bg="#181915")
@@ -1443,7 +1444,6 @@ class MpvPlayer(Player):
                           self.videopanel.winfo_height())
 
     def showTitle(self, animations=True):
-        # TODO - Use time.time instead of a counter -> better usage of the fps
         def animate(start, stop, time, fps=60, p=0):
             step = 100 / (time * fps)
             current = int((stop - start) * p / 100 + start)
