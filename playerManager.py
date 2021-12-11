@@ -71,11 +71,8 @@ class Player:
     def image(self, file, size):
         return ImageTk.PhotoImage(
             Image.open(
-                os.path.join(
-                    self.iconPath,
-                    file)).resize(
-                size,
-                Image.ANTIALIAS),
+                os.path.join(self.iconPath, file)
+            ).resize(size, Image.ANTIALIAS),
             master=self.parent)
 
     def initWindow(self):
@@ -104,8 +101,7 @@ class Player:
         x = int(self.parent.winfo_screenwidth() / 2 - size[0] / 2)
         y = int(self.parent.winfo_screenheight() / 2 - size[1] / 2)
         self.parent.geometry("{}x{}+{}+{}".format(*size, x, y))
-        path = os.path.join(self.iconPath, "favicon.png")
-        self.parent.iconphoto(False, self.getImage(path))
+        self.parent.iconphoto(False, self.image("favicon.png", (128, 128)))
 
         self.parent.update()
         self.parent.minsize(width=550, height=300)

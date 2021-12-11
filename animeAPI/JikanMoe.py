@@ -67,7 +67,7 @@ class JikanMoeWrapper(APIUtils):
             return
         for a in rep['results']:
             data = self._convertAnime(a)
-            if data != {}:
+            if len(data) != 0:
                 yield data
 
     def character(self, id):

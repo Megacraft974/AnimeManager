@@ -1,3 +1,5 @@
+import auto_launch
+
 from datetime import date, datetime, timedelta
 import os
 import utils
@@ -23,7 +25,8 @@ class UpdateUtils:
             try:
                 f()
             except BaseException as e:
-                self.log(e)
+                self.log("MAIN_STATE", "[ERROR] - On update function:", str(e))
+                raise
         reloadFunc = {
             self.updateCache: "Updating cache",
             self.updateDirs: "Updating directories",
@@ -37,6 +40,7 @@ class UpdateUtils:
             thread = threading.Thread(target=wrapper, args=(f,))
             thread.start()
             yield thread, text
+            thread.join()
 
     def regroupFiles(self):
         self.log("DB_UPDATE", "Regrouping files")
@@ -112,17 +116,19 @@ class UpdateUtils:
         toSeen = []
         statusUpdate = []
 
+        keys = list(database.keys(table="anime")) + ['tag']
         anime_db = database.sql(
             'SELECT anime.*,tag.tag FROM anime LEFT JOIN tag using(id)', iterate=True)
+        # anime_db = list(anime_db)
+        # print(anime_db)
         self.animeFolder = os.listdir(self.animePath)
         c = 0
-        keys = list(database.keys(table="anime")) + ['tag']
         for data in anime_db:
-            anime = Anime(dict(zip(keys, data)))
+            anime = Anime(keys=keys, values=data)
             id, tag, torrent = anime.id, anime.tag, anime.torrent
+            self.log("DB UPDATE", "Id:", id)
             folder = self.getFolder(id, anime=anime)
-            if folder is not None and os.path.isdir(
-                    os.path.join(self.animePath, folder)):
+            if folder is not None and os.path.isdir(os.path.join(self.animePath, folder)):
                 if tag != 'WATCHING':
                     self.log('DB_UPDATE', "Folder '" + folder + "' id", id, "exists, but tag is", tag)
                     toWatch.append(id)
@@ -132,11 +138,11 @@ class UpdateUtils:
                     self.log('DB_UPDATE', "Folder '" + folder + "' doesn't have a folder, but tag is", tag)
                     toSeen.append(id)
                     c += 1
-            # self.log('DB_UPDATE', anime.tag, anime.title, anime.date_from)
             if anime.status == "UPCOMING" and anime.date_from is not None:
                 delta = date.today() - date.fromisoformat(anime.date_from)
-                if delta > timedelta():  # == delta < 0
+                if delta >= timedelta():  # timedelta() == 0
                     statusUpdate.append(anime)
+                    c += 1
 
         for anime in statusUpdate:
             old_status = anime.status

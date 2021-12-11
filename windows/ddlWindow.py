@@ -21,7 +21,7 @@ class ddlWindow:
 
             que = queue.Queue()
             while True:
-                threading.Thread(target=handler, args=(fetcher, que)).start()
+                threading.Thread(target=handler, args=(fetcher, que), daemon=True).start()
                 while que.empty():
                     for i in range(int(2 / 0.01)):
                         try:

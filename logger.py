@@ -1,3 +1,5 @@
+import auto_launch
+
 import threading
 import time
 import os

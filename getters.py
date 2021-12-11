@@ -1,3 +1,5 @@
+import auto_launch
+
 import threading
 import os
 import io
@@ -43,7 +45,7 @@ class Getters:
 
     def getQB(self, use_thread=False, reconnect=False):
         if use_thread:
-            threading.Thread(target=self.getQB, args=(False, reconnect)).start()
+            threading.Thread(target=self.getQB, args=(False, reconnect), daemon=True).start()
             return
         try:
             if reconnect:
@@ -89,7 +91,7 @@ class Getters:
         if (isinstance(path, str) and os.path.isfile(path)) or isinstance(path, io.IOBase):
             img = Image.open(path)
             if size is not None:
-                img = img.resize(size)
+                img = img.resize(size, Image.ANTIALIAS)
         else:
             img = Image.new('RGB', (10, 10) if size is None else size, self.colors['Gray'])
         return ImageTk.PhotoImage(img, master=self.root)

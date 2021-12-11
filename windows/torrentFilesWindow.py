@@ -49,7 +49,7 @@ class torrentFilesWindow:
                     self.database.set(
                         {'id': id, 'torrent': json.dumps(torrents)}, table="anime")
                     threading.Thread(target=removeOld, args=(
-                        self, id, torrents)).start()
+                        self, id, torrents), daemon=True).start()
 
                 self.torrentFilesWindow(id)
 
@@ -84,8 +84,11 @@ class torrentFilesWindow:
                         elif t.state_enum.is_downloading:
                             out[t_name] = "DOWNLOADING"
                         else:
-                            self.log("MAIN_STATE", "[ERROR] - Unknown torrent state:", t.state, "for torrent:", t.name)
-                            out[t_name] = "UNKNOWN"
+                            if t.state == "checkingResumeData":
+                                out[t_name] = "DOWNLOADING"
+                            else:
+                                self.log("MAIN_STATE", "[ERROR] - Unknown torrent state:", t.state, "for torrent:", t.name)
+                                out[t_name] = "UNKNOWN"
                     else:
                         out[t_name] = "DELETED"
 
@@ -126,22 +129,37 @@ class torrentFilesWindow:
 
                 return out
 
-            def delete_torrent(t, id):
+            def download_torrent(id, t):
+                # path = os.path.join(self.torrentPath, t)
+                self.downloadFile(id, file=t)
+
+                self.torrentFilesChooser.after(1000, lambda id=id: self.torrentFilesWindow(id))
+
+            def delete_torrent(id, t, state):
                 self.log('DB_UPDATE', "Removing torrent", t, "for id", id)
-                database = self.getDatabase()
-                torrents = getTorrents(id)
-
-                if t in torrents:
-                    torrents.remove(t)
-                    if len(torrents) >= 1:
-                        data = json.dumps(torrents)
-                    else:
-                        data = None
-                    database.update('torrent', data, id=id, table="anime")
-
                 path = os.path.join(self.torrentPath, t)
-                if os.path.exists(path):
-                    os.remove(path)
+
+                if state in ("COMPLETE", "DOWNLOADING"):
+                    t_hash = self.getTorrentHash(path)
+                    if self.getQB() == "OK":
+                        self.qb.torrents_delete(
+                            delete_files=False,
+                            torrent_hashes=(t_hash,))
+                else:
+                    database = self.getDatabase()
+                    torrents = getTorrents(id)
+
+                    if t in torrents:
+                        torrents.remove(t)
+                        if len(torrents) >= 1:
+                            data = json.dumps(torrents)
+                        else:
+                            data = None
+                        database.update('torrent', data, id=id, table="anime")
+
+                    if state != "NOT_FOUND":
+                        if os.path.exists(path):
+                            os.remove(path)
 
                 self.torrentFilesWindow(id)
 
@@ -227,7 +245,7 @@ class torrentFilesWindow:
                         relief='solid',
                         activebackground=self.colors['Gray2'],
                         bg=self.colors['Gray3'],
-                        command=lambda t=torrent: download_torrent(t)
+                        command=lambda id=id, t=torrent: download_torrent(id, t)
                     ).grid(
                         row=i,
                         column=1,
@@ -242,7 +260,7 @@ class torrentFilesWindow:
                         relief='solid',
                         activebackground=self.colors['Gray2'],
                         bg=self.colors['Gray3'],
-                        command=lambda t=torrent, id=id: delete_torrent(t, id)
+                        command=lambda id=id, t=torrent, s=state: delete_torrent(id, t, s)
                     ).grid(
                         row=i,
                         column=2,

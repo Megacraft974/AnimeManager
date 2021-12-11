@@ -86,7 +86,8 @@ class optionsWindow:
                             bar,
                             text))
 
-            def colorFileEntries(last_seen, eps, epsList):
+            def colorFileEntries(id, eps, epsList):
+                last_seen = self.database(id=id, table="anime")['last_seen']
                 if len(eps) >= 1 and list(eps)[0] is not None:
                     pathList = [os.path.normpath(i['path']) for i in eps]
                 else:
@@ -249,7 +250,7 @@ class optionsWindow:
             anime = self.database(id=id, table="anime")
 
             if not self.database.exist(id=id, table="anime") or anime.status == 'UPDATE':
-                threading.Thread(target=dataUpdate, args=(id,)).start()
+                threading.Thread(target=dataUpdate, args=(id,), daemon=True).start()
                 anime.title = "Loading..."
 
             if self.choice is None or not self.choice.winfo_exists():
@@ -409,10 +410,10 @@ class optionsWindow:
                 epsList.grid(row=2 + offRow, column=1,
                              sticky="nsew", padx=2, pady=2)
 
-                colorFileEntries(anime.last_seen, eps, epsList)
+                colorFileEntries(id, eps, epsList)
                 epsList.bind("<Button-3>", lambda e,
                              var=var: openEps(e, eps, var))
-                epsList.bind("<Button-1>", lambda e, a=anime.last_seen, b=eps, c=epsList: colorFileEntries(a, b, c))
+                epsList.bind("<Button-1>", lambda e, a=id, b=eps, c=epsList: colorFileEntries(a, b, c))
 
             [titleFrame.grid_columnconfigure(i, weight=1) for i in range(2)]
 
@@ -887,7 +888,7 @@ class optionsWindow:
 
         self.choice.update()
         if 'hash' not in self.choice.__dict__.keys():
-            threading.Thread(target=findTorrent, args=(id,)).start()
+            threading.Thread(target=findTorrent, args=(id,), daemon=True).start()
 
     def copy_title(self, id):
         database = self.getDatabase()
@@ -905,13 +906,13 @@ class optionsWindow:
         if 'TIME' in self.logs:
             self.start = time.time()
 
-        thread_files = threading.Thread(target=self.regroupFiles)
+        thread_files = threading.Thread(target=self.regroupFiles, daemon=True)
         thread_files.start()
 
         reloadFen = True
         if update:
             que = queue.Queue()
-            thread_data = threading.Thread(target=handler, args=(id, que))
+            thread_data = threading.Thread(target=handler, args=(id, que), daemon=True)
             thread_data.start()
 
             sql = "DELETE FROM characters WHERE anime_id=?"

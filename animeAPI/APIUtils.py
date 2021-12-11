@@ -67,15 +67,6 @@ class APIUtils(Getters):
             # raise Exception("Wrong api")
         return api_id[0][0]
 
-    def save(self, data):
-        if isinstance(data, Anime):
-            table = "anime"
-        elif isinstance(data, Character):
-            table = "characters"
-        else:
-            raise TypeError("{} is an invalid type!".format(str(type(data))))
-        self.database.set(data, table=table)
-
 
 class EnhancedSession(requests.Session):
     def __init__(self, timeout=(3.05, 4)):

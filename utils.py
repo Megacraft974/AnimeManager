@@ -1,3 +1,5 @@
+import auto_launch
+
 from tkinter import *
 import requests
 import threading

@@ -40,7 +40,7 @@ class initWindow:
 
             def checkServer():
                 if threading.main_thread() == threading.current_thread():
-                    threading.Thread(target=checkServer).start()
+                    threading.Thread(target=checkServer, daemon=True).start()
                     return
                 if self.enableServer:
                     self.server = mobile_server.startServer(

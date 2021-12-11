@@ -1,3 +1,5 @@
+import auto_launch
+
 import queue
 import threading
 import time
@@ -8,14 +10,13 @@ from logger import log
 
 
 class Item(dict):
-    def __init__(self, data=None):
+    def __init__(self, *args, **kwargs):
         super().__init__(self)
         if "data_keys" not in self.__dict__.keys():
             self.data_keys = ()
         if "meta_data_keys" not in self.__dict__.keys():
             self.meta_data_keys = ()
-        if data is not None:
-            self.__add__(data)
+        self.__add__(*args, **kwargs)
 
     def __getattr__(self, key):
         if key in ("data_keys", "meta_data_keys"):
@@ -35,13 +36,30 @@ class Item(dict):
         else:
             log(type(self), key, value)
 
-    def __add__(self, e):
-        if e is None:
+    def __add__(self, *args, **kwargs):
+        data = None
+        if len(args) == 0 and len(kwargs) == 0:
             return
-        if not hasattr(e, 'items'):
-            raise TypeError("Cannot merge '{}' and '{}'".format(
-                type(self).__name__, type(e).__name__))
-        for k, v in e.items():
+        elif len(args) == 1:
+            if hasattr(args[0], "items"):  # Item(dict(data))
+                data = args[0].items()
+            else:
+                try:
+                    iter(args[0])
+                except TypeError:
+                    raise TypeError("Cannot merge data, type: {} - {}".format(type(args[0])), args[0])
+                else:
+                    if type(args[0]) == tuple:  # Item([(key, value), (key, value), ...])
+                        data = args[0]
+        elif len(args) == 0:
+            if "keys" in kwargs.keys() and "values" in kwargs.keys():
+                data = zip(kwargs["keys"], kwargs["values"])
+
+        if data is None:
+            raise TypeError("Cannot merge '{}' with data: {} and {}".format(
+                type(self).__name__, args, kwargs))
+
+        for k, v in data:
             if k not in self.keys():
                 self[k] = v
         return self
@@ -63,7 +81,7 @@ class Item(dict):
 
 
 class Anime(Item):
-    def __init__(self, data=None):
+    def __init__(self, *args, **kwargs):
         self.data_keys = (
             'date_from',
             'date_to',
@@ -83,21 +101,21 @@ class Anime(Item):
             'trailer',
             'torrent')
         self.meta_data_keys = ('title_synonyms', 'genres', 'torrent')
-        super().__init__(data)
+        super().__init__(*args, **kwargs)
 
 
 class Torrent(Item):
-    def __init__(self, data=None):
+    def __init__(self, *args, **kwargs):
         self.data_keys = ('filename', 'torrent_url',
                           'seeds', 'leechs', 'file_size')
-        super().__init__(data)
+        super().__init__(*args, **kwargs)
 
 
 class Character(Item):
-    def __init__(self, data=None):
+    def __init__(self, *args, **kwargs):
         self.data_keys = ('id', 'anime_id', 'role', 'name',
                           'picture', 'desc', 'animeography')
-        super().__init__(data)
+        super().__init__(*args, **kwargs)
 
 
 class ItemList(queue.Queue):
@@ -110,6 +128,7 @@ class ItemList(queue.Queue):
         self.sources = []
         self.sourceThreads = []
         self.ids = []
+        self.callbacks = []
 
         if not hasattr(self, "identifier"):
             self.identifier = lambda e: e
@@ -154,6 +173,8 @@ class ItemList(queue.Queue):
                     if self.new_elem_event["enabled"]:
                         self.new_elem_event["event"].set()
                         self.new_elem_event["enabled"] = False
+                    for cb in self.callbacks:
+                        cb(e)
 
     def queueListener(self, que, threads):
         while not que.empty() or any(t.is_alive() for t in threads):
@@ -168,14 +189,22 @@ class ItemList(queue.Queue):
         if isinstance(source, type(self)):
             return
         if isinstance(source, tuple) and isinstance(source[0], queue.Queue):  # Add a tuple like (data_queue, data_threads)
-            t = threading.Thread(target=self.queueListener, args=source)
+            t = threading.Thread(target=self.queueListener, args=source, daemon=True)
             t.start()
             self.sourceThreads.append(t)
         else:
             self.sources.append(source)
-            t = threading.Thread(target=self.sourceListener, args=(source,))
+            t = threading.Thread(target=self.sourceListener, args=(source,), daemon=True)
             t.start()
             self.sourceThreads.append(t)
+
+    def add_callback(self, cb):
+        """Call a function when a new element is added - Useful for saving"""
+        self.callbacks.append(cb)
+
+    def del_callback(self, cb):
+        if cb in self.callbacks:
+            self.callbacks.remove(cb)
 
     def get(self, timeout=None, default=None):
         if len(self.list) > 0:
@@ -288,7 +317,7 @@ class SortedList(list):
         comp = self.compare(e, self[middle])
         if comp is None:  # e == self.middle
             return middle
-        elif comp != self.reverse:  # Hacky - see reverse truth table
+        elif comp:
             if middle == start:
                 return False
             else:
@@ -303,13 +332,14 @@ class SortedList(list):
 class SortedDict():
     """Actually a sorted list of tuples, but behave like a dict"""
 
-    def __init__(self, keys=None):
+    def __init__(self, keys=None, reverse=False):
         super().__init__()
         if keys is None:  # Keys must be either None or a list of tuples containing the key and a "reverse" bool
             self._keys = ((lambda e: e[0], False),)
         else:
             self._keys = keys
         self.data_list = SortedList(keys=self._keys)
+        self.reverse = reverse
         # self.data_list.compare = self.compare
 
     def __contains__(self, key):
@@ -382,7 +412,7 @@ class SortedDict():
         comp = self.compare(e, self.data_list[middle])
         if comp is None:  # e == self.middle
             return middle
-        elif comp != self.reverse:  # Hacky - see reverse truth table
+        elif comp:  # Hacky - see reverse truth table
             if middle == start:
                 return False
             else:
@@ -395,7 +425,8 @@ class SortedDict():
 
 
 if __name__ == "__main__":
-    sl = SortedList(reverse=True)
+    import random
+    sl = SortedList(reverse = True)
 
     for i in random.sample(list(range(100)), 100):
         sl.append(i)

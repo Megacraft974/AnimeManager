@@ -1,9 +1,15 @@
 import threading
 import time
 import queue
+import os
+import io
+import requests
+
 from tkinter import *
+from PIL import Image, ImageTk
 
 import utils
+from classes import CharacterList, Character
 
 
 class characterListWindow:
@@ -33,11 +39,10 @@ class characterListWindow:
 
                 if "c" + str(character['id']) + \
                         ".jpg" in os.listdir(self.cache):
-                    im = Image.open(filename)
-                    image = self.getImage(filename)
+                    image = self.getImage(filename, (225, 310))
                     loadImg = False
                 else:
-                    im = Image.new('RGB', (225, 310), self.colors['Gray'])
+                    image = self.getImage(None, (225, 310))
                     loadImg = True
                     self.log(
                         'DISK_ERROR',
@@ -45,7 +50,6 @@ class characterListWindow:
                         character['name'],
                         "id",
                         character['id'])
-                    image = ImageTk.PhotoImage(im)
 
                 can.create_image(size[0] / 2, size[1] / 2,
                                  image=image, anchor='center')
@@ -79,7 +83,6 @@ class characterListWindow:
 
                 if loadImg:
                     queue.put((filename, character, can))
-                    # threading.Thread(target=downloadPic,args=(filename,character,can)).start()
 
             def getImages(queue):
                 def downloadPic(filename, character, can):
@@ -101,7 +104,8 @@ class characterListWindow:
                     except BaseException:
                         pass
 
-                while True:
+                args = None
+                while args != "STOP":
                     if queue.empty():
                         time.sleep(0.01)
                     else:
@@ -113,14 +117,16 @@ class characterListWindow:
             def getCharacters(id):
                 database = self.getDatabase()
                 if id == "LIKED":
-                    characters = database.sql("""
+                    data = database.sql("""
                         SELECT * FROM characters
                         WHERE like = 1
                         GROUP BY id
                         ORDER BY anime_id;""")
                 else:
-                    characters = database.sql(
+                    data = database.sql(
                         "SELECT * FROM characters WHERE anime_id=?;", (id,))
+                keys = list(self.database.keys(table="characters"))
+                characters = CharacterList(Character(dict(zip(keys, c))) for c in data)
                 return characters
 
             def reload(id, c):
@@ -174,8 +180,9 @@ class characterListWindow:
                         "Source Code Pro Medium",
                         18))
                 loadLbl.pack(fill="both", expand=True, pady=10, side=BOTTOM)
+                self.characterListTable.update()
                 thread = threading.Thread(
-                    target=self.getCharactersData, args=(id,))
+                    target=self.getCharactersData, args=(id,), daemon=True)
                 thread.start()
                 while thread.is_alive():
                     if self.root is not None:
@@ -190,44 +197,33 @@ class characterListWindow:
         if True:
             characters = getCharacters(id)
 
-            # if update:
-            #     thread = threading.Thread(target=self.getCharactersData, args=(id,lambda id=id,c=characters:reload(id,c)))
-            #     thread.start()
-
-            maxX = len(characters) // self.animePerRow
-            [self.characterListTable.grid_rowconfigure(
-                x, weight=1) for x in range(maxX)]
-            # [self.characterListTable.grid_columnconfigure(y,weight=1) for y in range(max(len(characters),self.animePerRow))]
-
-            for x in range(min(len(characters), self.animePerRow)):
+            for x in range(self.animePerRow):
                 self.characterListTable.grid_columnconfigure(x, weight=1)
-                # Frame(self.characterListTable,bg=self.colors['Gray3']).grid(row=0,column=x,sticky="nsew")
 
-            que = queue.Queue()
             keys = ('id', 'anime_id', 'name', 'role', 'picture', 'desc')
 
-            thread = threading.Thread(target=getImages, args=(que,))
+            que = queue.Queue()
+            thread = threading.Thread(target=getImages, args=(que,), daemon=True)
             thread.start()
 
-            for index, data in enumerate(characters):
-                if self.characterList is None:
-                    break
+            index = None
+            for index, character in enumerate(characters):
+                if self.characterList is None or not self.characterList.winfo_exists():
+                    return
 
-                character = dict(zip(keys, data))
                 try:
                     characterCell(character, index, que)
+                except BaseException as e:
+                    self.log("MAIN_STATE", "[ERROR] - Can't create cell for character:", character.name, "-", character.id, "-", e)
+
+                if index % self.animePerRow == 0:
+                    self.characterListTable.grid_rowconfigure(index, weight=1)
                     self.characterListTable.update()
-                except BaseException:
-                    pass
 
             que.put("STOP")
-            while not que.empty() and self.characterList is not None and self.characterList.winfo_exists():
-                self.characterList.update()
-                time.sleep(0.01)
 
             if self.characterListTable.winfo_exists():
-                self.characterListTable.grid_columnconfigure(0, weight=1)
-                if len(characters) == 0:
+                if index is None:
                     Label(
                         self.characterListTable,
                         text="No characters",
@@ -242,4 +238,5 @@ class characterListWindow:
                         sticky="nsew",
                         pady=2,
                         padx=2)
-                self.characterListTable.update()
+
+            self.characterListTable.update()

@@ -75,16 +75,8 @@ class characterWindow:
         # Data check
         if True:
             if 'desc' not in character.keys() or character['desc'] is None:
-                # self.characterInfo.titleLbl.configure(text="Loading data...", bg= self.colors['Gray2'], fg= self.colors['Gray3'], font=("Source Code Pro Medium",18))
-
-                # thread = threading.Thread(target=self.getCharacterData, args=(character['id'],))
-                # thread.start()
-                # while thread.is_alive():
-                #     self.characterInfo.update()
-                #     time.sleep(0.01)
-
                 if update:
-                    thread = threading.Thread(target=update, args=(character,))
+                    thread = threading.Thread(target=update, args=(character,), daemon=True)
                     thread.start()
 
                 data = self.database.sql(
@@ -92,7 +84,6 @@ class characterWindow:
                     (character['anime_id'],
                      character['id']))[0]
                 keys = ('id', 'anime_id', 'name', 'role', 'picture', 'desc')
-                # character = {key:(json.loads(data[i]) if type(data[i]) == str else data[i]) for i,key in enumerate(keys)}
                 character['desc'] = data[5]
 
         # Picture

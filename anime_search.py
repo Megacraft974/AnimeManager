@@ -1,3 +1,5 @@
+import auto_launch
+
 import utils
 from classes import Anime, AnimeList
 

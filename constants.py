@@ -1,13 +1,13 @@
+import auto_launch
+
 import ctypes
 import os
 import socket
 import shutil
 import json
 
-from logger import Logger
 
-
-class Constants(Logger):
+class Constants():
     def __init__(self):
         super().__init__(self)
         self.logs = ['DB_ERROR', 'DB_UPDATE', 'MAIN_STATE',

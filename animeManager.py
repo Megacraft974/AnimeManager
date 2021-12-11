@@ -1,3 +1,5 @@
+import auto_launch
+
 import json
 import os
 import io
@@ -37,12 +39,12 @@ try:
     import windows
 
     from constants import Constants
+    from logger import Logger
     from update_utils import UpdateUtils
     from getters import Getters
-    # from logger import Logger
     from anime_search import AnimeSearch
     from dbManager import db
-    from classes import Anime, Character, AnimeList, CharacterList, TorrentList, SortedList, SortedDict
+    from classes import Anime, Character, AnimeList, TorrentList, SortedList, SortedDict
 except ModuleNotFoundError as e:
     print(e)
     print("Please verify your app installation!")
@@ -50,7 +52,7 @@ except ModuleNotFoundError as e:
     sys.exit()
 
 
-class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
+class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, *windows.windows):
     def __init__(self, remote=False):
         self.start = time.time()
         for e in Manager.__mro__:
@@ -115,24 +117,20 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
         if not self.remote:
             try:
                 self.initWindow()
-
-                self.log('MAIN_STATE', "Stopping")
-                self.start = time.time()
-                self.updateAll()
-                self.log('TIME', "Stopping time:".ljust(25),
-                         round(time.time() - self.start, 2), 'sec')
             except Exception as e:
                 self.log("MAIN_STATE", "[ROOT]:\n", traceback.format_exc())
 
+            self.log('MAIN_STATE', "Stopping")
+            self.start = time.time()
+            self.updateAll()
+            self.database.close()
+            self.log('TIME', "Stopping time:".ljust(25),
+                     round(time.time() - self.start, 2), 'sec')
+
     # ___Search___
     def search(self, *args, force_search=False):
-        # if not self.searching:
-        #     self.searching = True
-        # else:
-        #     return
         terms = None
         loop = True
-        # while terms != self.searchTerms.get() and loop:
         terms = self.searchTerms.get()
         if force_search:
             self.stopSearch = False
@@ -168,7 +166,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
             sql = "SELECT anime.*,tag.tag,like.like FROM searchTitles JOIN anime using(id) LEFT JOIN tag using(id) LEFT JOIN like using(id) WHERE searchTitles.title LIKE '%{}%' GROUP BY anime.id ORDER BY anime.date_from DESC;".format(
                 terms)
             keys = list(self.database.keys(table="anime")) + ['tag', 'like']
-            anime_list = AnimeList(Anime(dict(zip(keys, data))) for data in self.database.sql(sql, iterate=True))
+            anime_list = AnimeList(Anime(keys=keys, values=data) for data in self.database.sql(sql, iterate=True))
             return anime_list
 
         self.updateTitles()
@@ -252,7 +250,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
                     target=lambda que, animelist, default: que.put(
                         next(
                             animelist, default)), args=(
-                        que, animelist, default))
+                        que, animelist, default), daemon=True)
                 t.start()
                 animelist = que
                 empty_test = "que.empty()"
@@ -340,7 +338,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
             listrange[1] // self.animePerRow * self.animePerRow - 1)
 
         que = queue.Queue()
-        threading.Thread(target=self.getImgThread, args=(que,)).start()
+        threading.Thread(target=self.getImgThread, args=(que,), daemon=True).start()
         self.getElemImages()
 
         self.animeListReady = False
@@ -641,8 +639,6 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
         loadStart = 0
         for i, item in enumerate(processes):
             thread, text = item
-            # thread = threading.Thread(target=f)
-            # thread.start()
             try:
                 self.loadLabel['text'] = text
             except BaseException:
@@ -773,7 +769,7 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
                 database.set({'id': id, 'tag': 'WATCHING'}, table='tag')
 
         assert url is not None or file is not None, "You need to specify either an url or a file path"
-        threading.Thread(target=handler, args=(id, url, file)).start()
+        threading.Thread(target=handler, args=(id, url, file), daemon=True).start()
 
     def redownload(self, id):
         if self.getQB() == "OK":
@@ -824,28 +820,21 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
                         self.root.update()
                     except BaseException:
                         break
-        threading.Thread(target=handler, args=(year, season)).start()
+        threading.Thread(target=handler, args=(year, season), daemon=True).start()
 
         self.animeList = iter()
         self.animeListReady = True
         self.root.update()
         self.createList(None, (0, 1000))
 
-    def getCharactersData(self, id, callback=None):
+    def getCharactersData(self, id):
         database = self.getDatabase()
 
         self.log('NETWORK_DATA', "Requesting characters data for id", id)
-        characters = []
-
-        keys = database(id=id, table="indexList")
 
         data = self.api.animeCharacters(id)
 
-        for c in data:
-            if c['id'] not in (b['id'] for b in characters):
-                characters.append(c)
-
-        for character in characters:
+        def cb(character):
             sql = "SELECT EXISTS(SELECT 1 FROM characters WHERE id = ? AND anime_id = ?);"
             exists = bool(database.sql(
                 sql, (character['id'], character['anime_id']))[0][0])
@@ -861,8 +850,9 @@ class Manager(Constants, UpdateUtils, Getters, AnimeSearch, *windows.windows):
                     raise e
             database.save()
 
-        if callback is not None:
-            callback()
+        data.add_callback(cb)
+
+        return data
 
     def getCharacterData(self, id):
         database = self.getDatabase()

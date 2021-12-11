@@ -1,3 +1,5 @@
+import auto_launch
+
 import sqlite3
 import json
 import os
@@ -6,7 +8,7 @@ import threading
 import queue
 import time
 from classes import Anime, Character, NoneDict
-from logger import log
+from logger import log, Logger
 
 
 class db():
@@ -352,7 +354,7 @@ class db():
             lock.release()
         keys = list(self.tablekeys) + ['tag', 'like']
         for data in data_list:
-            yield Anime(dict(zip(keys, data)))
+            yield Anime(keys=keys, values=data)
 
     def sql(self, sql, values=[], save=False, iterate=False):
         def sql_iterate(cur):
@@ -383,7 +385,7 @@ class db():
         self.con.commit()
 
 
-class thread_safe_db():
+class thread_safe_db(Logger):
     def __init__(self, path):
         if 'database_main_tasks_queue' in globals().keys():
             main = globals()['database_main_thread']
@@ -395,6 +397,7 @@ class thread_safe_db():
             globals()['database_main_thread'] = self
             self.db_thread = threading.Thread(target=self.start_db_thread, args=(path,))
             self.db_thread.start()
+            self.log("THREAD", "Started db thread")
 
     def start_db_thread(self, path):
         self.db = db(path)
@@ -408,7 +411,7 @@ class thread_safe_db():
             else:
                 output.put(out)
             task = self.tasks.get()
-        print("Stopped!")
+        self.log("THREAD", "Stopped db thread")
 
     def __getattr__(self, a):
         return lambda *args, **kwargs: self.task_planner(a, *args, **kwargs)
@@ -430,7 +433,6 @@ class thread_safe_db():
         return self.task_planner("__str__", *args, **kwargs)
 
     def close(self):
-        print("Deleted")
         self.tasks.put("STOP")
 
     def task_planner(self, name, *args, **kwargs):

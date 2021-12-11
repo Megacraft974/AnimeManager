@@ -6,14 +6,16 @@ import queue
 import sys
 import traceback
 import requests
+
+from getters import Getters
 sys.path.append(os.path.abspath("../"))
 
 
-class AnimeAPI():
+class AnimeAPI(Getters):
     def __init__(self, apis='all', *args, **kwargs):
         self.apis = []
         self.init_thread = threading.Thread(
-            target=self.load_apis, args=(apis, *args), kwargs=kwargs)
+            target=self.load_apis, args=(apis, *args), kwargs=kwargs, daemon=True)
         self.init_thread.start()
 
     def __getattr__(self, name):
@@ -70,28 +72,6 @@ class AnimeAPI():
                     apiName = str(api).split(".")[1].split(" ")[0]
                     log("{}.{}() not found!".format(apiName, name))
 
-        def iterator(que, threads):  # Not used
-            results = [que.get()]
-            c = 0
-            while len(results) > 0:
-                if not que.empty():
-                    results.append(que.get())
-                for r in results:
-                    try:
-                        e = next(r)
-                    except StopIteration:
-                        results.remove(r)
-                    except Exception as e:
-                        apiName = str(r).split(".")[0].split(" ")[-1]
-                        log(
-                            "Error on API - iterator",
-                            apiName,
-                            traceback.format_exc(),
-                            flush=True)
-                    else:
-                        if e is not None:
-                            yield e
-
         if self.init_thread is not None:
             self.init_thread.join()
             self.init_thread = None
@@ -99,7 +79,7 @@ class AnimeAPI():
         que = queue.Queue()
         for api in self.apis:
             t = threading.Thread(target=handler, args=(
-                api, name, que, *args), kwargs=kwargs)
+                api, name, que, *args), kwargs=kwargs, daemon=True)
             t.start()
             threads.append(t)
 
@@ -108,7 +88,6 @@ class AnimeAPI():
                 out = Anime()
             else:
                 out = Character()
-            # out = {}
             r = None
             while not que.empty() or any(t.is_alive() for t in threads):
                 try:
@@ -117,17 +96,27 @@ class AnimeAPI():
                     pass
                 else:
                     out += r
-                    # for k,v in r.items():
-                    #     if k not in out.keys():
-                    #         out[k] = v
+            self.save(out)
             return out
         else:
             if name in ('schedule', 'searchAnime'):
                 return AnimeList((que, threads))
             elif name in ('animeCharacters',):
                 return CharacterList((que, threads))
-            # return iterator(que,threads)
         return ()
+
+    def save(self, data):  # TODO
+        database = self.getDatabase()
+        if isinstance(data, Anime):
+            table = "anime"
+        elif isinstance(data, Character):
+            table = "characters"
+        elif isinstance(data, ItemList):
+            print("Added callback!")
+            data.add_callback(self.save)
+        else:
+            raise TypeError("{} is an invalid type!".format(str(type(data))))
+        database.set(data, table=table)
 
 
 # TODO - Add more APIs:

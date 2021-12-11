@@ -36,7 +36,8 @@ def search(titles, limit=50):
     que = queue.Queue()
     for p in parsers:
         t = threading.Thread(target=handle_search,
-                             args=(titles, limit, que, p))
+                             args=(titles, limit, que, p),
+                             daemon=True)
         threads.append(t)
         t.start()
 
