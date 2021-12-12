@@ -352,7 +352,7 @@ class optionsWindow:
                     activeforeground=self.colors['White'],
                     bg=self.colors['Gray3'],
                     fg=self.colors['White'],
-                    command=lambda folder=folder: os.system(
+                    command=lambda folder=folder: subprocess.run(
                         'explorer "{}"'.format(
                             os.path.normpath(
                                 os.path.join(

@@ -1,8 +1,9 @@
 """ Torrent web parser for nyaa.si """
-import lxml.etree
 import urllib.parse
-import requests
 import io
+
+import lxml.etree
+import requests
 
 
 class Parser:

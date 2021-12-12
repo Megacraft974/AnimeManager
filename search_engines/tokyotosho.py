@@ -3,12 +3,8 @@ import urllib.parse
 import requests
 import io
 import re
-try:
-    from bs4 import BeautifulSoup
-except ModuleNotFoundError:
-    import os
-    os.system("pip install bs4")
-    from bs4 import BeautifulSoup
+
+from bs4 import BeautifulSoup
 
 
 class Parser():

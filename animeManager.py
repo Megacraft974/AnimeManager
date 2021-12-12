@@ -1,35 +1,35 @@
 import auto_launch
 
+import ctypes
+import io
 import json
 import os
-import io
-import time
-import ctypes
-import threading
-import urllib
+import queue
 import re
 import shutil
-import queue
-import traceback
 import socket
+import subprocess
+import threading
+import time
+import traceback
+import urllib
 import webbrowser
-from operator import itemgetter
 from datetime import datetime, timedelta
+from operator import itemgetter
 from tkinter import *
 
 try:
+    import bencoding
+    from bs4 import BeautifulSoup
+    import lxml.etree
     from PIL import Image, ImageTk
     import qbittorrentapi.exceptions
-    import lxml.etree
     import requests
-    import bencoding
-
 except ModuleNotFoundError as e:
     print("Installing modules!", e)
-    import sys
-    os.system("pip install qbittorrent-api lxml jikanpy jsonapi_client requests Pillow python-mpv pytube bencoding")
-    print(sys.argv)
-    os.system(" ".join(["python"] + sys.argv))
+    subprocess.run("pip install qbittorrent-api lxml jikanpy jsonapi_client requests Pillow python-mpv pytube bencoding bs4")
+    import sys.argv
+    os.execv(sys.argv[0], sys.argv)
     sys.exit()
 
 try:
@@ -590,7 +590,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, *windows.win
                 os.remove(path)
 
     def clearCache(self):
-        os.system('del /F /S /Q "{}"'.format(self.cache))
+        subprocess.run('del /F /S /Q "{}"'.format(self.cache))
         shutil.rmtree(self.cache)
 
     def clearDb(self):

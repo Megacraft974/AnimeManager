@@ -31,6 +31,10 @@ class APIUtils(Getters):
         self.dbPath = dbPath
         self.database = self.getDatabase()
 
+    @property
+    def __name__(self):
+        return str(self.__class__).split("'")[1].split('.')[-1]
+
     def getStatus(self, data, reverse=True):
         if data['date_from'] is None:
             status = 'UNKNOWN'

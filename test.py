@@ -58,3 +58,14 @@
 #         url = urllib.parse.urlunparse(v)
 #         print(url)
 #         getTracker(v.scheme,url,v.port,info_hash,size)
+
+class Salut:
+    def __init__(self):
+        pass
+
+    @property
+    def __name__(self):
+        return str(self.__class__).split("'")[1].split('.')[-1]
+
+a = Salut()
+print(a.__name__)

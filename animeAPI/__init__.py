@@ -49,7 +49,8 @@ class AnimeAPI(Getters):
                     exec('from {n} import {n}'.format(n=name))
                     self.apis.append(api(*args, **kwargs))
                 except BaseException:
-                    pass
+                    log("Error while loading {} API class wrapper: {}".format(
+                        name, traceback.format_exc()))
         if len(self.apis) == 0:
             log("No apis found!")
 
@@ -59,18 +60,18 @@ class AnimeAPI(Getters):
                 r = getattr(api, name)(*args, **kwargs)
             except requests.exceptions.ConnectionError:
                 log("Error on API - handler: No internet connection!")
+            except requests.exceptions.ReadTimeout:
+                log("Error on API - handler: Timed out!")
             except Exception as e:
-                apiName = str(api).split(".")[0].split(" ")[-1]
                 log(
-                    "Error on API - handler",
-                    apiName,
+                    "Error on API - handler:",
+                    api.__name__, "-",
                     traceback.format_exc())
             else:
                 if r is not None:
                     que.put(r)
                 else:
-                    apiName = str(api).split(".")[1].split(" ")[0]
-                    log("{}.{}() not found!".format(apiName, name))
+                    log("{}.{}() not found!".format(api.__name__, name))
 
         if self.init_thread is not None:
             self.init_thread.join()

@@ -1,9 +1,10 @@
 """ Torrent web parser for anirena.com """
-import lxml.etree
 import urllib.parse
-import requests
 import io
 import re
+
+import requests
+import lxml.etree
 
 
 class Parser:
