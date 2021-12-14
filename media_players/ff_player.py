@@ -1,4 +1,4 @@
-from base_player import BasePlayer
+from .base_player import BasePlayer
 import time
 
 from tkinter import Canvas
@@ -9,7 +9,7 @@ import subprocess
 import re
 
 
-class FFPlayer(BasePlayer):
+class FfPlayer(BasePlayer):
     def start(self, playlist, video=0, id=None, dbPath=None, root=None):
         super().setup(root)
 

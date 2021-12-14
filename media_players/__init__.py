@@ -1,36 +1,38 @@
 import os
 from logger import log
 
-def get_players():  # TODO
-    root = os.path.dirname(os.path.realpath(__file__))
-    ignore = ("__init__.py", "base_player.py")
-    for f in os.listdir():
-        path = os.path.join(root, f)
-        if f not in ignore and os.path.isfile(path):
-            name = f.split(".py")[-1]
-            try:
-                exec('from {a} import {b}'.format(a=convert_name(name), b=name))
-            except ImportError as e:
-                log(name, e)
-            else:
+
+class MediaPlayers:
+    def __init__(self):
+        self.get_players()
+
+    def get_players(self):
+        self.media_players = {}
+        root = os.path.dirname(__file__)
+        ignore = ("__init__.py", "base_player.py")
+        for f in os.listdir(root):
+            path = os.path.join(root, f)
+            if f not in ignore and os.path.isfile(path):
+                name = f.rsplit(".py", 1)[0]
+                func_name = self.convert_name(name)
                 try:
-                    f = locals()[name + "Wrapper"](*args, **kwargs)
-                except Exception as e:
-                    log("Error while loading {} API wrapper: {}".format(
-                        name, traceback.format_exc()))
+                    exec('from .{a} import {b}'.format(a=name, b=func_name))
+                except ImportError as e:
+                    log(name, e)
                 else:
-                    self.apis.append(f)
+                    if func_name in locals().keys():
+                        f = locals()[func_name]
+                        self.media_players[name] = f
 
-def convert_name(name):
-    out = ""
-    upper = False
-    for l in name:
-        if l == "_":
-            upper = True
-        elif upper:
-            out += l.upper()
-        else:
-            out += l
-    return out
-
-get_players()
+    def convert_name(self, name):  # TODO - Remove self
+        out = name[0].upper()
+        upper = False
+        for letter in name[1:]:
+            if letter == "_":
+                upper = True
+            elif upper:
+                out += letter.upper()
+                upper = False
+            else:
+                out += letter
+        return out

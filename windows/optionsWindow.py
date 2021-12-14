@@ -140,8 +140,7 @@ class optionsWindow:
                 video = [i['title'] for i in eps].index(e)
                 playlist = [i['path'] for i in eps]
                 self.log('MAIN_STATE', "Watching", e)
-                # threading.Thread(target=MpvPlayer, args=(self.root, playlist, video, id, self.dbPath)).start()
-                MpvPlayer(playlist, video, id, self.dbPath)
+                self.player(playlist, video, id, self.dbPath)
 
             def openEps(e, eps, var):
                 var.set("Watch")
@@ -170,8 +169,7 @@ class optionsWindow:
                 if trailer is not None:
                     self.log('MAIN_STATE', "Watching trailer for anime",
                              anime.title, "url", trailer)
-                    # threading.Thread(target=MpvPlayer, args=((trailer,), 0, None, None, True)).start()
-                    MpvPlayer((trailer,), 0, url=True)
+                    self.player((trailer,), 0, url=True)
 
             def getDateText(datefrom, dateto, broadcast):
                 today = date.today()
@@ -1033,18 +1031,21 @@ class optionsWindow:
                             hashesToDelete.append(t_hash)
                             break
 
-                self.log('DB_UPDATE', "Deleting", len(toDelete), "files from", path, "-",
-                         len(hashesToDelete), "torrents to remove")
+                if len(toDelete) > 0:
+                    self.log('DB_UPDATE', "Deleting", len(toDelete), "files from", path, "-",
+                             len(hashesToDelete), "torrents to remove")
 
-                self.qb.torrents_delete(
-                    torrent_hashes=hashes)
+                    self.qb.torrents_delete(
+                        torrent_hashes=hashes)
 
-                cmd = 'del /F /Q "{}"'.format('" "'.join(toDelete))
-                try:
-                    os.system(cmd)
-                except Exception:
-                    self.log('DISK_ERROR', "Error while removing folder", path)
-                    raise
+                    cmd = 'del /F /Q "{}"'.format('" "'.join(toDelete))
+                    try:
+                        os.system(cmd)
+                    except Exception:
+                        self.log('DISK_ERROR', "Error while removing folder", path)
+                        raise
+                else:
+                    self.log('DB_UPDATE', "No file to delete!")
             else:
                 self.log("MAIN_STATE", "qBittorrent API not found!")
                 return

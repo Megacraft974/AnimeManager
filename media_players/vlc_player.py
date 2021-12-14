@@ -1,4 +1,4 @@
-from base_player import BasePlayer
+from .base_player import BasePlayer
 import time
 
 import vlc

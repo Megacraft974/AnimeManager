@@ -43,6 +43,7 @@ try:
     from update_utils import UpdateUtils
     from getters import Getters
     from anime_search import AnimeSearch
+    from media_players import MediaPlayers
     from dbManager import db
     from classes import Anime, Character, AnimeList, TorrentList, SortedList, SortedDict
 except ModuleNotFoundError as e:
@@ -52,7 +53,7 @@ except ModuleNotFoundError as e:
     sys.exit()
 
 
-class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, *windows.windows):
+class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers, *windows.windows):
     def __init__(self, remote=False):
         self.start = time.time()
         for e in Manager.__mro__:
@@ -111,6 +112,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, *windows.win
             self.checkSettings()
 
         self.api = animeAPI.AnimeAPI('all', self.dbPath)
+        self.player = self.media_players[self.player_name]
         self.getQB(use_thread=True)
         self.imQueue = queue.Queue()
 

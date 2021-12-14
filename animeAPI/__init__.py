@@ -27,7 +27,7 @@ class AnimeAPI(Getters):
         if apis == 'all':
             ignore = ('__init__.py', 'APIUtils.py')
             root = os.path.dirname(__file__)
-            sys.path.append(root)
+            sys.path.append(root)  # TODO - Use relative import instead
             for f in os.listdir(root):
                 if f not in ignore and f[-3:] == ".py":
                     name = f[:-3]

@@ -44,7 +44,9 @@ class Constants():
         self.torrentApiAddress = 'http://' + \
             str(socket.gethostbyname(socket.gethostname())) + ":8080"
         self.torrentApiLogin = 'admin'
-        self.torrentApiPassword = '123456'
+        self.torrentApiPassword = ''.join(map(str, range(1, 7)))
+
+        self.player_name = "mpv_player"  # TODO - Choose different player
 
         self.allLogs = [
             'CHARACTER',
