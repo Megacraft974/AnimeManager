@@ -49,7 +49,7 @@ class Item(dict):
                 except TypeError:
                     raise TypeError("Cannot merge data, type: {} - {}".format(type(args[0])), args[0])
                 else:
-                    if type(args[0]) == tuple:  # Item([(key, value), (key, value), ...])
+                    if isinstance(args[0], tuple):  # Item([(key, value), (key, value), ...])
                         data = args[0]
         elif len(args) == 0:
             if "keys" in kwargs.keys() and "values" in kwargs.keys():
@@ -426,7 +426,7 @@ class SortedDict():
 
 if __name__ == "__main__":
     import random
-    sl = SortedList(reverse = True)
+    sl = SortedList(reverse=True)
 
     for i in random.sample(list(range(100)), 100):
         sl.append(i)

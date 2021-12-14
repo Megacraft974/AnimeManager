@@ -1,3 +1,4 @@
+import mpv
 from .base_player import BasePlayer
 import os
 import time
@@ -6,8 +7,6 @@ path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 if not os.path.exists(path):
     raise ImportError("lib folder not found!")
 os.environ['PATH'] = path + ";" + os.environ["PATH"]
-
-import mpv
 
 
 class MpvPlayer(BasePlayer):

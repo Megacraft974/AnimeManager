@@ -408,6 +408,7 @@ class BasePlayer:
 class POINT(Structure):
     _fields_ = [("x", c_long), ("y", c_long)]
 
+
 if __name__ == "__main__":  # TODO - Move somewhere else
     path = "D:/Animes/"
     if not os.path.isdir(path):
