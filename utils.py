@@ -6,6 +6,7 @@ import threading
 import json
 import time
 import os
+import re
 from ctypes import windll, Structure, c_long, byref
 from logger import log
 
@@ -365,6 +366,45 @@ def peek(iter):
         return first, new_iter(first, iter)
 
 
+def project_modules(root="./"):
+    ignore = ("__pycache__", ".git", "venv")
+    modules = {}
+    pattern = re.compile(r"(?:from ([^\s\.]*) import \S*)|(?:import ([^\s\.]*))")
+    for f in os.listdir(root):
+        if f in ignore:
+            continue
+        path = os.path.realpath(os.path.join(root, f))
+        if os.path.isdir(path):
+            modules |= project_modules(path)
+            continue
+        end = f.split(".")[-1]
+        if end == "py":
+            with open(path, encoding="utf-8") as file:
+                for i, line in enumerate(file):
+                    for match in re.finditer(pattern, line):
+                        groups = match.groups()
+                        if groups[0] is not None:
+                            m = groups[0]
+                            if m in modules.keys():
+                                modules[m].append((path, i + 1))
+                            else:
+                                modules[m] = [(path, i + 1)]
+                        else:
+                            if "," in groups[1]:
+                                for m in groups[1].split(','):
+                                    if m in modules.keys():
+                                        modules[m].append((path, i + 1))
+                                    else:
+                                        modules[m] = [(path, i + 1)]
+                            else:
+                                m = groups[1]
+                                if m in modules.keys():
+                                    modules[m].append((path, i + 1))
+                                else:
+                                    modules[m] = [(path, i + 1)]
+    return dict(sorted(modules.items()))
+
+
 def project_stats(root="./"):
     def pp_bytes(size):
         units = ('o', 'Ko', 'Mo', 'Go', 'To')
@@ -373,7 +413,7 @@ def project_stats(root="./"):
             size = size // 1000
             i += 1
         return str(size) + " " + units[i]
-    ignore = ("__pycache__", ".git")
+    ignore = ("__pycache__", ".git", "venv")
     lines, files, folders, size = 0, 0, 0, 0
     for f in os.listdir(root):
         if f in ignore:
@@ -398,4 +438,8 @@ def project_stats(root="./"):
 
 
 if __name__ == "__main__":
+    for k, v in project_modules().items():
+        print(k, ":")
+        for p in v:
+            print('   File "{}", line {}'.format(*p))
     project_stats()

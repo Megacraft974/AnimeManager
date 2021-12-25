@@ -6,8 +6,10 @@ import io
 import hashlib
 import time
 import re
+import requests
 
 from datetime import date
+from multiprocessing import Pool, Queue
 
 import bencoding
 import traceback
@@ -277,3 +279,172 @@ class Getters:
         eps.sort(key=lambda d: int(
             str(d['season']).zfill(5) + str(d['episode']).zfill(5)))
         return eps
+
+    def getElemImages(self, que, start_thread=True):
+        if start_thread:
+            threading.Thread(target=self.getImgThread, args=(que,), daemon=True).start()
+
+        while not self.imQueue.empty():
+            data = self.imQueue.get()
+            if data != "STOP":
+                im, can = data
+                try:
+                    image = ImageTk.PhotoImage(im)
+                    can.create_image(0, 0, image=image, anchor='nw')
+                    can.image = image
+                except BaseException:
+                    pass
+            else:
+                self.log("THREAD", "All images loaded")
+                return
+
+        if self.root is not None:
+            self.root.after(1, self.getElemImages, que, False)
+
+    def getImgThread(self, que):
+        def usePlaceholder(can):
+            im = Image.open(os.path.join(self.iconPath, "placeholder.png"))
+            im = im.resize((225, 310))
+            return im, can
+
+        def get_processes_data():
+            for data in filter(lambda t: t[0].ready(), processes):
+                # p, element, can = data
+                p, filename, can = data
+                # filename = os.path.join(self.cache, str(element.id) + ".jpg")
+                if not p.ready():
+                    continue
+                try:
+                    req = p.get(1)
+                except requests.exceptions.ReadTimeout as e:
+                    self.log("PICTURE", "Timed out!")
+                    self.imQueue.put(usePlaceholder(can))
+                except requests.exceptions.ConnectionError as e:
+                    self.log('PICTURE', "[ERROR] - No internet connection!")
+                    self.imQueue.put(usePlaceholder(can))
+                    no_internet = True
+                except requests.exceptions.MissingSchema as e:
+                    self.log("PICTURE", "[ERROR] - Invalid url!")
+                    self.imQueue.put(usePlaceholder(can))
+                else:
+                    processes.remove(data)
+                    if req.status_code == 200:
+                        raw_data = req.content
+                        im = Image.open(io.BytesIO(raw_data))
+                        im = im.resize((225, 310))
+                        if im.mode != 'RGB':
+                            im = im.convert('RGB')
+
+                        try:
+                            im.save(filename)
+                        except FileNotFoundError:
+                            self.log(
+                                "DISK_ERROR",
+                                "File not found error while saving image",
+                                filename)
+                        self.imQueue.put((im, can))
+                    else:
+                        continue  # TODO
+                        self.log(
+                            "PICTURE",
+                            "[ERROR] Status code",
+                            req.status_code,
+                            "for anime id",
+                            anime.id,
+                            "requesting new picture.")
+                        repdata = self.api.animePictures(anime.id)
+
+                        if len(repdata) >= 1:  # TODO - Disabled - Wait for response + handle Characters too
+                            anime.picture = repdata[-1]['small']
+                            database = self.getDatabase()
+                            database.sql("UPDATE anime SET picture = ? WHERE id = ?",
+                                         (repdata[-1]['small'], anime.id), save=True)
+                            que.put((anime, can))  # TODO - Check if it works
+                        else:
+                            self.imQueue.put(usePlaceholder(can))
+
+        # self.log("THREAD", "Started image thread")
+        no_internet = False
+        args = que.get()
+        processes = []
+        c = 0
+        with Pool() as pool:
+            while args != "STOP":
+                # element, can = args
+                # filename = os.path.join(self.cache, str(element.id) + ".jpg")
+                # url = element.picture
+                filename, url, can = args
+                if no_internet:
+                    self.imQueue.put(usePlaceholder(can))
+
+                if os.path.exists(filename):
+                    try:
+                        with Image.open(filename) as im:
+                            self.imQueue.put((im.copy(), can))
+                        args = que.get()
+                        continue
+                    except BaseException:
+                        self.log(
+                            'DISK_ERROR',
+                            "[ERROR] Image file is corrupted, deleting file",
+                            filename)
+                        os.remove(filename)
+
+                self.log("PICTURE", "Requesting picture for url", url)
+
+                if url is not None:
+                    p = pool.apply_async(requests.get, args=(url,))
+                    processes.append((p, filename, can))
+                else:
+                    self.log("PICTURE", "No image yet")
+                    que.put((filename, url, can))
+
+                get_processes_data()
+
+                args = que.get()
+            while len(processes) > 0:
+                get_processes_data()
+
+        self.imQueue.put("STOP")
+        self.log("THREAD", "Stopped image thread")
+        return
+
+    def getCharacterImgThread(self, queue):
+        args = None
+        with Pool() as pool:
+            while args != "STOP":
+                args = queue.get()
+                if args == "STOP":
+                    break
+                filename, character, can = args
+
+                filename = os.path.join(self.cache, "c" + str(character['id']) + ".jpg")
+                if os.path.exists(filename):
+                    image = self.getImage(filename, (225, 310))
+
+                if character.picture is not None:
+                    p = pool.apply_async(requests.get, args=(character.picture,))
+                    processes.append((p, anime, can))
+                else:
+                    self.log("PICTURE", "No image yet", character.name)
+                    que.put((filename, character, can))
+                # downloadPic(*args)
+
+    def downloadPic(filename, character, can):
+        if character['picture'] is None:
+            return
+        self.log("NETWORK", "Requesting picture for character id",
+                 character['id'], "name", character["name"])
+        raw_data = requests.get(character['picture']).content
+        im = Image.open(io.BytesIO(raw_data))
+        im = im.resize((225, 310))
+        if im.mode != 'RGB':
+            im = im.convert('RGB')
+        im.save(filename)
+
+        image = ImageTk.PhotoImage(im, master=self.characterList)
+        try:
+            can.create_image(0, 0, image=image, anchor='nw')
+            can.image = image
+        except BaseException:
+            pass

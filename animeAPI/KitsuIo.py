@@ -156,50 +156,56 @@ class KitsuIoWrapper(APIUtils):
             data['trailer'] = "https://www.youtube.com/watch?v=" + a.youtubeVideoId
 
         genres = []
-        if isinstance(a.relationships.genres, relationships.MultiRelationship):
-            for g in a.genres:
-                if not self.database.exist(g.id, "genres", "kitsu_id"):
-                    self.database.sql(
-                        "INSERT INTO genres(kitsu_id,name) VALUES(?,?)", (g.id, g.name), save=False)
-                genres.append(
-                    self.database.sql(
-                        "SELECT id FROM genres WHERE kitsu_id=?",
-                        (g.id,
-                         ),
-                        save=False)[0][0])
-        data['genres'] = json.dumps(genres)
+        with self.database.get_lock():  # TODO - SUPER FUCKING SLOW!!
+            log("KITSU.IO API", "A")
+            if isinstance(a.relationships.genres, relationships.MultiRelationship):
+                for g in a.genres:
+                    log("KITSU.IO API", "D")
+                    if not self.database.exist(g.id, "genres", "kitsu_id"):
+                        log("KITSU.IO API", "E")
+                        self.database.sql(
+                            "INSERT INTO genres(kitsu_id,name) VALUES(?,?)", (g.id, g.name))
+                    genres.append(
+                        self.database.sql(
+                            "SELECT id FROM genres WHERE kitsu_id=?",
+                            (g.id,
+                             ),
+                            save=False)[0][0])
+            data['genres'] = json.dumps(genres)
+            log("KITSU.IO API", "B")
 
-        if isinstance(
+            if isinstance(
                 a._relationships['mediaRelationships'],
                 relationships.MultiRelationship):
-            for f in a.mediaRelationships:
-                if f.destination.type == "anime":  # TODO
-                    rel_id = self.database.getId("kitsu_id", f.destination.id)
-                    exist = bool(
-                        self.database.sql(
-                            "SELECT EXISTS(SELECT 1 FROM related WHERE id=? AND relation=?);",
-                            (id,
-                             f.role))[0][0])
-                    if exist:
-                        rel_ids = json.loads(
+                for f in a.mediaRelationships:
+                    if f.destination.type == "anime":  # TODO
+                        rel_id = self.database.getId("kitsu_id", f.destination.id)
+                        exist = bool(
                             self.database.sql(
-                                "SELECT rel_id FROM related WHERE id=? AND relation=?;", (id, f.role))[0][0])
-                        if rel_id not in rel_ids:
-                            rel_ids.append(rel_id)
-                        rel_ids = json.dumps(rel_ids)
-                        self.database.sql(
-                            "UPDATE related SET rel_id=? WHERE id=? AND relation=?;", (rel_ids, id, f.role))
-                    else:
-                        rel_ids = json.dumps([rel_id])
-                        self.database.sql(
-                            "INSERT INTO related(id,relation,rel_id) VALUES(?,?,?)", (id, f.role, rel_ids))
-                    if not self.database.exist(id=rel_id, table="anime"):
-                        self.database.set(
-                            {'id': rel_id, 'title': a.canonicalTitle, 'status': 'UPDATE'}, table="anime", save=False)
-        try:
-            self.database.save()
-        except BaseException:
-            log("KITSU.IO API", "Error while saving anime")
+                                "SELECT EXISTS(SELECT 1 FROM related WHERE id=? AND relation=?);",
+                                (id,
+                                 f.role))[0][0])
+                        if exist:
+                            rel_ids = json.loads(
+                                self.database.sql(
+                                    "SELECT rel_id FROM related WHERE id=? AND relation=?;", (id, f.role))[0][0])
+                            if rel_id not in rel_ids:
+                                rel_ids.append(rel_id)
+                            rel_ids = json.dumps(rel_ids)
+                            self.database.sql(
+                                "UPDATE related SET rel_id=? WHERE id=? AND relation=?;", (rel_ids, id, f.role))
+                        else:
+                            rel_ids = json.dumps([rel_id])
+                            self.database.sql(
+                                "INSERT INTO related(id,relation,rel_id) VALUES(?,?,?)", (id, f.role, rel_ids))
+                        if not self.database.exist(id=rel_id, table="anime"):
+                            self.database.set(
+                                {'id': rel_id, 'title': a.canonicalTitle, 'status': 'UPDATE'}, table="anime", save=False)
+            log("KITSU.IO API", "C")
+            try:
+                self.database.save()
+            except BaseException:
+                log("KITSU.IO API", "Error while saving anime")
         return data
 
     def _convertCharacter(self, c, anime_id=None):

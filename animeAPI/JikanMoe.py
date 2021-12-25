@@ -1,5 +1,5 @@
 from APIUtils import APIUtils, EnhancedSession, Anime, Character, log
-from jikanpy import Jikan
+from jikanpy import Jikan, exceptions as jikan_exceptions
 from datetime import date
 import json
 import time
@@ -30,14 +30,20 @@ class JikanMoeWrapper(APIUtils):
         if mal_id is None:
             return []
         self.delay()
-        a = self.jikan.anime(mal_id, extension='characters_staff')[
-            'characters']
+        try:
+            a = self.jikan.anime(mal_id, extension='characters_staff')[
+                'characters']
+        except requests.exceptions.ReadTimeout:
+            pass
         for c in a:
             yield self._convertCharacter(c, id)
 
     def animePictures(self, id):
         self.delay()
-        a = self.jikan.anime(id, "pictures")
+        try:
+            a = self.jikan.anime(id, "pictures")
+        except jikan_exceptions.APIException:
+            return []
         return a['pictures']
 
     def schedule(self, limit=50):
@@ -64,6 +70,9 @@ class JikanMoeWrapper(APIUtils):
             rep = self.jikan.search('anime', search, parameters={'limit': limit})
         except requests.exceptions.ReadTimeout:
             log("Jikan.moe timed out!")
+            return
+        except jikan_exceptions.APIException:
+            log("Jikan.moe had a parser exception!")
             return
         for a in rep['results']:
             data = self._convertAnime(a)
@@ -148,6 +157,7 @@ class JikanMoeWrapper(APIUtils):
                     self.database.sql(
                         "INSERT INTO genres(mal_id,name) VALUES(?,?)", (g['mal_id'], g['name']))
 
+                # TODO - Multi-querying?
                 genres.append(
                     self.database.sql(
                         "SELECT id FROM genres WHERE mal_id=?",

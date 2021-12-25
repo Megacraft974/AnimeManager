@@ -21,15 +21,21 @@ from tkinter import *
 try:
     import bencoding
     from bs4 import BeautifulSoup
-    import lxml.etree
+    from lxml import etree
     from PIL import Image, ImageTk
     import qbittorrentapi.exceptions
     import requests
+
+    import sys
+    if getattr(sys, 'frozen', None):
+        basedir = sys._MEIPASS
+        os.environ['REQUESTS_CA_BUNDLE'] = os.path.join(basedir, 'certifi', 'cacert.pem')  # Required for requests and certifi
 except ModuleNotFoundError as e:
     print("Installing modules!", e)
     subprocess.run("pip install qbittorrent-api lxml jikanpy jsonapi_client requests Pillow python-mpv pytube bencoding bs4")
-    import sys.argv
-    os.execv(sys.argv[0], sys.argv)
+    time.sleep(20)
+    import sys
+    # os.execv(sys.argv[0], sys.argv)
     sys.exit()
 
 try:
@@ -53,11 +59,19 @@ except ModuleNotFoundError as e:
     sys.exit()
 
 
+# TODO - Add filter for torrent list (seeds / name)
+# TODO - Add scrolling bar on ScrollableFrame
+# TODO - Allow for window resizing
+# TODO - Online search raise database is locked error
+# TODO - jikanpy.exceptions.APIException: HTTP 500 - status=500, type=ParserException, message=Unable to parse this request. Please follow report_url to generate an issue on GitHub, error=Failed to parse 'https://myanimelist.net/...'
+
 class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers, *windows.windows):
     def __init__(self, remote=False):
         self.start = time.time()
-        for e in Manager.__mro__:
-            super(e, self).__init__()
+        # super().__init__()
+        Logger.__init__(self)
+        Constants.__init__(self)
+        MediaPlayers.__init__(self)
 
         self.remote = remote
         self.animeFolder = []
@@ -161,6 +175,9 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
             self.root.update()
             self.animeList = None
             self.createList()
+
+        if self.root is None:
+            return
         self.fen.update()
 
     def searchDb(self, terms):
@@ -171,7 +188,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
             anime_list = AnimeList(Anime(keys=keys, values=data) for data in self.database.sql(sql, iterate=True))
             return anime_list
 
-        self.updateTitles()
+        self.updateTitles()  # TODO
         terms = "".join([c for c in terms if c.isalnum()]).lower()
         if bool(
             self.database.sql(
@@ -250,9 +267,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                 que = queue.Queue()
                 t = threading.Thread(
                     target=lambda que, animelist, default: que.put(
-                        next(
-                            animelist, default)), args=(
-                        que, animelist, default), daemon=True)
+                        next(animelist, default)),
+                    args=(que, animelist, default), daemon=True)
                 t.start()
                 animelist = que
                 empty_test = "que.empty()"
@@ -340,8 +356,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
             listrange[1] // self.animePerRow * self.animePerRow - 1)
 
         que = queue.Queue()
-        threading.Thread(target=self.getImgThread, args=(que,), daemon=True).start()
-        self.getElemImages()
+        self.getElemImages(que)
 
         self.animeListReady = False
         self.list_timer = utils.Timer("list")
@@ -376,6 +391,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                 self.createElem(i, data, que)
 
             if i % self.animePerRow == 0:
+                if self.root is None:
+                    return
                 self.fen.update()
 
         # self.list_timer.stats()
@@ -396,6 +413,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
             pass
 
     def createElem(self, index, anime, queue):
+        if self.root is None:
+            return
         self.list_timer.start()
         if self.blank_image is None:
             self.blank_image = self.getImage(None, (225, 310))
@@ -442,117 +461,10 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
 
         self.scrollable_frame.update()
 
-        queue.put((anime, img_can))
+        filename = os.path.join(self.cache, str(anime.id) + ".jpg")
+        url = anime.picture
+        queue.put((filename, url, img_can))
         self.list_timer.stop()
-
-    def getElemImages(self):
-        while not self.imQueue.empty():
-            data = self.imQueue.get()
-            if data != "STOP":
-                im, can = data
-                try:
-                    image = ImageTk.PhotoImage(im)
-                    can.create_image(0, 0, image=image, anchor='nw')
-                    can.image = image
-                except BaseException:
-                    pass
-            else:
-                self.log("THREAD", "All images loaded")
-                return
-        if self.root is not None:
-            self.root.after(100, self.getElemImages)
-
-    def getImgThread(self, que):
-        def usePlaceholder(can):
-            im = Image.open(os.path.join(self.iconPath, "placeholder.png"))
-            im = im.resize((225, 310))
-            self.imQueue.put((im, can))
-        self.log("THREAD", "Started image thread")
-        database = self.getDatabase()
-        no_internet = False
-        args = que.get()
-        while args != "STOP":
-            anime, can = args
-            if no_internet:
-                usePlaceholder(can)
-                args = que.get()
-                continue
-            filename = os.path.join(self.cache, str(anime.id) + ".jpg")
-
-            if str(anime.id) + ".jpg" in os.listdir(self.cache):
-                try:
-                    im = Image.open(filename)
-                    self.imQueue.put((im, can))
-                    args = que.get()
-                    continue
-                except BaseException:
-                    self.log(
-                        'DISK_ERROR',
-                        "[ERROR] Image file is corrupted, deleting, anime",
-                        anime.title,
-                        "id",
-                        anime.id,
-                        "file",
-                        filename)
-                    os.remove(filename)
-
-            self.log("PICTURE", "Requesting picture for anime id",
-                     anime.id, "title", anime.title)
-            if anime.picture is not None:
-                try:
-                    req = requests.get(anime.picture)
-                except requests.exceptions.ReadTimeout as e:
-                    self.log("PICTURE", "Timed out!")
-                    usePlaceholder(can)
-                except requests.exceptions.ConnectionError as e:
-                    self.log('PICTURE', "[ERROR] - No internet connection!")
-                    usePlaceholder(can)
-                    no_internet = True
-                except requests.exceptions.MissingSchema as e:
-                    self.log("PICTURE", "[ERROR] - Invalid url!", anime.picture)
-                    usePlaceholder(can)
-                else:
-                    if req.status_code == 200:
-                        raw_data = req.content
-                        im = Image.open(io.BytesIO(raw_data))
-                        im = im.resize((225, 310))
-                        if im.mode != 'RGB':
-                            im = im.convert('RGB')
-                        try:
-                            im.save(filename)
-                        except FileNotFoundError:
-                            self.log(
-                                "DISK_ERROR",
-                                "File not found error while saving image",
-                                filename)
-                        self.imQueue.put((im, can))
-                    else:
-                        self.log(
-                            "PICTURE",
-                            "[ERROR] Status code",
-                            req.status_code,
-                            "for anime",
-                            anime.title,
-                            "requesting new picture.")
-                        repdata = self.api.animePictures(anime.id)
-
-                        if len(repdata) >= 1:
-                            args = list(args)
-                            args[2]['picture'] = repdata[-1]['small']
-                            database.sql("UPDATE anime SET picture = ? WHERE id = ?",
-                                         (repdata[-1]['small'], anime.id), save=True)
-                            que.put((anime, can))
-                        else:
-                            usePlaceholder(can)
-
-            else:
-                self.log("PICTURE", "No image yet", anime.title)
-                que.put((anime, can))
-            args = que.get()
-
-        self.imQueue.put("STOP")
-        self.log("THREAD", "Stopped image thread")
-        return
 
     def loadMoreButton(self, index, listrange, filter):
         img_can = Canvas(self.scrollable_frame, width=225, height=310, highlightthickness=0, bg=self.colors['Gray2'])
@@ -591,9 +503,15 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
             if path != self.logFile:
                 os.remove(path)
 
-    def clearCache(self):
-        subprocess.run('del /F /S /Q "{}"'.format(self.cache))
-        shutil.rmtree(self.cache)
+    def clearCache(self):  # TODO
+        if self.cache is None or len(self.cache) == 0:
+            self.log("MAIN_STATE", "[ERROR] - Cache path is invalid!")
+        cmd = 'del /F /S /Q "{}"'.format(self.cache)
+        try:
+            subprocess.run(cmd)
+            shutil.rmtree(self.cache)
+        except BaseException as e:
+            self.log("MAIN_STATE", "[ERROR] - Cannot delete cache:", e, "-", cmd)
 
     def clearDb(self):
         # ONLY FOR TESTING!!! DO NOT USE WITH PROD DB!
@@ -617,10 +535,11 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
     def quit(self):
         self.onClose()
         try:
+            self.root.update()
             self.root.destroy()
             self.root = None
         except Exception as e:
-            self.log("ERROR", e)
+            self.log("MAIN_STATE", "[ERROR] - Can't destroy root:", e)
 
     # ___Utils___
     def reloadAll(self):
@@ -673,9 +592,9 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
 
     def view(self, id):
         index = "indexList"
-        keys = self.database.keys(table="indexList")
-        ids = self.database.sql("SELECT * FROM indexList WHERE id=?", (id,))[0]
-        ids = dict(zip(keys, ids))
+        # keys = self.database.keys(table="indexList")
+        ids = self.database.sql("SELECT * FROM indexList WHERE id=?", (id,), to_dict=True)[0]
+        # ids = dict(zip(keys, ids))
         ids.pop("id")
         for api_key, id in ids.items():
             if id is not None and api_key in self.websitesViewUrls.keys():
@@ -696,7 +615,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                 gif.width() // 2, gif.height() // 2, image=gif)
         if self.timer_id is not None:
             self.fen.after_cancel(self.timer_id)
-        self.timer_id = self.fen.after(30, self.loading, n + 1, True)
+        self.timer_id = self.fen.after(30, self.loading, n + 1, True)  # TODO - Use after_idle and a timer instead of n
 
     # ___Misc___
     def downloadFile(self, id, url=None, file=None):
@@ -804,7 +723,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
     # ___Data update___
     def getSeason(self, year, season):
         def handler(year, season):
-            for i, a in enumerate(self.api.season(year, season)):
+            for i, a in enumerate():
                 self.season_ids.append(a)
             self.season_ids.append("STOP")
 
@@ -822,9 +741,10 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                         self.root.update()
                     except BaseException:
                         break
-        threading.Thread(target=handler, args=(year, season), daemon=True).start()
+        # threading.Thread(target=handler, args=(year, season), daemon=True).start()
 
-        self.animeList = iter()
+        self.animeList = self.api.season(year, season)
+        print(self.animeList)
         self.animeListReady = True
         self.root.update()
         self.createList(None, (0, 1000))
@@ -860,9 +780,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
         database = self.getDatabase()
 
         self.log("NETWORK", "Requesting data for character id", id)
-        sql = "SELECT * FROM charactersIndex WHERE id=?"
-        keys = database.keys(table="charactersIndex")[1:]
-        api_keys = dict(zip(keys, database.sql(sql, (id,))[0][1:]))
 
         character = self.api.character(id)
 

@@ -41,18 +41,19 @@ class Item(dict):
         if len(args) == 0 and len(kwargs) == 0:
             return
         elif len(args) == 1:
-            if hasattr(args[0], "items"):  # Item(dict(data))
-                data = args[0].items()
+            args = args[0]
+            if hasattr(args, "items"):  # Item(dict(data))
+                data = args.items()
             else:
                 try:
-                    iter(args[0])
+                    iter(args)
                 except TypeError:
                     raise TypeError("Cannot merge data, type: {} - {}".format(type(args[0])), args[0])
                 else:
                     if isinstance(args[0], tuple):  # Item([(key, value), (key, value), ...])
-                        data = args[0]
+                        data = args
         elif len(args) == 0:
-            if "keys" in kwargs.keys() and "values" in kwargs.keys():
+            if "keys" in kwargs.keys() and "values" in kwargs.keys():  # Item(keys=[...], values=[...])
                 data = zip(kwargs["keys"], kwargs["values"])
 
         if data is None:
@@ -161,6 +162,10 @@ class ItemList(queue.Queue):
                 log("Error on ItemList iterator: No internet connection!")
                 self.sources.remove(s)
                 break
+            except requests.exceptions.ReadTimeout:
+                log("Error on ItemList iterator: Timed out!")
+                self.sources.remove(s)
+                break
             except Exception as e:
                 log("Error on ItemList iterator", s, iterator, "\n", traceback.format_exc())
                 self.sources.remove(s)
@@ -253,6 +258,13 @@ class CharacterList(ItemList):
 
 class NoneDict(dict):
     """Just a normal dict, but return "NONE" instead of raising a KeyError"""
+    def __init__(self, *args, **kwargs):
+        if len(args) == 0 and "keys" in kwargs.keys() and "values" in kwargs.keys():
+            keys, values = kwargs["keys"], kwargs["values"]
+            for k, v in zip(keys, values):
+                self[k] = v
+        else:
+            super().__init__(*args, **kwargs)
 
     def __getitem__(self, key):
         if key in self.keys():

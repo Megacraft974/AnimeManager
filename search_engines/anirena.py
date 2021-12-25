@@ -4,7 +4,7 @@ import io
 import re
 
 import requests
-import lxml.etree
+from lxml import etree
 
 
 class Parser:
@@ -24,7 +24,7 @@ class Parser:
         except requests.exceptions.ReadTimeout:
             print("Anirena - Timed out!")
         else:
-            tree = lxml.etree.parse(io.BytesIO(r.content))
+            tree = etree.parse(io.BytesIO(r.content))
             pattern = re.compile(
                 r"(\d+?) seeder\(s\), (\d+?) leecher\(s\), \d+? downloads, (\S+? .B)")
             for child in tree.getroot().find('channel'):

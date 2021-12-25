@@ -34,26 +34,8 @@ class characterListWindow:
                 can.bind("<Button-1>", lambda e,
                          a=character: self.characterWindow(a))
 
-                filename = os.path.join(
-                    self.cache, "c" + str(character['id']) + ".jpg")
-
-                if "c" + str(character['id']) + \
-                        ".jpg" in os.listdir(self.cache):
-                    image = self.getImage(filename, (225, 310))
-                    loadImg = False
-                else:
-                    image = self.getImage(None, (225, 310))
-                    loadImg = True
-                    self.log(
-                        'DISK_ERROR',
-                        "[ERROR] - Can't open image for character",
-                        character['name'],
-                        "id",
-                        character['id'])
-
-                can.create_image(size[0] / 2, size[1] / 2,
-                                 image=image, anchor='center')
-                can.image = image
+                can.create_image(0, 0, image=self.blank_image, anchor='nw')
+                can.image = self.blank_image
 
                 title = character['name']
                 if len(title) >= 20:
@@ -81,38 +63,9 @@ class characterListWindow:
                 x, y = index // self.animePerRow, index % self.animePerRow
                 cell.grid(row=x, column=y, sticky="nsew", pady=2, padx=2)
 
-                if loadImg:
-                    queue.put((filename, character, can))
-
-            def getImages(queue):
-                def downloadPic(filename, character, can):
-                    if character['picture'] is None:
-                        return
-                    self.log("NETWORK", "Requesting picture for character id",
-                             character['id'], "name", character["name"])
-                    raw_data = requests.get(character['picture']).content
-                    im = Image.open(io.BytesIO(raw_data))
-                    im = im.resize((225, 310))
-                    if im.mode != 'RGB':
-                        im = im.convert('RGB')
-                    im.save(filename)
-
-                    image = ImageTk.PhotoImage(im, master=self.characterList)
-                    try:
-                        can.create_image(0, 0, image=image, anchor='nw')
-                        can.image = image
-                    except BaseException:
-                        pass
-
-                args = None
-                while args != "STOP":
-                    if queue.empty():
-                        time.sleep(0.01)
-                    else:
-                        args = queue.get()
-                        if args == "STOP":
-                            break
-                        downloadPic(*args)
+                filename = os.path.join(self.cache, "c" + str(character['id']) + ".jpg")
+                url = character.picture
+                queue.put((filename, url, can))
 
             def getCharacters(id):
                 database = self.getDatabase()
@@ -121,22 +74,21 @@ class characterListWindow:
                         SELECT * FROM characters
                         WHERE like = 1
                         GROUP BY id
-                        ORDER BY anime_id;""")
+                        ORDER BY anime_id;""", to_dict=True)
                 else:
                     data = database.sql(
-                        "SELECT * FROM characters WHERE anime_id=?;", (id,))
-                keys = list(self.database.keys(table="characters"))
-                characters = CharacterList(Character(dict(zip(keys, c))) for c in data)
+                        "SELECT * FROM characters WHERE anime_id=?;", (id,), to_dict=True)
+                # keys = list(self.database.keys(table="characters"))
+                characters = CharacterList(Character(c) for c in data)
                 return characters
 
             def reload(id, c):
                 if getCharacters(id) != c:
-                    self.characterList.after(
-                        1, lambda id=id: self.characterListWindow(id, False))
+                    self.characterList.after_idle(self.characterListWindow, id, False)
 
             def update(id):
                 self.getCharactersData(id)
-                parent.after(1, lambda id=id: characterListWindow(id))
+                parent.after_idle(characterListWindow, id)
 
         # Main window - Fancy corners - Events
         if True:
@@ -181,10 +133,8 @@ class characterListWindow:
                         18))
                 loadLbl.pack(fill="both", expand=True, pady=10, side=BOTTOM)
                 self.characterListTable.update()
-                thread = threading.Thread(
-                    target=self.getCharactersData, args=(id,), daemon=True)
-                thread.start()
-                while thread.is_alive():
+                characters = self.getCharactersData(id)
+                while not characters.is_ready() and not characters.empty():
                     if self.root is not None:
                         self.root.update()
                         time.sleep(0.01)
@@ -192,19 +142,22 @@ class characterListWindow:
                         self.characterList.exit()
                         return
                 loadLbl.destroy()
+            else:
+                characters = getCharacters(id)
 
         # Characters list
         if True:
-            characters = getCharacters(id)
 
             for x in range(self.animePerRow):
                 self.characterListTable.grid_columnconfigure(x, weight=1)
 
             keys = ('id', 'anime_id', 'name', 'role', 'picture', 'desc')
 
+            # que = queue.Queue()
+            # thread = threading.Thread(target=getImages, args=(que,), daemon=True)
+            # thread.start()
             que = queue.Queue()
-            thread = threading.Thread(target=getImages, args=(que,), daemon=True)
-            thread.start()
+            self.getElemImages(que)
 
             index = None
             for index, character in enumerate(characters):

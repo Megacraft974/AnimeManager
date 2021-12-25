@@ -5,6 +5,8 @@ import json
 import queue
 import re
 import sys
+import traceback
+import urllib.error
 
 from tkinter import *
 from PIL import Image, ImageTk
@@ -65,7 +67,8 @@ class BasePlayer:
             self.parent = Tk()  # Toplevel(root)
         else:
             self.parent = Toplevel(self.root)
-        self.parent.title("Mpv Media Player")
+        self.name = str(type(self)).split('.', 1)[-1].rsplit("_player", 1)[0].capitalize()
+        self.parent.title("{} Media Player".format(self.name))
 
         self.videopanel = Frame(self.parent)
         Label(
@@ -332,7 +335,7 @@ class BasePlayer:
         self.lastMovement = time.time()
         if self.movementCheck is not None:
             self.parent.after_cancel(self.movementCheck)
-        self.movementCheck = self.parent.after(5 * 1000, self.hideCursor)
+        self.movementCheck = self.parent.after(3 * 1000, self.hideCursor)
 
     def queryMousePosition(self):
         pt = POINT()
@@ -367,7 +370,7 @@ class BasePlayer:
                         time.sleep(1 / 60)
                         self.parent.update()
                 except BaseException:
-                    self.parent.after(1, self.OnClose())
+                    self.parent.after_idle(self.OnClose)  # TODO - Really useful?
                     break
             self.playlist = []
             while not que.empty():
@@ -398,6 +401,10 @@ class BasePlayer:
         except pytube.exceptions.VideoPrivate:
             log("The video is private!")
             return
+        except urllib.error.URLError:
+            log("No internet connection!")
+        except BaseException as e:
+            log("Error while fetching youtube video for url:", v, "-", e, "- Streams:\n   ", "\n   ".join(video.streams), "\n-", traceback.format_exc())
         else:
             streams.sort(key=lambda s: int(
                 s.resolution[:-1]) if s.resolution is not None and s.includes_audio_track else 0, reverse=True)

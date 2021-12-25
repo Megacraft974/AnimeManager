@@ -2,7 +2,7 @@
 import urllib.parse
 import io
 
-import lxml.etree
+from lxml import etree
 import requests
 
 
@@ -22,8 +22,8 @@ class Parser:
             print("Nyaasi - Timed out!")
         else:
             try:
-                tree = lxml.etree.parse(io.BytesIO(r.content))
-            except lxml.etree.XMLSyntaxError as e:
+                tree = etree.parse(io.BytesIO(r.content))
+            except etree.XMLSyntaxError as e:
                 print("Nyaasi -", e, tree)
                 return
             for child in tree.getroot().find('channel'):

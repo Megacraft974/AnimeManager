@@ -15,7 +15,6 @@ from tkinter.ttk import Progressbar
 import qbittorrentapi.exceptions
 
 import utils
-from playerManager import MpvPlayer
 
 
 class optionsWindow:
@@ -52,8 +51,7 @@ class optionsWindow:
                     else:
                         if len(qbtorrents) > 0:
                             self.choice.hash = qbtorrents[0].hash
-                            self.choice.after(
-                                1, lambda id=id: self.reload(id, False))
+                            self.choice.after_idle(self.reload, id, False)
                     # return target
 
             def updateLoadingBar(id, bar, text):
@@ -73,18 +71,11 @@ class optionsWindow:
                 else:
                     try:
                         bar['value'] = value
-                        text.configure(text=str(round(value, 2)) + "%")
+                        text.configure(text=str(round(value, 2)) + "%")  # TODO - Fill with zeros
                         self.choice.update()
                     except BaseException:
                         pass
-                    self.choice.after(
-                        500,
-                        lambda id=id,
-                        bar=bar,
-                        hash=hash: updateLoadingBar(
-                            id,
-                            bar,
-                            text))
+                    self.choice.after(500, updateLoadingBar, id, bar, text)
 
             def colorFileEntries(id, eps, epsList):
                 last_seen = self.database(id=id, table="anime")['last_seen']
@@ -241,7 +232,7 @@ class optionsWindow:
 
                 database.set(data, table="anime")
                 if 'status' in data.keys() and data.status != 'UPDATE':
-                    self.choice.after(1, lambda id=id: self.reload(id))
+                    self.choice.after_idle(self.reload, id)
 
         # Window init - Fancy corners - Main frame
         if True:

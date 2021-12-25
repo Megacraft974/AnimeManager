@@ -1,12 +1,13 @@
-import mpv
 from .base_player import BasePlayer
 import os
 import time
 
 path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib")
 if not os.path.exists(path):
-    raise ImportError("lib folder not found!")
+    raise ImportError("mpv lib folder not found!")
+print("mpv", path, "-", os.listdir(path))
 os.environ['PATH'] = path + ";" + os.environ["PATH"]
+import mpv
 
 
 class MpvPlayer(BasePlayer):
@@ -362,4 +363,3 @@ class MpvPlayer(BasePlayer):
         except Exception as e:
             self.log("Error while stopping player:", type(e), e)
         self.log("Closed media player")
-        # self.parent.quit()

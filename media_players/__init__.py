@@ -17,8 +17,8 @@ class MediaPlayers:
                 func_name = self.convert_name(name)
                 try:
                     exec('from .{a} import {b}'.format(a=name, b=func_name))
-                except ImportError as e:
-                    log(name, e)
+                except Exception as e:
+                    log("Error while importing media player:", name, '- e:', e)
                 else:
                     if func_name in locals().keys():
                         f = locals()[func_name]

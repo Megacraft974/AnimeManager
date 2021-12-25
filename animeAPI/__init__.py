@@ -62,6 +62,8 @@ class AnimeAPI(Getters):
                 log("Error on API - handler: No internet connection!")
             except requests.exceptions.ReadTimeout:
                 log("Error on API - handler: Timed out!")
+            except AttributeError as e:
+                log("{} API has no attribute {}!".format(api.__name__, name))
             except Exception as e:
                 log(
                     "Error on API - handler:",
@@ -99,11 +101,13 @@ class AnimeAPI(Getters):
                     out += r
             self.save(out)
             return out
-        else:
-            if name in ('schedule', 'searchAnime'):
+        else:  # TODO - Save data here
+            if name in ('schedule', 'searchAnime', 'season'):
                 return AnimeList((que, threads))
             elif name in ('animeCharacters',):
                 return CharacterList((que, threads))
+            else:
+                return ItemList((que, threads))
         return ()
 
     def save(self, data):  # TODO

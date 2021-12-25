@@ -1,7 +1,6 @@
 import os
 import threading
 import queue
-import traceback
 
 IGNORE = ['template.py', '__init__.py']
 
@@ -27,7 +26,7 @@ def handle_search(titles, limit, que, parser):
 
                 que.put(e)
         except Exception as e:
-            traceback.print_exc()
+            print(e)
 
 
 def search(titles, limit=50):

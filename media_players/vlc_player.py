@@ -407,4 +407,3 @@ class VlcPlayer(BasePlayer):
             self.player.stop()
         except BaseException:
             pass
-        # self.parent.quit()

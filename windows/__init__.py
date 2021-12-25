@@ -1,5 +1,6 @@
 if __name__ != "__main__":
     import os
+    import sys
     windows = []
     ignore = ('__init__', '__pycache__')
     root = os.path.dirname(__file__)

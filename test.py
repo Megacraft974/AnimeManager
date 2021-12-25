@@ -59,4 +59,145 @@
 #         print(url)
 #         getTracker(v.scheme,url,v.port,info_hash,size)
 
-print(''.join(map(str, range(1, 7))))
+from collections import deque
+import time
+import sys
+
+def get_paths(graph, start, end):
+    queue = []
+    queue.append((start, [start]))
+    visited = set()
+
+    while queue:
+        node, path = queue.pop(0)
+        for adjacent_node in graph.get(node, []):
+            if adjacent_node not in visited:
+                visited.add(adjacent_node)
+                if adjacent_node == end:
+                    yield path + [adjacent_node]
+                else:
+                    queue.append((adjacent_node, path + [adjacent_node]))
+
+
+def get_paths_2(graph, start, end, path=[]):
+    path = path + [start]
+    if start == end:
+        return [path]
+    if start not in graph:
+        return []
+    paths = []
+    for node in graph[start]:
+        if node not in path:
+            newpaths = get_paths_2(graph, node, end, path)
+            for newpath in newpaths:
+                paths.append(newpath)
+    return paths
+
+
+def get_paths_3(graph, start, end):
+    paths = {start: [start]}
+    que = deque([start])
+    while len(que):
+        node = que.popleft()
+        for adj_node in graph.get(node, []):
+            if adj_node not in paths:
+                paths[adj_node] = []
+                que.append(adj_node)
+            paths[adj_node].append(node)
+
+    print(paths.keys(), end, end in paths.keys())
+    def parse_paths(paths, node):
+        if node not in paths:
+            yield [node]
+            return
+        parents = paths[node]
+        for parent in parents:
+            for path in parse_paths(paths, parent):
+                yield path + [node]
+
+    return list(parse_paths(paths, end))
+
+
+def find_shortest_path(graph, start, end):
+    paths = {start: [start]}
+    que = deque([start])
+    while len(que):
+        node = que.popleft()
+        for adj_node in graph.get(node, []):
+            if adj_node not in paths:
+                paths[adj_node] = [paths[node], adj_node]
+                que.append(adj_node)
+    path = paths.get(end)
+    if not path:
+        return
+    while len(path) > 1:
+        yield path[1]
+        path = path[0]
+    yield path[0]
+
+
+def solve_question(args):
+    graph, signaux, a, b = args
+    if a == b:
+        # print(signaux[a])
+        return signaux[a]
+    else:
+        active = set()
+
+        print("A", get_paths_3(graph, a, b))
+
+        for path in get_paths(graph, a, b):
+            for p in path:
+                active.add(p)
+
+        if len(active) == 0:
+            # print(0)
+            return 0
+        else:
+            signal = 1
+            for p in active:
+                signal = (signal * signaux[p]) % 1671404011
+
+            # print(signal)
+            return signal
+
+
+def calculer_signaux(n, m, r, signaux, fils, questions):
+    """
+    :param n: nombre de puces
+    :type n: int
+    :param m: nombre de fils
+    :type m: int
+    :param r: nombre de questions
+    :type r: int
+    :param signaux: liste des signaux
+    :type signaux: list[int]
+    :param fils: liste des fils entre les puces
+    :type fils: list[dict["puce1": int, "puce2": int]]
+    :param questions: liste des questions
+    :type questions: list[dict["puce a": int, "puce b": int]]
+    """
+
+    start = time.time()
+    graph = dict()
+    for a, b in fils:
+        graph[a] = graph.get(a, []) + [b]
+        graph[b] = graph.get(b, []) + [a]
+
+    args = ((graph, signaux, *q) for q in questions)
+    for e in map(solve_question, args):
+        # print(e)
+        pass
+    print("b", time.time() - start)
+
+import random
+
+if __name__ == "__main__":
+
+    while True:
+        n, r = random.randint(0, 100000), random.randint(0, 100000)
+        m = n - 1
+        signaux = random.sample(range(1, 1671404011), n)
+        fils = list(random.sample(range(n), 2) for i in range(random.randint(0, n)))
+        questions = list(random.sample(range(n), 2) for i in range(random.randint(0, n)))
+        calculer_signaux(n, m, r, signaux, fils, questions)

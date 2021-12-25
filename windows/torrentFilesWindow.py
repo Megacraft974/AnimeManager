@@ -133,7 +133,7 @@ class torrentFilesWindow:
                 # path = os.path.join(self.torrentPath, t)
                 self.downloadFile(id, file=t)
 
-                self.torrentFilesChooser.after(1000, lambda id=id: self.torrentFilesWindow(id))
+                self.torrentFilesChooser.after(1000, self.torrentFilesWindow, id)
 
             def delete_torrent(id, t, state):
                 self.log('DB_UPDATE', "Removing torrent", t, "for id", id)

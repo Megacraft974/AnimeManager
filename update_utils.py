@@ -63,8 +63,9 @@ class UpdateUtils:
         keys = ('id', 'title', 'torrent')
         torrentDb = database.sql(
             'SELECT id,title,torrent FROM anime WHERE torrent is not null',
-            iterate=True)
-        torrentData = (dict(zip(keys, d)) for d in torrentDb)
+            to_dict=True)
+        # torrentData = (dict(zip(keys, d)) for d in torrentDb)
+        torrentData = torrentDb
         c = 0
 
         for data in torrentData:
@@ -116,6 +117,7 @@ class UpdateUtils:
         toSeen = []
         statusUpdate = []
 
+        # TODO - Use AnimeList ?
         keys = list(database.keys(table="anime")) + ['tag']
         anime_db = database.sql(
             'SELECT anime.*,tag.tag FROM anime LEFT JOIN tag using(id)', iterate=True)
@@ -175,7 +177,6 @@ class UpdateUtils:
             self.log('DB_UPDATE', "No titles to update.")
             return
 
-        # titles = database.sql("SELECT title FROM searchTitles;")
         needSave = False
         c = 0
         for data in sqlData:

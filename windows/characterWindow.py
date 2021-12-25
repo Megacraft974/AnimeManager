@@ -51,8 +51,7 @@ class characterWindow:
             def update(c):
                 c = self.getCharacterData(c['id'])
                 try:
-                    self.characterInfo.after(
-                        1, lambda c=c: self.characterWindow(c, update=False))
+                    self.characterInfo.after_idle(self.characterWindow, c, False)
                 except BaseException:
                     pass
 
@@ -79,6 +78,7 @@ class characterWindow:
                     thread = threading.Thread(target=update, args=(character,), daemon=True)
                     thread.start()
 
+                # TODO - Import only necessary data
                 data = self.database.sql(
                     "SELECT * FROM characters WHERE anime_id=? AND id=?;",
                     (character['anime_id'],

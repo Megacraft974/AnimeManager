@@ -7,9 +7,8 @@ import shutil
 import json
 
 
-class Constants():
+class Constants:
     def __init__(self):
-        super().__init__(self)
         self.logs = ['DB_ERROR', 'DB_UPDATE', 'MAIN_STATE',
                      'NETWORK', 'SERVER', 'SETTINGS', 'TIME']
 
