@@ -155,29 +155,26 @@ class KitsuIoWrapper(APIUtils):
         if a.youtubeVideoId is not None and a.youtubeVideoId != "":
             data['trailer'] = "https://www.youtube.com/watch?v=" + a.youtubeVideoId
 
-        genres = []
         with self.database.get_lock():  # TODO - SUPER FUCKING SLOW!!
-            log("KITSU.IO API", "A")
             if isinstance(a.relationships.genres, relationships.MultiRelationship):
-                for g in a.genres:
-                    log("KITSU.IO API", "D")
-                    if not self.database.exist(g.id, "genres", "kitsu_id"):
-                        log("KITSU.IO API", "E")
-                        self.database.sql(
-                            "INSERT INTO genres(kitsu_id,name) VALUES(?,?)", (g.id, g.name))
-                    genres.append(
-                        self.database.sql(
-                            "SELECT id FROM genres WHERE kitsu_id=?",
-                            (g.id,
-                             ),
-                            save=False)[0][0])
+                genres = self.getGenres(
+                    [
+                        dict([
+                            ('id', e['id']),
+                            ('name', e['attributes']['name'])
+                        ])
+                        for e in (g.json for g in a.genres)
+                    ]
+                )
+            else:
+                genres = []
             data['genres'] = json.dumps(genres)
-            log("KITSU.IO API", "B")
 
-            if isinstance(
-                a._relationships['mediaRelationships'],
-                relationships.MultiRelationship):
+            if isinstance(a._relationships['mediaRelationships'], relationships.MultiRelationship):
+                # self.saveRelations(a.mediaRelationships)
                 for f in a.mediaRelationships:
+                    rel = {'type': f.destination.type, 'relation': f.role, 'rel_id': f.destination.id}
+                    # saveRelation(id, rel)
                     if f.destination.type == "anime":  # TODO
                         rel_id = self.database.getId("kitsu_id", f.destination.id)
                         exist = bool(
@@ -201,7 +198,6 @@ class KitsuIoWrapper(APIUtils):
                         if not self.database.exist(id=rel_id, table="anime"):
                             self.database.set(
                                 {'id': rel_id, 'title': a.canonicalTitle, 'status': 'UPDATE'}, table="anime", save=False)
-            log("KITSU.IO API", "C")
             try:
                 self.database.save()
             except BaseException:

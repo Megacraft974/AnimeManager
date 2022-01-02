@@ -5,7 +5,7 @@ import time
 path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib")
 if not os.path.exists(path):
     raise ImportError("mpv lib folder not found!")
-print("mpv", path, "-", os.listdir(path))
+# print("mpv", path, "-", os.listdir(path))
 os.environ['PATH'] = path + ";" + os.environ["PATH"]
 import mpv
 

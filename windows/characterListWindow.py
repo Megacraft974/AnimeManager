@@ -3,7 +3,6 @@ import time
 import queue
 import os
 import io
-import requests
 
 from tkinter import *
 from PIL import Image, ImageTk
@@ -84,11 +83,11 @@ class characterListWindow:
 
             def reload(id, c):
                 if getCharacters(id) != c:
-                    self.characterList.after_idle(self.characterListWindow, id, False)
+                    self.characterList.after(1, self.characterListWindow, id, False)
 
             def update(id):
                 self.getCharactersData(id)
-                parent.after_idle(characterListWindow, id)
+                parent.after(1, self.characterListWindow, id)
 
         # Main window - Fancy corners - Events
         if True:

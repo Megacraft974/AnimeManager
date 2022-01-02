@@ -58,12 +58,12 @@ class Logger:
             if category in self.logs:
                 toLog = "[{}]".format(category.center(13)) + " - "
                 toLog += " ".join([str(t) for t in text])
-                print(toLog, flush=True, end=end)
+                print(toLog + end, flush=True, end="")
             else:
                 return
         elif self.log_mode == "ALL":
             toLog = "[     LOG     ] - " + " ".join([str(t) for t in text])
-            print(toLog, flush=True, end=end)
+            print(toLog + end, flush=True, end="")
         else:
             return
         with open(self.logFile, "a", encoding='utf-8') as f:

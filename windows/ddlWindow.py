@@ -10,85 +10,92 @@ import utils
 class ddlWindow:
     def ddlWindow(self, id):
         # Functions
-        def updateTable(fetcher, table):
-            def handler(fetcher, que):
+        if True:
+            def updateTable(fetcher, table):
+                def handler(fetcher, que):
+                    try:
+                        titles = next(fetcher)
+                    except StopIteration:
+                        que.put("STOP")
+                    else:
+                        que.put(titles)
+
+                que = queue.Queue()
+                is_empty = True
+                while True:
+                    threading.Thread(target=handler, args=(fetcher, que), daemon=True).start()
+                    while que.empty():
+                        for i in range(int(2 / 0.01)):
+                            try:
+                                self.root.update()
+                            except AttributeError:
+                                pass
+                            time.sleep(0.01)
+
+                    titles = que.get()
+                    if titles == "STOP":
+                        if is_empty:
+                            draw_table([])
+                        return
+                    else:
+                        if is_empty:
+                            is_empty = False
+
+                    try:
+                        for w in table.winfo_children():
+                            w.destroy()
+                    except BaseException:
+                        pass
+                    draw_table(titles)
+
+            def draw_table(titles):
+                rowHeight = 25
+                empty = True
+
+                for i, data in enumerate(titles):
+                    if empty:
+                        empty = False
+                    publisher, data = data
+                    marked = ('dual', 'dub')
+                    for title in [d['filename'] for d in data]:
+                        fg = self.getTorrentColor(title)
+                        if fg != self.colors['White']:
+                            break
+                    bg = (self.colors['Gray2'], self.colors['Gray3'])[i % 2]
+                    if publisher is None:
+                        publisher = 'None'
+                    if not self.publisherChooser.winfo_exists():
+                        return
+                    Button(
+                        table,
+                        text=publisher,
+                        bd=0,
+                        height=1,
+                        relief='solid',
+                        font=(
+                            "Source Code Pro Medium",
+                            13),
+                        activebackground=self.colors['Gray3'],
+                        activeforeground=fg,
+                        bg=bg,
+                        fg=fg,
+                        command=lambda a=data,
+                        b=id: self.ddlFileListWindow(
+                            a,
+                            b)).grid(
+                        row=i,
+                        column=0,
+                        sticky="nsew")
+
                 try:
-                    titles = next(fetcher)
-                except StopIteration:
-                    que.put("STOP")
-                else:
-                    que.put(titles)
-
-            que = queue.Queue()
-            while True:
-                threading.Thread(target=handler, args=(fetcher, que), daemon=True).start()
-                while que.empty():
-                    for i in range(int(2 / 0.01)):
-                        try:
-                            self.root.update()
-                        except AttributeError:
-                            pass
-                        time.sleep(0.01)
-
-                titles = que.get()
-                if titles == "STOP":
-                    return
-
-                try:
-                    for w in table.winfo_children():
-                        w.destroy()
-                except BaseException:
+                    if empty:
+                        self.publisherChooser.titleLbl['text'] = "No files\nfound!"
+                    else:
+                        self.publisherChooser.titleLbl['text'] = "Publisher:"
+                except _tkinter.TclError:
                     pass
-                draw_table(titles)
 
-        def draw_table(titles):
-            rowHeight = 25
-            empty = True
-
-            for i, data in enumerate(titles):
-                if empty:
-                    empty = False
-                publisher, data = data
-                marked = ('dual', 'dub')
-                for title in [d['filename'] for d in data]:
-                    fg = self.getTorrentColor(title)
-                    if fg != self.colors['White']:
-                        break
-                bg = (self.colors['Gray2'], self.colors['Gray3'])[i % 2]
-                if publisher is None:
-                    publisher = 'None'
-                if not self.publisherChooser.winfo_exists():
-                    return
-                Button(
-                    table,
-                    text=publisher,
-                    bd=0,
-                    height=1,
-                    relief='solid',
-                    font=(
-                        "Source Code Pro Medium",
-                        13),
-                    activebackground=self.colors['Gray3'],
-                    activeforeground=fg,
-                    bg=bg,
-                    fg=fg,
-                    command=lambda a=data,
-                    b=id: self.ddlFileListWindow(
-                        a,
-                        b)).grid(
-                    row=i,
-                    column=0,
-                    sticky="nsew")
-
-            try:
-                if empty:
-                    self.publisherChooser.titleLbl['text'] = "No files\nfound!"
-                else:
-                    self.publisherChooser.titleLbl['text'] = "Publisher:"
-            except _tkinter.TclError:
-                pass
-
-            table.update()
+                table.update()
 
         # Window init - Fancy corners - Main frame - Events
         if True:

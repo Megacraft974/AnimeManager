@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 import os
 import utils
 import json
+import re
 import threading
 from sqlite3 import OperationalError
 
@@ -15,6 +16,7 @@ class UpdateUtils:
         self.updateCache()
         self.updateDirs()
         self.updateTag()
+        self.updateStatus()
         self.regroupFiles()
         self.updateTitles()
         if schedule:
@@ -24,6 +26,12 @@ class UpdateUtils:
         def wrapper(f):
             try:
                 f()
+            except OperationalError as e:
+                if e.args == ('database is locked',):
+                    self.log("MAIN_STATE", "[ERROR] - On update function: Database is locked!")
+                else:
+                    self.log("MAIN_STATE", "[ERROR] - On update function:", str(e))
+                    raise
             except BaseException as e:
                 self.log("MAIN_STATE", "[ERROR] - On update function:", str(e))
                 raise
@@ -31,6 +39,7 @@ class UpdateUtils:
             self.updateCache: "Updating cache",
             self.updateDirs: "Updating directories",
             self.updateTag: "Updating tags",
+            self.updateStatus: "Updating status",
             self.regroupFiles: "Regrouping files",
             self.updateTitles: "Updating titles",
         }
@@ -102,66 +111,86 @@ class UpdateUtils:
         modified = False
         for f in os.listdir(self.animePath):
             path = os.path.join(self.animePath, f)
-            if os.path.isdir(path) and len(os.listdir(path)) == 0:
+            if len(os.listdir(path)) == 0:
                 self.log("DB_UPDATE", os.path.normpath(path), 'is empty!')
                 os.rmdir(path)
                 modified = True
         if not modified:
             self.log("DB_UPDATE", "No empty directory to remove.")
 
-    def updateTag(self):
-        self.log("DB_UPDATE", "Updating tags")
-        database = self.getDatabase()
-        # files = [file for file in os.listdir(self.animePath)]
-        toWatch = []
-        toSeen = []
+    def updateStatus(self):
+        self.log("DB_UPDATE", "Updating status")
         statusUpdate = []
+        database = self.getDatabase()
+        with database.get_lock():
+            keys = database.keys(table="anime")
+            anime_db = database.sql('SELECT * FROM anime WHERE status="UPCOMING" AND date_from is not null ORDER BY date_from ASC', iterate=True)
 
-        # TODO - Use AnimeList ?
-        keys = list(database.keys(table="anime")) + ['tag']
-        anime_db = database.sql(
-            'SELECT anime.*,tag.tag FROM anime LEFT JOIN tag using(id)', iterate=True)
-        # anime_db = list(anime_db)
-        # print(anime_db)
-        self.animeFolder = os.listdir(self.animePath)
-        c = 0
-        for data in anime_db:
-            anime = Anime(keys=keys, values=data)
-            id, tag, torrent = anime.id, anime.tag, anime.torrent
-            self.log("DB UPDATE", "Id:", id)
-            folder = self.getFolder(id, anime=anime)
-            if folder is not None and os.path.isdir(os.path.join(self.animePath, folder)):
-                if tag != 'WATCHING':
-                    self.log('DB_UPDATE', "Folder '" + folder + "' id", id, "exists, but tag is", tag)
-                    toWatch.append(id)
-                    c += 1
-            else:
-                if tag == 'WATCHING' and torrent is not None:
-                    self.log('DB_UPDATE', "Folder '" + folder + "' doesn't have a folder, but tag is", tag)
-                    toSeen.append(id)
-                    c += 1
-            if anime.status == "UPCOMING" and anime.date_from is not None:
+            c = 0
+            for data in anime_db:
+                anime = Anime(keys=keys, values=data)
                 delta = date.today() - date.fromisoformat(anime.date_from)
                 if delta >= timedelta():  # timedelta() == 0
                     statusUpdate.append(anime)
-                    c += 1
+                else:
+                    # Animes are ordered by date_from ASC
+                    break
 
-        for anime in statusUpdate:
-            old_status = anime.status
-            anime.status = None
-            anime.status = self.getStatus(anime)
-            database.set(anime, table="anime")
-            self.log('DB_UPDATE', "Updated status for anime: {}, from {} to {}".format(anime.title, old_status, anime.status))
+            for anime in statusUpdate:
+                old_status = anime.status
+                anime.status = None
+                anime.status = self.getStatus(anime)
+                database.set(anime, table="anime", save=False)
+                self.log('DB_UPDATE', "Updated status for anime: {}, from {} to {}".format(anime.title, old_status, anime.status))
 
-        try:
-            if len(toWatch) >= 1:
-                database.sql("UPDATE tag SET tag = 'WATCHING' WHERE id IN(?" + ",?" * (len(toWatch) - 1) + ");", toWatch)
-            if len(toSeen) >= 1:
-                database.sql("UPDATE tag SET tag = 'SEEN' WHERE id IN(?" + ",?" * (len(toSeen) - 1) + ");", toSeen)
-        except OperationalError:
-            self.log('DB_UPDATE', 'Error while updating tags')
+            database.save()
+        if c >= 1:
+            self.log('DB_UPDATE', "{} status updated!".format(c))  # TODO - ORTHOGRAPH (s / sses / ses / ???)
+        else:
+            self.log('DB_UPDATE', "No status to update.")
 
-        database.save()
+    def updateTag(self):
+        self.log("DB_UPDATE", "Updating tags")
+        database = self.getDatabase()
+        with database.get_lock():
+            toWatch = set()
+            toSeen = {data[0] for data in database.sql('SELECT id FROM tag LEFT JOIN anime using(id) WHERE tag="WATCHING" AND torrent is not null')}
+            toDelete = {data[0] for data in database.sql('SELECT id FROM tag WHERE id NOT IN (SELECT id FROM anime);')}
+
+            pattern = re.compile(r"^.*? - (\d+)$")
+
+            for f in os.listdir(self.animePath):
+                path = os.path.join(self.animePath, f)
+                if os.path.isdir(path):
+                    match = re.findall(pattern, f)
+                    if match and match[0]:
+                        anime_id = int(match[0])
+                        if anime_id in toSeen:
+                            toSeen.remove(anime_id)
+                        else:
+                            toWatch.add(anime_id)
+
+            for ids_set in (toSeen, toWatch):
+                sql = "SELECT id FROM anime WHERE id IN(" + ",".join("?" * (len(ids_set))) + ");"
+                existing_ids = {data[0] for data in database.sql(sql, (ids_set))}
+
+                tmp = {id for id in ids_set if id not in existing_ids}
+                toDelete.update(tmp)
+                ids_set = ids_set - tmp
+
+            try:
+                if len(toWatch) >= 1:
+                    database.sql("UPDATE tag SET tag = 'WATCHING' WHERE id IN(" + ",".join("?" * len(toWatch)) + ");", toWatch)
+                if len(toSeen) >= 1:
+                    database.sql("UPDATE tag SET tag = 'SEEN' WHERE id IN(" + ",".join("?" * len(toSeen)) + ");", toSeen)
+                if len(toSeen) >= 1:
+                    database.sql("DELETE FROM tag WHERE id IN(" + ",".join("?" * (len(toDelete))) + ");", toDelete)
+            except OperationalError:
+                self.log('DB_UPDATE', 'Error while updating tags')
+
+            database.save()
+
+        c = len(toSeen) + len(toWatch) + len(toDelete)
         if c >= 1:
             self.log('DB_UPDATE', "{} tags updated!".format(c))
         else:
@@ -177,14 +206,12 @@ class UpdateUtils:
             self.log('DB_UPDATE', "No titles to update.")
             return
 
-        needSave = False
         c = 0
         for data in sqlData:
             id = data[0]
             if data[1] is None:
-                titles = []
-            else:
-                titles = json.loads(data[1])
+                continue
+            titles = json.loads(data[1])
             for title in titles:
                 title = "".join([c for c in title if c.isalnum()]
                                 ).lower() if title is not None else ""
@@ -195,9 +222,8 @@ class UpdateUtils:
                     c += 1
                     database.insert(
                         {"id": id, 'title': title}, table='searchTitles', save=False)
-                    needSave = True
 
-        if needSave:
+        if c > 0:
             database.save()
 
         self.log('DB_UPDATE', "{} titles updated!".format(c))

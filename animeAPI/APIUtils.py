@@ -71,6 +71,37 @@ class APIUtils(Getters):
             # raise Exception("Wrong api")
         return api_id[0][0]
 
+    def getGenres(self, genres):
+        # Genres must be an iterable of dicts each containing two fields: 'id' and 'name'
+        if len(genres) == 0:
+            return []
+        try:
+            ids = {}
+            for g in genres:
+                ids[g['id']] = g['name']
+            # ids = {g['id']: g['name'] for g in genres}
+        except KeyError:
+            log("KeyError while parsing genres:", genres, dir(genres[0]))
+            raise
+
+        sql = ("SELECT id, {api} FROM genres WHERE {api} IN(" + ",".join("?" * len(ids)) + ");").format(api=self.apiKey)
+        data = self.database.sql(sql, ids.keys())
+        new = set(id for id in ids if id not in (g[1] for g in data))
+        if len(new) > 0:
+            self.database.executemany("INSERT INTO genres(kitsu_id,name) VALUES(?,?)", ids.items())
+            data = self.database.sql(sql, ids.keys())
+        return list(g[0] for g in data)
+
+    def saveRelations(self, id, api_key, relations):
+        ids = []
+        for rel in relations:
+            if rel["type"] == "anime":  # TODO - Handle non-anime relations
+                ids.append((rel["api_key"], rel["rel_id"]))
+        sql = "SELECT R.id, R.rel_id, I.id, I.{api_key} FROM related AS R LEFT JOIN indexList AS I ON R.rel_id = I.id \
+               WHERE R.id = ? AND I.{api_key} IN(" + ",".join("?" * len(ids)) + ");"
+        sql.format(self.apiKey)
+        print(sql)
+        data = self.database.sql(sql, (id, rel_id))
 
 class EnhancedSession(requests.Session):
     def __init__(self, timeout=(3.05, 4)):

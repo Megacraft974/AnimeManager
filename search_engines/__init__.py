@@ -1,6 +1,7 @@
 import os
 import threading
 import queue
+from logger import log
 
 IGNORE = ['template.py', '__init__.py']
 
@@ -26,7 +27,7 @@ def handle_search(titles, limit, que, parser):
 
                 que.put(e)
         except Exception as e:
-            print(e)
+            log("Error on torrent search:", e)
 
 
 def search(titles, limit=50):
@@ -41,7 +42,5 @@ def search(titles, limit=50):
         t.start()
 
     while any(map(lambda t: t.is_alive(), threads)) or not que.empty():
-        try:
-            yield que.get(timeout=1)
-        except queue.Empty:
-            pass
+        if not que.empty():
+            yield que.get()

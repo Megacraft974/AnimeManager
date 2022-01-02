@@ -59,145 +59,106 @@
 #         print(url)
 #         getTracker(v.scheme,url,v.port,info_hash,size)
 
-from collections import deque
-import time
-import sys
-
-def get_paths(graph, start, end):
-    queue = []
-    queue.append((start, [start]))
-    visited = set()
-
-    while queue:
-        node, path = queue.pop(0)
-        for adjacent_node in graph.get(node, []):
-            if adjacent_node not in visited:
-                visited.add(adjacent_node)
-                if adjacent_node == end:
-                    yield path + [adjacent_node]
-                else:
-                    queue.append((adjacent_node, path + [adjacent_node]))
+from tkinter import *
+from PIL import Image, ImageTk, ImageDraw
 
 
-def get_paths_2(graph, start, end, path=[]):
-    path = path + [start]
-    if start == end:
-        return [path]
-    if start not in graph:
-        return []
-    paths = []
-    for node in graph[start]:
-        if node not in path:
-            newpaths = get_paths_2(graph, node, end, path)
-            for newpath in newpaths:
-                paths.append(newpath)
-    return paths
-
-
-def get_paths_3(graph, start, end):
-    paths = {start: [start]}
-    que = deque([start])
-    while len(que):
-        node = que.popleft()
-        for adj_node in graph.get(node, []):
-            if adj_node not in paths:
-                paths[adj_node] = []
-                que.append(adj_node)
-            paths[adj_node].append(node)
-
-    print(paths.keys(), end, end in paths.keys())
-    def parse_paths(paths, node):
-        if node not in paths:
-            yield [node]
-            return
-        parents = paths[node]
-        for parent in parents:
-            for path in parse_paths(paths, parent):
-                yield path + [node]
-
-    return list(parse_paths(paths, end))
-
-
-def find_shortest_path(graph, start, end):
-    paths = {start: [start]}
-    que = deque([start])
-    while len(que):
-        node = que.popleft()
-        for adj_node in graph.get(node, []):
-            if adj_node not in paths:
-                paths[adj_node] = [paths[node], adj_node]
-                que.append(adj_node)
-    path = paths.get(end)
-    if not path:
-        return
-    while len(path) > 1:
-        yield path[1]
-        path = path[0]
-    yield path[0]
-
-
-def solve_question(args):
-    graph, signaux, a, b = args
-    if a == b:
-        # print(signaux[a])
-        return signaux[a]
-    else:
-        active = set()
-
-        print("A", get_paths_3(graph, a, b))
-
-        for path in get_paths(graph, a, b):
-            for p in path:
-                active.add(p)
-
-        if len(active) == 0:
-            # print(0)
-            return 0
+class CustomScrollbar(Frame):
+    def __init__(self, parent, orient='V', **kwargs):
+        self.parent = parent
+        if orient in ('V', 'H'):
+            self.orient = orient
         else:
-            signal = 1
-            for p in active:
-                signal = (signal * signaux[p]) % 1671404011
+            raise ValueError("Orient must be either 'V' or 'H'.")
 
-            # print(signal)
-            return signal
+        self.padding = 5
+        self.thickness = 30
+        self.fg = "#000000"
+        self.bg = "#FFFFFF"
+        self.command = None
+
+        super().__init__(self.parent, bg="#00FF00")
+
+        self.frame = Canvas(self, width=self.thickness, bg=self.bg, bd=0, highlightthickness=0)
+
+        self.frame.bind("<B1-Motion>", self.move_thumb)
+
+        self.configure(**kwargs)
+        self.frame.pack()
+
+    def configure(self, **kwargs):
+        if "command" in kwargs:
+            self.command = kwargs.pop("command")
+        if "thickness" in kwargs:
+            self.thickness = kwargs.pop("thickness")
+            kwargs["width" if self.orient == "V" else "height"] = self.thickness
+        if "padding" in kwargs:
+            self.padding = kwargs.pop("padding")
+        if "fg" in kwargs:
+            self.fg = kwargs.pop("fg")
+        if "bg" in kwargs:
+            self.bg = kwargs["bg"]
+
+        self.frame.configure(**kwargs)
+
+    def get(self):
+        return self.start, self.stop
+
+    def set(self, a, b):
+        self.start, self.stop = float(a), float(b)
+        self.draw_thumb(self.start, self.stop)
+
+    def draw_thumb(self, start, stop):
+        width = self.frame.winfo_width()
+        height = self.frame.winfo_height()
+        if self.orient == "H":
+            width, height = height, width
+
+        self.frame.delete(ALL)
+        scale = 10
+        img_size = ((width - self.padding * 2) * scale, int(((stop - start) * height - self.padding * 2) * scale))
+        img_width = img_size[0 if self.orient == "V" else 1]
+        img_height = img_size[1 if self.orient == "V" else 0]
+
+        if img_height <= img_width:
+            image = Image.new('RGB', (img_width, img_width), self.bg)
+            draw = ImageDraw.Draw(image)
+            draw.ellipse((0, 0, img_width, img_width), fill=self.fg, outline=None)
+        else:
+            image = Image.new('RGB', img_size, self.bg)
+            draw = ImageDraw.Draw(image)
+            draw.rectangle((0, img_width / 2, img_width, img_height - img_width / 2), fill=self.fg, outline=None)
+            draw.ellipse((0, 0, img_width, img_width), fill=self.fg, outline=None)
+            draw.ellipse((0, img_height - img_width - 1, img_width, img_height - 1), fill=self.fg, outline=None)
+
+        self.thumb = image.resize((img_size[0] // scale, img_size[1] // scale), Image.ANTIALIAS)
+        thumb_img = ImageTk.PhotoImage(self.thumb, master=self.frame)
+
+        pos = start * height + self.padding
+        self.frame.create_image(self.padding, pos, image=thumb_img, anchor="nw")
+        self.frame.image = thumb_img
+
+    def move_thumb(self, event):
+        if self.orient == "V":
+            fensize = self.frame.winfo_height()
+            pos = event.y / fensize
+        else:
+            fensize = self.frame.winfo_width()
+            pos = event.x / fensize
+
+        if self.command is not None:
+            self.command('moveto', str(pos))
 
 
-def calculer_signaux(n, m, r, signaux, fils, questions):
-    """
-    :param n: nombre de puces
-    :type n: int
-    :param m: nombre de fils
-    :type m: int
-    :param r: nombre de questions
-    :type r: int
-    :param signaux: liste des signaux
-    :type signaux: list[int]
-    :param fils: liste des fils entre les puces
-    :type fils: list[dict["puce1": int, "puce2": int]]
-    :param questions: liste des questions
-    :type questions: list[dict["puce a": int, "puce b": int]]
-    """
+root = Tk()
+scrollbar = CustomScrollbar(root, width=20, fg="#383935", bg="#AAAAAA")
+scrollbar.pack(side=RIGHT, fill=Y)
 
-    start = time.time()
-    graph = dict()
-    for a, b in fils:
-        graph[a] = graph.get(a, []) + [b]
-        graph[b] = graph.get(b, []) + [a]
+mylist = Listbox(root, yscrollcommand=scrollbar.set)
+for line in range(100):
+    mylist.insert(END, "This is line number " + str(line))
 
-    args = ((graph, signaux, *q) for q in questions)
-    for e in map(solve_question, args):
-        # print(e)
-        pass
-    print("b", time.time() - start)
+mylist.pack(side=LEFT, fill=BOTH)
+scrollbar.configure(command=mylist.yview)  # lambda *args: print(args))
 
-import random
-
-if __name__ == "__main__":
-
-    while True:
-        n, r = random.randint(0, 100000), random.randint(0, 100000)
-        m = n - 1
-        signaux = random.sample(range(1, 1671404011), n)
-        fils = list(random.sample(range(n), 2) for i in range(random.randint(0, n)))
-        questions = list(random.sample(range(n), 2) for i in range(random.randint(0, n)))
-        calculer_signaux(n, m, r, signaux, fils, questions)
+mainloop()

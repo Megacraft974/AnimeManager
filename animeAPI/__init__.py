@@ -1,5 +1,5 @@
 from logger import log
-from classes import Anime, AnimeList, Character, CharacterList
+from classes import Anime, AnimeList, Character, CharacterList, ItemList
 import os
 import threading
 import queue
@@ -27,7 +27,7 @@ class AnimeAPI(Getters):
         if apis == 'all':
             ignore = ('__init__.py', 'APIUtils.py')
             root = os.path.dirname(__file__)
-            sys.path.append(root)  # TODO - Use relative import instead
+            sys.path.append(root)  # TODO - Should use relative import
             for f in os.listdir(root):
                 if f not in ignore and f[-3:] == ".py":
                     name = f[:-3]
@@ -57,13 +57,17 @@ class AnimeAPI(Getters):
     def wrapper(self, name, *args, **kwargs):
         def handler(api, name, que, *args, **kwargs):
             try:
-                r = getattr(api, name)(*args, **kwargs)
+                f = getattr(api, name)
+            except AttributeError as e:
+                log("{} has no attribute {}! - Error: {}".format(api.__name__, name, e))
+                return
+
+            try:
+                r = f(*args, **kwargs)
             except requests.exceptions.ConnectionError:
                 log("Error on API - handler: No internet connection!")
             except requests.exceptions.ReadTimeout:
                 log("Error on API - handler: Timed out!")
-            except AttributeError as e:
-                log("{} API has no attribute {}!".format(api.__name__, name))
             except Exception as e:
                 log(
                     "Error on API - handler:",
@@ -119,10 +123,10 @@ class AnimeAPI(Getters):
         elif isinstance(data, ItemList):
             print("Added callback!")
             data.add_callback(self.save)
+            return
         else:
             raise TypeError("{} is an invalid type!".format(str(type(data))))
         database.set(data, table=table)
-
 
 # TODO - Add more APIs:
 # anilist.co

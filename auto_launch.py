@@ -2,9 +2,8 @@
 
 import sys
 import os
-import multiprocessing
 
-if 'auto_launch_initialized' not in globals().keys() and multiprocessing.current_process() == "MainProcess":
+if 'auto_launch_initialized' not in globals().keys():
     globals()['auto_launch_initialized'] = os.getpid()
     from animeManager import Manager
 

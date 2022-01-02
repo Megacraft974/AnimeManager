@@ -107,20 +107,17 @@ class MyAnimeListNetWrapper(APIUtils):
             out['status'] = self.getStatus(
                 out) if 'status' in a.keys() else None
 
-        genres = []
         if 'genres' in a.keys():
-            for g in a['genres']:
-                if not self.database.exist(g['id'], "genres", "mal_id"):
-                    self.database.sql(
-                        "INSERT INTO genres(mal_id,name) VALUES(?,?)", (g['id'], g['name']))
-
-                genres.append(self.database.sql(
-                    "SELECT id FROM genres WHERE mal_id=?", (g['id'],))[0][0])
+            genres = self.getGenres(a['genres'])
+        else:
+            genres = []
         out['genres'] = json.dumps(genres)
 
         if 'related' in a.keys():
             for relation, rel_data_list in a['related'].items():
                 for rel_data in rel_data_list:
+                    rel = {'type': rel_data['type'], 'relation': relation, 'rel_id': rel_data['id']}
+                    # saveRelation(id, rel)
                     if rel_data['type'] == "anime":
                         rel_id = self.database.getId("mal_id", rel_data["id"])
                         if not self.database.sql(

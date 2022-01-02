@@ -157,6 +157,9 @@ class ItemList(queue.Queue):
                 # log("S {},".format(e))
             except StopIteration:
                 self.sources.remove(s)
+                if self.new_elem_event["enabled"]:
+                    self.new_elem_event["event"].set()
+                    self.new_elem_event["enabled"] = False
                 break
             except requests.exceptions.ConnectionError:
                 log("Error on ItemList iterator: No internet connection!")
@@ -223,13 +226,16 @@ class ItemList(queue.Queue):
 
     def get_from_sources(self, timeout=None, default=None):
         self.new_elem_event["enabled"] = True
-        if not self.new_elem_event["event"].wait(timeout=timeout):
+        if self.new_elem_event["event"].wait(timeout=timeout):
+            if len(self.list) > 0:
+                e = self.list.pop(0)
+                return e
+            elif len(self.sources) == 0:
+                return default
+        else:
             log("Error on ItemList iterator: Timed out")
             return default  # Timed out
 
-        if len(self.list) > 0:
-            e = self.list.pop(0)
-            return e
 
     def empty(self):
         return len(self.sources) == 0 and len(self.list) == 0
@@ -256,21 +262,29 @@ class CharacterList(ItemList):
         self.identifier = lambda c: c["id"]
 
 
-class NoneDict(dict):
-    """Just a normal dict, but return "NONE" instead of raising a KeyError"""
+class DefaultDict(dict):
+    """A dict with a default value instead of raising a KeyError"""
+    def __init__(self, default, *args, **kwargs):
+        self.default = default
+        super().__init__(*args, **kwargs)
+
+    def __getitem__(self, key):
+        try:
+            return super().__getitem__(key)
+        except KeyError:
+            self.__setitem__(key, self.default)
+            return super().__getitem__(key)
+
+
+class NoneDict(DefaultDict):
+    """A dict, which return "NONE" instead of raising a KeyError and allow to initialize with keys and values as kwargs"""
     def __init__(self, *args, **kwargs):
         if len(args) == 0 and "keys" in kwargs.keys() and "values" in kwargs.keys():
             keys, values = kwargs["keys"], kwargs["values"]
             for k, v in zip(keys, values):
                 self[k] = v
         else:
-            super().__init__(*args, **kwargs)
-
-    def __getitem__(self, key):
-        if key in self.keys():
-            return super().__getitem__(key)
-        else:
-            return "NONE"
+            super().__init__("NONE", *args, **kwargs)
 
 
 class SortedList(list):

@@ -1,5 +1,7 @@
 import threading
 import re
+import os
+from PIL import Image, ImageTk
 from tkinter import *
 
 import utils
@@ -51,7 +53,7 @@ class characterWindow:
             def update(c):
                 c = self.getCharacterData(c['id'])
                 try:
-                    self.characterInfo.after_idle(self.characterWindow, c, False)
+                    self.characterInfo.after(1, self.characterWindow, c, False)
                 except BaseException:
                     pass
 
@@ -92,7 +94,7 @@ class characterWindow:
                 self.cache, "c" + str(character['id']) + ".jpg")
 
             if "c" + str(character['id']) + ".jpg" in os.listdir(self.cache):
-                im = self.getImage(filename)
+                image = self.getImage(filename)
             else:
                 raw_data = requests.get(character['picture']).content
                 im = Image.open(io.BytesIO(raw_data))
@@ -109,21 +111,28 @@ class characterWindow:
                 can.grid(row=0, column=0, rowspan=2)
                 can.create_image(0, 0, image=image, anchor='nw')
                 can.image = image
-            except BaseException:
+            except BaseException as e:
+                self.log("MAIN_STATE", "Error while creating characterInfo window:", e)
                 try:
                     self.characterInfo.exit()
                 except BaseException:
                     pass
+                return
 
         # Title panel
         if True:
+            self.log("MAIN_STATE", character)
+            # print(self.characterInfo.titleFrame)
             self.characterInfo.titleFrame.destroy()
             titleFrame = Frame(self.characterInfo, bg=self.colors['Gray2'])
             titleFrame.grid_columnconfigure(0, weight=1)
+            self.characterInfo.titleFrame = titleFrame
 
             titleLbl = Label(titleFrame, text=character['name'], wraplength=500, bg=self.colors['Gray2'], font=(
                 "Source Code Pro Medium", 18), fg=self.colors['Blue' if character['role'] == "Main" else 'White'])
             titleLbl.grid(row=0, column=0, sticky="nsew", columnspan=2)
+            # self.characterInfo.titleLbl.configure(text=character['name'], wraplength=500, bg=self.colors['Gray2'], font=(
+            #     "Source Code Pro Medium", 18), fg=self.colors['Blue' if character['role'] == "Main" else 'White'])
             self.characterInfo.titleLbl = titleLbl
             self.characterInfo.handles = [titleLbl]
             self.characterInfo.update()
@@ -135,26 +144,27 @@ class characterWindow:
             iconSize = (30, 30)
             image = self.getImage(im_path, iconSize)
 
-            Button(
-                titleFrame,
-                text="Go to anime",
-                bd=0,
-                height=1,
-                relief='solid',
-                font=(
-                    "Source Code Pro Medium",
-                    13),
-                activebackground=self.colors['Gray2'],
-                activeforeground=self.colors['White'],
-                bg=self.colors['Gray3'],
-                fg=self.colors['White'],
-                command=lambda id=character['anime_id']: switchAnime(id)).grid(
-                row=1,
-                column=0,
-                sticky="nsew",
-                padx=(
-                    20,
-                    0))
+            if 'anime_id' in character.keys():
+                Button(
+                    titleFrame,
+                    text="Go to anime",
+                    bd=0,
+                    height=1,
+                    relief='solid',
+                    font=(
+                        "Source Code Pro Medium",
+                        13),
+                    activebackground=self.colors['Gray2'],
+                    activeforeground=self.colors['White'],
+                    bg=self.colors['Gray3'],
+                    fg=self.colors['White'],
+                    command=lambda id=character['anime_id']: switchAnime(id)).grid(
+                    row=1,
+                    column=0,
+                    sticky="nsew",
+                    padx=(
+                        20,
+                        0))
 
             likeButton = Button(
                 titleFrame,

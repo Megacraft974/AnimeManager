@@ -61,14 +61,30 @@ except ModuleNotFoundError as e:
 
 # TODO - Add filter for torrent list (seeds / name)
 # TODO - Add scrolling bar on ScrollableFrame
-# TODO - Allow for window resizing
+# TODO - Implement dropdowns (Episode list)
+# TODO - Handle huge seasons / Add an episode window?
+# TODO - Allow window resizing
 # TODO - Online search raise database is locked error
+# TODO - Some image aren't loading with online search (sk8)
 # TODO - jikanpy.exceptions.APIException: HTTP 500 - status=500, type=ParserException, message=Unable to parse this request. Please follow report_url to generate an issue on GitHub, error=Failed to parse 'https://myanimelist.net/...'
+# TODO - Avoid accessing to db with the API wrappers
+# TODO - Figure out how to update anime list when tag change
+# TODO - Torrent publisher list freeze when internet is slow
+# TODO - Add an option to modify the torrent search
+# TODO - Improve torrent matching algorithm
+# TODO - Auto associate latest torrents?
+# TODO - Add python-based torrent client
+# TODO - Characters don't have the 'anime_id' key
+# TODO - Image thread starting multiple times
+# TODO - Add RSS option
+# TODO - Automatic torrent downloading from RSS?
+# TODO - Compile into an executable
+# TODO - Phone version
+
 
 class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers, *windows.windows):
     def __init__(self, remote=False):
         self.start = time.time()
-        # super().__init__()
         Logger.__init__(self)
         Constants.__init__(self)
         MediaPlayers.__init__(self)
@@ -79,9 +95,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
         self.relationIds = []
         self.characterIds = []
         self.timer_id = None
-        self.searching = False
-        self.searchThread = None
         self.stopSearch = False
+        self.closing = False
         self.maxLogsSize = 50000  # In bytes
         self.animeListReady = False
         self.blank_image = None
@@ -128,7 +143,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
         self.api = animeAPI.AnimeAPI('all', self.dbPath)
         self.player = self.media_players[self.player_name]
         self.getQB(use_thread=True)
-        self.imQueue = queue.Queue()
 
         if not self.remote:
             try:
@@ -231,35 +245,33 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
         )
 
         titles = SortedDict(keys=keys)
-        while not torrents.empty():  # thread.is_alive() or
-            while not torrents.is_ready():
-                if self.root is not None:
-                    self.root.update()
-                time.sleep(0.001)
+        while not torrents.empty():
+            # timer.start()
+            torrent = torrents.get()
+            if torrent is None:
                 continue
+            title = torrent['filename']
 
-            a = torrents.get()
-            title = a['filename']
-
-            result = publisher_pattern.findall(a['filename'])
+            result = publisher_pattern.findall(torrent['filename'])
             if len(result) >= 1:
                 publisher = result[0]
             else:
                 publisher = None
             if publisher in titles.keys():
-                if not a['filename'].replace(" ", "") in (e['filename'].replace(" ", "") for e in titles[publisher]):
-                    titles[publisher].append(a)
+                if not torrent['filename'].replace(" ", "") in {e['filename'].replace(" ", "") for e in titles[publisher]}:
+                    titles[publisher].append(torrent)
             else:
                 titles[publisher] = SortedList(keys=((itemgetter('seeds'), True),))
-                titles[publisher].append(a)
+                titles[publisher].append(torrent)
 
             if not torrents.is_ready():
                 yield titles.items()
+            # timer.stop()
 
         timer.stats()
 
     # ___Main List generation___
-    def createList(self, criteria="DEFAULT", listrange=(0, 50)):
+    def createList(self, criteria="DEFAULT", listrange=None, add_to_end=False):
         def wait_for_next(animelist, default):
             if isinstance(animelist, AnimeList):
                 empty_test = "not animelist.is_ready()"
@@ -277,6 +289,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                     self.root.update()
                 except AttributeError:
                     pass
+                if self.closing:
+                    return None
                 time.sleep(0.01)
             data = animelist.get()
             return data
@@ -344,11 +358,14 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
         self.animeListReady = True  # Interrupt previous list generation
         self.root.update()
 
-        if listrange == (0, 50):
-            self.scrollable_frame.canvas.yview_moveto(0)
+        if listrange is None:
+            listrange = (0, 50)
+            if not add_to_end:
+                self.scrollable_frame.canvas.yview_moveto(0)
 
-        for child in self.scrollable_frame.winfo_children():
-            child.destroy()
+        if not add_to_end:
+            for child in self.scrollable_frame.winfo_children():
+                child.destroy()
 
         # Ensure the Load More button is on the last column
         listrange = (
@@ -368,11 +385,11 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                     self.animeList = []
                     break
             else:
-                if self.animeListReady:
+                if self.animeListReady or self.closing:
+                    que.put("STOP")
                     return
                 if data is None:
                     if i == listrange[0]:
-                        # TODO - Show when there are no results
                         self.log("MAIN_STATE", "No results!")
                         Label(
                             self.scrollable_frame,
@@ -392,6 +409,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
 
             if i % self.animePerRow == 0:
                 if self.root is None:
+                    que.put("STOP")
                     return
                 self.fen.update()
 
@@ -489,11 +507,11 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
         lbl.name = str(-1)
 
     def loadMore(self, listrange, filter):
-        listrange = (0, (listrange[1] + 50) // self.animePerRow * self.animePerRow - 1)
-        posy = self.scrollable_frame.canvas.canvasy(0)
+        listrange = (listrange[1], (listrange[1] + (listrange[1] - listrange[0])) // self.animePerRow * self.animePerRow - 1)
+        # posy = self.scrollable_frame.canvas.canvasy(0)
         self.animeList = None
-        self.createList(filter, listrange)
-        self.scrollable_frame.canvas.yview_moveto(posy / self.scrollable_frame.canvas.bbox('all')[3])
+        self.createList(filter, listrange, add_to_end=True)
+        # self.scrollable_frame.canvas.yview_moveto(posy / self.scrollable_frame.canvas.bbox('all')[3])
         return
 
     # ___Clean up___
@@ -528,15 +546,16 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
             self.database = self.getDatabase()
             self.reloadAll()
 
-    def onClose(self):
-        # .
-        self.stopSearch = True
-
     def quit(self):
-        self.onClose()
+        self.stopSearch = True
+        self.closing = True
         try:
             self.root.update()
-            self.root.destroy()
+            if self.fen is not None:
+                # self.fen.destroy()
+                pass
+            if self.root is not None:
+                self.root.destroy()
             self.root = None
         except Exception as e:
             self.log("MAIN_STATE", "[ERROR] - Can't destroy root:", e)
@@ -544,7 +563,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
     # ___Utils___
     def reloadAll(self):
         self.log('MAIN_STATE', "Reloading")
-        self.onClose()
+        self.stopSearch = True
+        self.closing = True
         try:
             self.fen.destroy()
         except BaseException:
@@ -615,7 +635,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                 gif.width() // 2, gif.height() // 2, image=gif)
         if self.timer_id is not None:
             self.fen.after_cancel(self.timer_id)
-        self.timer_id = self.fen.after(30, self.loading, n + 1, True)  # TODO - Use after_idle and a timer instead of n
+        self.timer_id = self.fen.after(30, self.loading, n + 1, True)  # TODO - Use a timer instead of n
 
     # ___Misc___
     def downloadFile(self, id, url=None, file=None):
@@ -686,7 +706,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                 {'id': id, 'torrent': json.dumps(torrents)},
                 table="anime")
 
-            if database(id=id, table='tag')['tag'] in (None, 'NONE'):
+            if database(id=id, table='tag')['tag'] != 'WATCHING':
                 database.set({'id': id, 'tag': 'WATCHING'}, table='tag')
 
         assert url is not None or file is not None, "You need to specify either an url or a file path"
@@ -763,8 +783,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
             if not exists:
                 self.log("CHARACTER", "New character, anime id", id,
                          "id", character['id'], "name", character['name'])
-                sql = "INSERT INTO characters(" + "{}," * (len(character.keys(
-                )) - 1) + "{}) VALUES (" + "?," * (len(character.keys()) - 1) + "?);"
+                sql = "INSERT INTO characters(" + ",".join(["{}"] * len(character.keys())) + ") VALUES (" + ",".join("?" * len(character.keys())) + ");"
                 sql = sql.format(*character.keys())
                 try:
                     database.sql(sql, character.values())

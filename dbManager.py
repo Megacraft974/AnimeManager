@@ -19,7 +19,7 @@ class db():
         self.remote_lock = threading.RLock()
         if not os.path.exists(self.path):
             self.createNewDb()
-        self.con = sqlite3.connect(path, check_same_thread=False) #TODO
+        self.con = sqlite3.connect(path, check_same_thread=False)  # TODO
         # self.con.row_factory = sqlite3.Row
         self.cur = self.con.cursor()
         table = "anime"
@@ -222,9 +222,27 @@ class db():
             return globals()['db_lock']
 
     def execute(self, sql, *args):
+        try:
+            with self.get_lock():
+                self.cur.execute(sql, *args)
+        except sqlite3.OperationalError as e:
+            if e.args == ('database is locked',):
+                log("[ERROR] - Database is locked!")
+                raise
+            else:
+                log(e, sql, args)
+                raise
+        except sqlite3.InterfaceError as e:
+            log(e, sql, *args)
+            raise
+        except sqlite3.ProgrammingError as e:
+            log(e, sql, *args)
+            raise
+
+    def executemany(self, sql, *args):
         with self.get_lock():
             try:
-                self.cur.execute(sql, *args)
+                self.cur.executemany(sql, *args)
             except sqlite3.OperationalError as e:
                 if e.args == ('database is locked',):
                     log("[ERROR] - Database is locked!")
@@ -247,7 +265,7 @@ class db():
         with self.get_lock():
             self.updateKeys(table)
             for k, v in data.items():
-                if (table != "anime" or k in self.tablekeys):
+                if (table not in ("anime", "characters") or k in self.tablekeys):
                     keys.append(k)
                     if type(v) in (dict, list):
                         values.append(json.dumps(v))
@@ -257,13 +275,13 @@ class db():
                         values.append(v)
             if self.exist(data["id"], table, "id"):
                 sql = "UPDATE " + table + " SET " + \
-                    "{} = ?," * (len(keys) - 1) + "{} = ? WHERE {} = ?"
+                    ",".join(["{} = ?"] * len(keys)) + " WHERE {} = ?"
                 sql = sql.format(*keys, "id")
                 self.execute(sql, (*values, data["id"]))
             else:
                 sql = "INSERT INTO " + table + \
-                    "(" + "{}," * (len(keys) - 1) + \
-                      "{}) VALUES(" + "?," * (len(keys) - 1) + "?)"
+                    "(" + ",".join(["{}"] * len(keys)) + \
+                      ") VALUES(" + ",".join("?" * len(keys)) + ");"
                 sql = sql.format(*keys)
                 try:
                     self.execute(sql, (*values,))
@@ -287,8 +305,8 @@ class db():
                 values.append(v)
 
         sql = "INSERT INTO " + table + \
-            "(" + "{}," * (len(keys) - 1) + \
-              "{}) VALUES(" + "?," * (len(keys) - 1) + "?)"
+            "(" + ",".join("{}" * len(keys)) + \
+              ") VALUES(" + ",".join("?" * len(keys)) + ");"
         sql = sql.format(*keys)
         with self.get_lock():
             self.execute(sql, (*values,))
@@ -325,7 +343,8 @@ class db():
                 """
                 self.cur.executescript(sql.format(id=id))
             else:
-                self.update(key, None, id, table)
+                # self.update(key, None, id, table)
+                self.set({"id": id, key: None}, table, save=False)
             if save:
                 self.save()
 
@@ -350,10 +369,9 @@ class db():
             yield Anime(keys=keys, values=data)
 
     def sql(self, sql, values=[], save=False, to_dict=False, iterate=False):
-        def sql_iterate(cur):
-            with self.get_lock():
-                for row in cur:
-                    yield row
+        def cur_iterator():
+            for row in self.cur:
+                yield row
         if not isinstance(values, list):
             values = list(values)
 
@@ -368,7 +386,7 @@ class db():
                     self.save()
                 else:
                     if iterate:
-                        return sql_iterate(self.cur)
+                        return cur_iterator()
                     elif to_dict:
                         keys = (k[0] for k in self.cur.description)
                         out = []
@@ -377,6 +395,7 @@ class db():
                         return out
                     else:
                         return self.cur.fetchall()
+        print("OUT", flush=True)
 
     def save(self):
         self.con.commit()

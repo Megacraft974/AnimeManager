@@ -90,7 +90,6 @@ class JikanMoeWrapper(APIUtils):
         out = Anime()
 
         out["id"] = id
-        # out["mal_id"] = a["mal_id"]
         out['title'] = a['title']
         if a['title'][-1] == ".":
             out['title'] = a['title'][:-1]
@@ -150,24 +149,25 @@ class JikanMoeWrapper(APIUtils):
             out['status'] = self.getStatus(
                 out) if 'status' in a.keys() else None
 
-        genres = []
         if 'genres' in a.keys():
-            for g in a['genres']:
-                if not self.database.exist(g['mal_id'], "genres", "mal_id"):
-                    self.database.sql(
-                        "INSERT INTO genres(mal_id,name) VALUES(?,?)", (g['mal_id'], g['name']))
-
-                # TODO - Multi-querying?
-                genres.append(
-                    self.database.sql(
-                        "SELECT id FROM genres WHERE mal_id=?",
-                        (g['mal_id'],
-                         ))[0][0])
+            genres = self.getGenres(
+                [
+                    dict([
+                        ('id', g['mal_id']),
+                        ('name', g['name'])
+                    ])
+                    for g in a['genres']
+                ]
+            )
+        else:
+            genres = []
         out['genres'] = json.dumps(genres)
 
         if 'related' in a.keys():
             for relation, rel_data_list in a['related'].items():
                 for rel_data in rel_data_list:
+                    rel = {'type': rel_data['type'], 'relation': relation, 'rel_id': rel_data['mal_id']}
+                    # saveRelation(id, rel)
                     if rel_data['type'] == "anime":
                         rel_id = self.database.getId("mal_id", rel_data["mal_id"])
                         if not self.database.sql(

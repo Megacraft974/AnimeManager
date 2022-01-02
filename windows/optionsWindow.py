@@ -51,10 +51,12 @@ class optionsWindow:
                     else:
                         if len(qbtorrents) > 0:
                             self.choice.hash = qbtorrents[0].hash
-                            self.choice.after_idle(self.reload, id, False)
+                            self.choice.after(1, self.reload, id, False)
                     # return target
 
             def updateLoadingBar(id, bar, text):
+                if not hasattr(self.choice, 'hash'):
+                    return
                 hash = self.choice.hash
                 try:
                     torrent = self.qb.torrents_properties(hash)
@@ -85,7 +87,7 @@ class optionsWindow:
                     pathList = []
                 if last_seen is not None and os.path.normpath(last_seen) in pathList:
                     for i in range(pathList.index(os.path.normpath(last_seen)) + 1):
-                        epsList['menu'].entryconfig(
+                        epsList.menu.entryconfig(
                             i, foreground=self.colors['Green'])
 
             def tag(id, tag):
@@ -232,7 +234,7 @@ class optionsWindow:
 
                 database.set(data, table="anime")
                 if 'status' in data.keys() and data.status != 'UPDATE':
-                    self.choice.after_idle(self.reload, id)
+                    self.choice.after(1, self.reload, id)
 
         # Window init - Fancy corners - Main frame
         if True:
@@ -363,18 +365,15 @@ class optionsWindow:
 
                 var = StringVar()
                 var.set("Watch")
-                epsList = OptionMenu(
+                epsList = utils.DropDownMenu(
                     titleFrame,
                     var,
                     *titles,
-                    command=lambda e,
-                    var=var: watch(
-                        e,
-                        eps,
-                        var))
+                    command=lambda e, var=var:
+                        watch(e, eps, var)
+                )
                 epsList.configure(
                     state=state,
-                    indicatoron=False,
                     highlightthickness=0,
                     borderwidth=0,
                     font=(
@@ -384,10 +383,11 @@ class optionsWindow:
                     activeforeground=self.colors['White'],
                     bg=self.colors['Gray3'],
                     fg=self.colors['White'])
-                epsList["menu"].configure(
+                epsList.menu.configure(
                     bd=0,
+                    height=1,
                     borderwidth=0,
-                    activeborderwidth=0,
+                    # activeborderwidth=0,
                     font=(
                         "Source Code Pro Medium",
                         13),
@@ -395,7 +395,14 @@ class optionsWindow:
                     activeforeground=self.colors['White'],
                     bg=self.colors['Gray2'],
                     fg=self.colors['White'],
+                    padx=20
                 )
+                epsList.menu.root_configure(
+                    borderwidth=2,
+                    fg=self.colors['Gray3'],
+                    bg=self.colors['Gray2']
+                )
+                epsList.menu.update()
                 epsList.grid(row=2 + offRow, column=1,
                              sticky="nsew", padx=2, pady=2)
 
@@ -716,8 +723,7 @@ class optionsWindow:
             relations.sort(key=itemgetter(1))
             for relation in relations:
                 rel_ids = json.loads(relation[2])
-                sql = "SELECT title,id FROM anime WHERE id IN (?" + ",?" * (
-                    len(rel_ids) - 1) + ");"
+                sql = "SELECT title,id FROM anime WHERE id IN (" + ",".join("?" * len(rel_ids)) + ");"
                 titles = dict(self.database.sql(sql, rel_ids))
                 text = relation[1].capitalize().replace("_", " ")
                 if len(titles) == 1:
@@ -965,9 +971,12 @@ class optionsWindow:
             except Exception:
                 self.log('DISK_ERROR', "Error while removing folder", path)
                 raise
+            else:
+                tag(id, "SEEN")
+
+                self.log("DB_UPDATE", "Deleted all files and updated tag")
         else:
             self.log("DISK_ERROR", "Folder path doesn't exist:", path)
-        self.log("DB_UPDATE", "Deleted all files")
         self.reload(id, False)
 
     def delete(self, id):

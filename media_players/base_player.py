@@ -370,7 +370,7 @@ class BasePlayer:
                         time.sleep(1 / 60)
                         self.parent.update()
                 except BaseException:
-                    self.parent.after_idle(self.OnClose)  # TODO - Really useful?
+                    self.parent.after(1, self.OnClose)  # TODO - Really useful?
                     break
             self.playlist = []
             while not que.empty():

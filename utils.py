@@ -1,7 +1,5 @@
 import auto_launch
 
-from tkinter import *
-import requests
 import threading
 import json
 import time
@@ -9,6 +7,8 @@ import os
 import re
 from ctypes import windll, Structure, c_long, byref
 from logger import log
+from tkinter import *
+from PIL import Image, ImageTk, ImageDraw
 
 
 class RoundTopLevel(Frame):
@@ -118,7 +118,7 @@ class RoundTopLevel(Frame):
 
     def getChild(self, w):
         out = []
-        if not type(w) in (Button, Checkbutton, Toplevel, OptionMenu):
+        if not type(w) in (Button, Checkbutton, Toplevel, OptionMenu, DropDownMenu):
             out.append(w)
         if type(w) in [Toplevel, Canvas, Frame, RoundTopLevel, type(self)]:
             try:
@@ -137,10 +137,7 @@ class RoundTopLevel(Frame):
             pass
 
     def focus_force(self):
-        # self.parent.focus_force()
-        # self.parent.lift()
         self.fen.lift()
-        # self.fen.focus_force()
         for c in self.mainFrame.winfo_children():
             if isinstance(c, Toplevel):
                 if hasattr(c, "topLevel"):
@@ -192,15 +189,17 @@ class RoundTopLevel(Frame):
         for wid in self.getChild(self.fen):
             if wid not in self.handles:
                 wid.bind("<Button-1>", self.exit)
-        self.fen.update()
 
 
 class ScrollableFrame(Frame):
-    def __init__(self, parent, **kwargs):
-        self.parent = parent
+    def __init__(self, root, axis="V", scrollbar=False, **kwargs):
+        self.parent = Frame(root)
+        if axis not in ("H", "V"):
+            raise TypeError
+        self.axis = axis  # Either "H" or "V"
 
         self.canvas = Canvas(self.parent, highlightthickness=0, **kwargs)
-        # self.canvas.pack(fill="both",expand=True,padx=10)#grid(row=1,column=0,columnspan=3,sticky="nsew")
+        self.canvas.pack(fill="both", expand=True, side="left")  # grid(row=1,column=0,columnspan=3,sticky="nsew")
         self.canvas.grid_columnconfigure(0, weight=1)
 
         super().__init__(self.canvas, **kwargs)
@@ -212,32 +211,52 @@ class ScrollableFrame(Frame):
             lambda e: self.canvas.configure(
                 scrollregion=self.canvas.bbox("all")
             ))
-        self.canvas.bind(
-            "<Configure>",
-            lambda e:
-            self.canvas.itemconfig(frame_id, width=e.width))
-        # self.parent.unbind_all('<MouseWheel>')
-        for w in self.canvas.winfo_children():
-            w.bind(
-                "<MouseWheel>",
-                lambda e, a=self, b=self.canvas: self.scroll(e, a, b))
+        if axis == "V":
+            self.canvas.bind(
+                "<Configure>",
+                lambda e:
+                self.canvas.itemconfig(frame_id, width=e.width))
+        else:
+            self.canvas.bind(
+                "<Configure>",
+                lambda e:
+                self.canvas.itemconfig(frame_id, height=e.height))
+
+        if scrollbar:
+            # self.scrollbar = Scrollbar(self.parent)
+            self.scrollbar = CustomScrollbar(self.parent, **kwargs)
+            if axis == "V":
+                self.scrollbar.config(command=self.canvas.yview, orient="vertical")
+                self.canvas.configure(yscrollcommand=self.scrollbar.set)
+                fill = "y"
+            else:
+                self.scrollbar.config(command=self.canvas.xview, orient="horizontal")
+                self.canvas.configure(xscrollcommand=self.scrollbar.set)
+                fill = "x"
+            self.scrollbar.pack(fill=fill, expand=True, side="right")
+
+        self.update()
 
     def scroll(self, event, scroll_frame, canvas):
-        if self.winfo_height() > self.canvas.winfo_height():
-            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        if self.axis == "V":
+            if self.winfo_height() > self.canvas.winfo_height():
+                self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        else:
+            if self.winfo_width() > self.canvas.winfo_width():
+                self.canvas.xview_scroll(int(-1 * (event.delta / 120)), "units")
         super().update()
 
     def pack(self, *args, **kwargs):
         # Placeholder
-        self.canvas.pack(*args, **kwargs)
+        self.parent.pack(*args, **kwargs)
 
     def grid(self, *args, **kwargs):
         # Placeholder
-        self.canvas.grid(*args, **kwargs)
+        self.parent.grid(*args, **kwargs)
 
     def place(self, *args, **kwargs):
         # Placeholder
-        self.canvas.place(*args, **kwargs)
+        self.parent.place(*args, **kwargs)
 
     def getChild(self, parent):
         out = []
@@ -249,12 +268,15 @@ class ScrollableFrame(Frame):
             pass
         return out
 
+    def bbox(self, *args, **kwargs):
+        return self.canvas.bbox(*args, **kwargs)
+
     def update(self):
+        super().update()
         for w in self.getChild(self.canvas):
             w.bind(
                 "<MouseWheel>",
                 lambda e, a=self, b=self.canvas: self.scroll(e, a, b))
-        super().update()
 
 
 class LoadingBar(Frame):
@@ -307,6 +329,212 @@ class LoadingBar(Frame):
         self.wrapper.place(anchor="nw", relheight=1, relwidth=value)
         self.after(500, self.updateSize)
         self.parent.focus_force()
+
+
+class DropDownMenu(Button):
+    def __init__(self, master, var, *values, **kwargs):
+        self.var = var
+        self.values = values
+        menu_config = {}
+        for k in set(kwargs.keys()):
+            if k in ("command", "elem_per_row"):
+                menu_config[k] = kwargs.pop(k)
+        # kwargs["text"] = var.get()
+        super().__init__(master, **kwargs)
+        self.menu = DropDown(self, self.var, *self.values, **menu_config)
+        # kwargs["command"] = self.menu.show
+        self.config(text=var.get(), command=self.menu.show)
+
+
+class DropDown(Toplevel):
+    def __init__(self, master, var, *values, command=None, elem_per_row=20):
+        self.master = master
+        self.var = var
+        self.values = values
+        self.command = command
+        self.elem_per_row = elem_per_row
+
+        self.main_frame = None
+        self.rows = []
+        self.config = {}
+
+        self.column_width = 100
+        self.row_height = 30
+
+        self.sep_bg = "#FFFFFF"
+        self.fg = "#FFFFFF"
+        self.bg = "#FF00FF"
+
+        super().__init__(self.master)
+        self.overrideredirect(True)
+        self.withdraw()
+        self.bind("<FocusOut>", self.hide)
+
+    def show(self):
+        x, y = self.master.winfo_rootx(), self.master.winfo_rooty() + self.master.winfo_height()
+        max_x, max_y = self.master.winfo_screenwidth() - x, self.master.winfo_screenheight() - y
+        self.maxsize(max_x, max_y)
+        self.geometry("+{}+{}".format(x, y))
+        self.deiconify()
+        self.focus_force()
+        self.minsize(self.master.winfo_width() * 2, min(self.main_frame.winfo_height(), len(self.values) * self.row_height))
+
+    def hide(self, arg=None):
+        self.withdraw()
+        # self.destroy()
+
+    def configure(self, **kwargs):
+        self.config = kwargs
+
+    def root_configure(self, **kwargs):
+        if "fg" in kwargs:
+            self.fg = kwargs.pop("fg")
+        if "bg" in kwargs:
+            self.bg = kwargs.pop("bg")
+        kwargs['bg'] = self.fg
+        super().configure(**kwargs)
+
+    def update(self):
+        self.update_values()
+        super().update()
+
+    def entryconfig(self, i, **kwargs):
+        self.rows[i].configure(**kwargs)
+
+    def update_values(self):
+        if self.main_frame is not None:
+            self.main_frame.destroy()
+        self.main_frame = ScrollableFrame(self, axis="H", bg=self.bg)
+        self.main_frame.pack(expand=True, fill="both")
+
+        columns, rows = len(self.values) // self.elem_per_row + 1, min(self.elem_per_row, len(self.values))
+        # self.minsize(self.column_width * columns, self.row_height * rows)
+        for i in range(columns):
+            self.main_frame.grid_columnconfigure(i * 2, weight=1)
+        for i in range(rows):
+            self.main_frame.grid_rowconfigure(i, weight=1, minsize=self.row_height)
+
+        self.rows = []
+        for i, val in enumerate(self.values):
+            row = Button(self.main_frame, text=val, command=self.handle_command(val), anchor="w", **self.config)
+            row.grid(row=i % self.elem_per_row, column=i // self.elem_per_row * 2, sticky="nsew")
+            self.rows.append(row)
+        for i in range(columns - 1):
+            sep = Frame(self.main_frame, bg=self.fg, width=2)
+            sep.grid(row=0, column=i * 2 + 1, rowspan=self.elem_per_row, sticky="ns", pady=10)
+
+        self.main_frame.update()
+
+    def handle_command(self, val):
+        def handler():
+            self.var.set(val)
+            if self.command is not None:
+                self.command(val)
+        return handler
+
+
+class CustomScrollbar(Frame):
+    def __init__(self, parent, orient='V', **kwargs):
+        self.parent = parent
+        if orient in {'V', 'H', 'v', 'h', 'vertical', 'horizontal'}:
+            self.orient = orient[0].upper()
+        else:
+            raise ValueError("Orient must be either 'V' or 'H'.")
+
+        self.padding = 5
+        self.thickness = 30
+        self.fg = "#000000"
+        self.bg = "#FFFFFF"
+        self.command = None
+
+        super().__init__(self.parent, bg="#00FF00")
+
+        if self.orient == "V":
+            tmp = {"width": self.thickness}
+        else:
+            tmp = {"height": self.thickness}
+        self.frame = Canvas(self, **tmp, bg=self.bg, bd=0, highlightthickness=0)
+
+        self.frame.bind("<B1-Motion>", self.move_thumb)
+
+        self.configure(**kwargs)
+        self.frame.pack(fill="y" if self.orient == "V" else "x", expand=True)
+
+    def configure(self, **kwargs):
+        if "orient" in kwargs:
+            orient = kwargs.pop("orient")
+            if orient in {'V', 'H', 'v', 'h', 'vertical', 'horizontal'}:
+                orient = orient[0].upper()
+            else:
+                raise ValueError("Orient must be either 'V' or 'H'.")
+            if orient != self.orient:
+                self.destroy()
+                self.__init__(self.parent, orient, **kwargs)
+        if "command" in kwargs:
+            self.command = kwargs.pop("command")
+        if "thickness" in kwargs:
+            self.thickness = kwargs.pop("thickness")
+            kwargs["width" if self.orient == "V" else "height"] = self.thickness
+        if "padding" in kwargs:
+            self.padding = kwargs.pop("padding")
+        if "fg" in kwargs:
+            self.fg = kwargs.pop("fg")
+        if "bg" in kwargs:
+            self.bg = kwargs["bg"]
+
+        self.frame.configure(**kwargs)
+
+    def config(self, **kwargs):
+        return self.configure(**kwargs)
+
+    def get(self):
+        return self.start, self.stop
+
+    def set(self, a, b):
+        self.start, self.stop = float(a), float(b)
+        self.draw_thumb(self.start, self.stop)
+
+    def draw_thumb(self, start, stop):
+        self.update()
+        width = self.frame.winfo_width()
+        height = self.frame.winfo_height()
+        if self.orient == "H":
+            width, height = height, width
+
+        self.frame.delete(ALL)
+        scale = 10
+        img_size = (max(1, (width - self.padding * 2)) * scale, max(1, int(((stop - start) * height - self.padding * 2)) * scale))
+        img_width = img_size[0 if self.orient == "V" else 1]
+        img_height = img_size[1 if self.orient == "V" else 0]
+
+        if img_height <= img_width:
+            image = Image.new('RGB', (img_width, img_width), self.bg)
+            draw = ImageDraw.Draw(image)
+            draw.ellipse((0, 0, img_width, img_width), fill=self.fg, outline=None)
+        else:
+            image = Image.new('RGB', img_size, self.bg)
+            draw = ImageDraw.Draw(image)
+            draw.rectangle((0, img_width / 2, img_width, img_height - img_width / 2), fill=self.fg, outline=None)
+            draw.ellipse((0, 0, img_width, img_width), fill=self.fg, outline=None)
+            draw.ellipse((0, img_height - img_width - 1, img_width, img_height - 1), fill=self.fg, outline=None)
+
+        self.thumb = image.resize((max(1, img_size[0] // scale), max(1, img_size[1] // scale)), Image.ANTIALIAS)
+        thumb_img = ImageTk.PhotoImage(self.thumb, master=self.frame)
+
+        pos = start * height + self.padding
+        self.frame.create_image(self.padding, pos, image=thumb_img, anchor="nw")
+        self.frame.image = thumb_img
+
+    def move_thumb(self, event):
+        if self.orient == "V":
+            fensize = self.frame.winfo_height()
+            pos = event.y / fensize
+        else:
+            fensize = self.frame.winfo_width()
+            pos = event.x / fensize
+
+        if self.command is not None:
+            self.command('moveto', str(pos))
 
 
 class Timer():
@@ -369,7 +597,7 @@ def peek(iter):
 def project_modules(root="./"):
     ignore = ("__pycache__", ".git", "venv")
     modules = {}
-    pattern = re.compile(r"(?:from ([^\s\.]*) import \S*)|(?:import ([^\s\.]*))")
+    pattern = re.compile(r"(?:from ([\w_\.]*) import \S*)|(?:import ([\w_\.]*))")
     for f in os.listdir(root):
         if f in ignore:
             continue
@@ -383,13 +611,13 @@ def project_modules(root="./"):
                 for i, line in enumerate(file):
                     for match in re.finditer(pattern, line):
                         groups = match.groups()
-                        if groups[0] is not None:
+                        if groups[0]:
                             m = groups[0]
                             if m in modules.keys():
                                 modules[m].append((path, i + 1))
                             else:
                                 modules[m] = [(path, i + 1)]
-                        else:
+                        elif groups[1]:
                             if "," in groups[1]:
                                 for m in groups[1].split(','):
                                     if m in modules.keys():

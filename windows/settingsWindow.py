@@ -7,6 +7,8 @@ from tkinter import *
 
 import utils
 
+# TODO - Froze when not connected to torrent client
+
 
 class settingsWindow:
     def settingsWindow(self):

@@ -7,18 +7,20 @@ import hashlib
 import time
 import re
 import requests
+import queue
+import traceback
 
 from datetime import date
-from multiprocessing import Pool, Queue
+# from multiprocessing import Pool, Queue
+from multiprocessing.pool import ThreadPool
 
 import bencoding
-import traceback
 
 from qbittorrentapi import Client
 import qbittorrentapi.exceptions
+from PIL import Image, ImageTk
 
 from dbManager import thread_safe_db
-from PIL import Image, ImageTk
 from classes import Anime
 
 if 'database_threads' not in globals().keys():
@@ -50,11 +52,10 @@ class Getters:
             threading.Thread(target=self.getQB, args=(False, reconnect), daemon=True).start()
             return
         try:
-            if reconnect:
-                if self.qb is not None:
-                    self.qb.auth_log_out()
-                    self.log("MAIN_STATE",
-                             "Logged off from qBittorrent client")
+            if reconnect and self.qb is not None:
+                self.qb.auth_log_out()
+                self.log("MAIN_STATE",
+                         "Logged off from qBittorrent client")
             if self.qb is None or not self.qb.is_logged_in:
                 self.qb = Client(self.torrentApiAddress)
                 self.qb.auth_log_in(self.torrentApiLogin,
@@ -206,17 +207,22 @@ class Getters:
 
     def getEpisodes(self, folder):
         def folderLister(folder):
-            if folder == "" or folder is None or not os.path.isdir(
-                    folder):
-                return
+            if folder in {"", None} or not os.path.isdir(folder):
+                return []
+            files = []
+            folders = []
             for f in os.listdir(folder):
                 path = os.path.join(folder, f)
                 if os.path.isdir(path):
-                    for f in folderLister(path):
-                        yield f
+                    folders.append(path)
                 else:
-                    yield path
-        eps = []
+                    files.append(path)
+
+            yield files
+            for path in folders:
+                for f in folderLister(path):
+                    yield f
+        out = []
         videoSuffixes = ("mkv", "mp4", "avi")
         blacklist = ("Specials", "Extras")
 
@@ -225,7 +231,7 @@ class Getters:
             return {}
 
         folder = folder + "/"
-        files = folderLister(os.path.join(self.animePath, folder))
+        folders = folderLister(os.path.join(self.animePath, folder))
 
         publisherPattern = re.compile(r'^\[(.*?)\]')
 
@@ -241,67 +247,75 @@ class Getters:
         seasonPatterns = list(re.compile(p)
                               for p in seasonPatternsFormat)
 
-        for file in files:
-            if os.path.isfile(file) and file.split(
-                    ".")[-1] in videoSuffixes:
-                filename = os.path.basename(file)
-                self.log('FILE_SEARCH', filename, end=" - ")
+        for files in folders:
+            eps = []
+            for file in files:
+                if os.path.isfile(file) and file.split(
+                        ".")[-1] in videoSuffixes:
+                    filename = os.path.basename(file)
+                    self.log('FILE_SEARCH', filename, end=" - ")
 
-                result = re.findall(publisherPattern, file)  # [...]
-                if len(result) >= 1:
-                    publisher = result[0] + " "
-                else:
-                    publisher = "None"
-
-                episode = "?"
-
-                for p in epsPatterns:
-                    m = re.findall(p, filename)
-                    if len(m) > 0:
-                        episode = m[0]
-                        break
-                if episode == "?":
-                    episode = str(len(eps) + 1).zfill(2)  # Hacky
-
-                season = ""
-                for p in seasonPatterns:
-                    result = re.findall(p, file)
+                    result = re.findall(publisherPattern, file)  # [...]
                     if len(result) >= 1:
-                        season = result[0]
-                        break
+                        publisher = result[0] + " "
+                    else:
+                        publisher = "None"
 
-                title = filename.rsplit(".", 1)[0]
-                title = re.sub(r'([\._])', ' ', title)  # ./,/-/_
-                title = re.sub(r'  +?', '', title)  # "  "
-                eps.append({'title': title, 'path': file,
-                           'season': season, 'episode': episode})
+                    episode = "?"
 
-        eps.sort(key=lambda d: int(
-            str(d['season']).zfill(5) + str(d['episode']).zfill(5)))
-        return eps
+                    for p in epsPatterns:
+                        m = re.findall(p, filename)
+                        if len(m) > 0:
+                            episode = m[0]
+                            break
+                    if episode == "?":
+                        episode = str(len(eps) + 1).zfill(2)  # Hacky
+
+                    season = 0
+                    for p in seasonPatterns:
+                        result = re.findall(p, file)
+                        if len(result) >= 1:
+                            season = result[0]
+                            break
+
+                    title = filename.rsplit(".", 1)[0]
+                    title = re.sub(r'([\._])', ' ', title)  # ./,/-/_
+                    title = re.sub(r'  +?', '', title)  # "  "
+                    eps.append({'title': title, 'path': file,
+                               'season': season, 'episode': episode})
+
+            eps.sort(key=lambda d: int(
+                str(d['season']).zfill(5) + str(d['episode']).zfill(5)))
+            out.extend(eps)
+
+        return out
 
     def getElemImages(self, que, start_thread=True):
         if start_thread:
-            threading.Thread(target=self.getImgThread, args=(que,), daemon=True).start()
+            # self.log("THREAD", "Started image thread")
+            imQueue = queue.Queue()
+            threading.Thread(target=self.getImgThread, args=(que, imQueue), daemon=True).start()
+        else:
+            imQueue = que
 
-        while not self.imQueue.empty():
-            data = self.imQueue.get()
-            if data != "STOP":
-                im, can = data
-                try:
-                    image = ImageTk.PhotoImage(im)
-                    can.create_image(0, 0, image=image, anchor='nw')
-                    can.image = image
-                except BaseException:
-                    pass
-            else:
+        if not imQueue.empty():
+            data = imQueue.get()
+            if data == "STOP":
                 self.log("THREAD", "All images loaded")
                 return
 
-        if self.root is not None:
-            self.root.after(1, self.getElemImages, que, False)
+            im, can = data
+            try:
+                image = ImageTk.PhotoImage(im)
+                can.create_image(0, 0, image=image, anchor='nw')
+                can.image = image
+            except BaseException:
+                pass
 
-    def getImgThread(self, que):
+        if self.root is not None and not self.closing:
+            self.root.after(1, self.getElemImages, imQueue, False)
+
+    def getImgThread(self, que, imQueue):
         def usePlaceholder(can):
             im = Image.open(os.path.join(self.iconPath, "placeholder.png"))
             im = im.resize((225, 310))
@@ -318,14 +332,14 @@ class Getters:
                     req = p.get(1)
                 except requests.exceptions.ReadTimeout as e:
                     self.log("PICTURE", "Timed out!")
-                    self.imQueue.put(usePlaceholder(can))
+                    imQueue.put(usePlaceholder(can))
                 except requests.exceptions.ConnectionError as e:
                     self.log('PICTURE', "[ERROR] - No internet connection!")
-                    self.imQueue.put(usePlaceholder(can))
+                    imQueue.put(usePlaceholder(can))
                     no_internet = True
                 except requests.exceptions.MissingSchema as e:
                     self.log("PICTURE", "[ERROR] - Invalid url!")
-                    self.imQueue.put(usePlaceholder(can))
+                    imQueue.put(usePlaceholder(can))
                 else:
                     processes.remove(data)
                     if req.status_code == 200:
@@ -342,7 +356,7 @@ class Getters:
                                 "DISK_ERROR",
                                 "File not found error while saving image",
                                 filename)
-                        self.imQueue.put((im, can))
+                        imQueue.put((im, can))
                     else:
                         continue  # TODO
                         self.log(
@@ -361,26 +375,26 @@ class Getters:
                                          (repdata[-1]['small'], anime.id), save=True)
                             que.put((anime, can))  # TODO - Check if it works
                         else:
-                            self.imQueue.put(usePlaceholder(can))
+                            imQueue.put(usePlaceholder(can))
 
         # self.log("THREAD", "Started image thread")
         no_internet = False
         args = que.get()
         processes = []
         c = 0
-        with Pool() as pool:
+        with ThreadPool() as pool:
             while args != "STOP":
                 # element, can = args
                 # filename = os.path.join(self.cache, str(element.id) + ".jpg")
                 # url = element.picture
                 filename, url, can = args
                 if no_internet:
-                    self.imQueue.put(usePlaceholder(can))
+                    imQueue.put(usePlaceholder(can))
 
                 if os.path.exists(filename):
                     try:
                         with Image.open(filename) as im:
-                            self.imQueue.put((im.copy(), can))
+                            imQueue.put((im.copy(), can))
                         args = que.get()
                         continue
                     except BaseException:
@@ -405,13 +419,13 @@ class Getters:
             while len(processes) > 0:
                 get_processes_data()
 
-        self.imQueue.put("STOP")
+        imQueue.put("STOP")
         self.log("THREAD", "Stopped image thread")
         return
 
     def getCharacterImgThread(self, queue):
         args = None
-        with Pool() as pool:
+        with ThreadPool() as pool:
             while args != "STOP":
                 args = queue.get()
                 if args == "STOP":

@@ -70,7 +70,7 @@ class initWindow:
             self.root.title(self.mainWindowTitle)
             self.root.attributes('-alpha', 0.0)
             self.root.attributes('-topmost', 1)
-            self.root.protocol("WM_DELETE_WINDOW", self.onClose)
+            self.root.protocol("WM_DELETE_WINDOW", self.quit)
             self.root.focus_force()
             self.root.update()
             # root.lower()
@@ -214,7 +214,7 @@ class initWindow:
                     padx=10)
 
             self.scrollable_frame = utils.ScrollableFrame(
-                dbFrame, bg=self.colors['Gray2'], width=900)
+                dbFrame, scrollbar=True, bg=self.colors['Gray2'], width=900)
             self.scrollable_frame.pack(fill="both", expand=True)
 
             Label(

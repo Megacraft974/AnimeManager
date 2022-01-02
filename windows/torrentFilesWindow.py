@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import threading
 
 from operator import itemgetter
 from tkinter.filedialog import askopenfilenames
@@ -17,6 +18,7 @@ class torrentFilesWindow:
                 def removeOld(self, t_id, t_torrents):
                     self.log('DB_UPDATE', "Removing torrent duplicates")
                     database = self.getDatabase()
+                    toRemove = []
                     for id, torrents in database.sql(
                             "SELECT id,torrent FROM anime WHERE torrent is not null AND id != ?;", (t_id,), iterate=True):
                         torrents = json.loads(torrents)
@@ -29,7 +31,9 @@ class torrentFilesWindow:
                                     data = None
                                 self.log('DB_UPDATE', "Id", id,
                                          "has torrent", t_id, "removing")
-                                database.update('torrent', data, id=id, table="anime")
+                                toRemove.append((data, id))
+                    for data, id in toRemove:
+                        database.update('torrent', data, id=id, table="anime")
                     self.log('DB_UPDATE', "Done!")
 
                 torrents = getTorrents(id)
