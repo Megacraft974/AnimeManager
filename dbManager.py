@@ -19,8 +19,10 @@ class db():
         self.remote_lock = threading.RLock()
         if not os.path.exists(self.path):
             self.createNewDb()
-        self.con = sqlite3.connect(path, check_same_thread=False)  # TODO
+        self.con = sqlite3.connect(path)  # , check_same_thread=False)  # TODO
         # self.con.row_factory = sqlite3.Row
+        sqlite3.register_adapter(bool, int)
+        sqlite3.register_converter("BOOLEAN", lambda v: bool(int(v)))
         self.cur = self.con.cursor()
         table = "anime"
         self.alltable_keys = {}
