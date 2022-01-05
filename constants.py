@@ -4,6 +4,7 @@ import ctypes
 import os
 import socket
 import shutil
+import locale
 import json
 
 
@@ -14,6 +15,7 @@ class Constants:
 
         appid = 'megacraft.anime.manager.1.0'
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appid)
+        locale.setlocale(locale.LC_ALL, '')
         # 181915 - 282923 - 373734 - F8F8C4 - 98E22B(G) - E79622(O)
 
         cwd = os.path.dirname(os.path.abspath(__file__))

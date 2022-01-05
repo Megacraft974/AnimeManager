@@ -27,7 +27,7 @@ class MyAnimeListNetWrapper(APIUtils):
                   'status', 'synopsis', 'title', 'related_anime', 'rating')
         self.fields = ','.join(fields)
 
-    def anime(self, id, save=True, relations=False):
+    def anime(self, id, relations=False):
         mal_id = self.getId(id)
         if mal_id is None:
             return {}
@@ -36,8 +36,6 @@ class MyAnimeListNetWrapper(APIUtils):
         if not a:
             return {}
         data = self._convertAnime(a)
-        if save:
-            self.database.set(data, table="anime")
         return data
 
     def animeCharacters(self, id):
@@ -77,11 +75,7 @@ class MyAnimeListNetWrapper(APIUtils):
                 else:
                     titles.append(sub)
 
-        if len(titles) > 0:
-            out['title_synonyms'] = json.dumps(titles)
-        else:
-            out['title_synonyms'] = None
-
+        out['title_synonyms'] = titles
         out['date_from'] = a['start_date'] if 'start_date' in a.keys() else None
         out['date_to'] = a['end_date'] if 'end_date' in a.keys() else None
         out['picture'] = list(a['main_picture'].items(
@@ -111,21 +105,22 @@ class MyAnimeListNetWrapper(APIUtils):
             genres = self.getGenres(a['genres'])
         else:
             genres = []
-        out['genres'] = json.dumps(genres)
+        out['genres'] = genres
 
         if 'related' in a.keys():
-            for relation, rel_data_list in a['related'].items():
-                for rel_data in rel_data_list:
-                    rel = {'type': rel_data['type'], 'relation': relation, 'rel_id': rel_data['id']}
-                    # saveRelation(id, rel)
-                    if rel_data['type'] == "anime":
-                        rel_id = self.database.getId("mal_id", rel_data["id"])
-                        if not self.database.sql(
-                                "SELECT EXISTS(SELECT 1 FROM related WHERE id=? AND rel_id=?);", (id, rel_id)):
-                            rel = {"id": id, "relation": relation,
-                                   "rel_id": rel_id}
-                            self.database.set(rel, table="related", save=False)
-        self.database.save()
+            with self.database.get_lock():
+                for relation, rel_data_list in a['related'].items():
+                    for rel_data in rel_data_list:
+                        rel = {'type': rel_data['type'], 'relation': relation, 'rel_id': rel_data['id']}
+                        # saveRelation(id, rel)
+                        if rel_data['type'] == "anime":
+                            rel_id = self.database.getId("mal_id", rel_data["id"])
+                            if not self.database.sql(
+                                    "SELECT EXISTS(SELECT 1 FROM related WHERE id=? AND rel_id=?);", (id, rel_id)):
+                                rel = {"id": id, "relation": relation,
+                                       "rel_id": rel_id}
+                                self.database.set(rel, table="related", save=False)
+                self.database.save()
 
         return out
 

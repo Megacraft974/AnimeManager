@@ -1,6 +1,7 @@
 import time
 import os
 import json
+import socket
 import mobile_server
 from tkinter.filedialog import askopenfilename, askdirectory
 from tkinter import *
@@ -115,10 +116,26 @@ class settingsWindow:
                 for var, field in values:
                     value = var.get()
                     if field == "ADDRESS":
+                        if value == "":
+                            print("DEFAULT A")
+                            value = 'http://' + \
+                                str(socket.gethostbyname(socket.gethostname())) + ":8080"
+                            if entries is not None:
+                                entries['address'].setvar(entries['address'].cget("textvariable"), value)
                         self.setSettings({"torrentApiAddress": value})
                     elif field == "LOGIN":
+                        if value == "":
+                            print("DEFAULT B")
+                            value = 'admin'
+                            if entries is not None:
+                                entries['login'].setvar(entries['address'].cget("textvariable"), value)
                         self.setSettings({"torrentApiLogin": value})
                     elif field == "PASSWORD":
+                        if value == "":
+                            print("DEFAULT C")
+                            value = ''.join(map(str, range(1, 7)))
+                            if entries is not None:
+                                entries['password'].setvar(entries['address'].cget("textvariable"), value)
                         self.setSettings({"torrentApiPassword": value})
                     else:
                         raise

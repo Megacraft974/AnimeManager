@@ -21,14 +21,16 @@ import qbittorrentapi.exceptions
 from PIL import Image, ImageTk
 
 from dbManager import thread_safe_db
-from classes import Anime
+from classes import Anime, ReturnThread
 
 if 'database_threads' not in globals().keys():
     globals()['database_threads'] = {}
 
 
 class Getters:
-    def getDatabase(self):
+    def getDatabase(self=None):
+        if self is None:
+            self = type('EmptyObject', (), {})()
         if threading.main_thread() == threading.current_thread() and hasattr(self, "database"):
             return self.database
         else:
@@ -196,10 +198,15 @@ class Getters:
         for f in self.animeFolder:
             if not os.path.isdir(os.path.normpath(os.path.join(self.animePath, f))):
                 continue
-            f_id = int(f.rsplit(" ", 1)[1])
-            if f_id == id:
-                folder = os.path.normpath(os.path.join(self.animePath, f))
-                return folder
+
+            try:
+                f_id = int(f.rsplit(" ", 1)[1])
+            except:
+                pass
+            else:
+                if f_id == id:
+                    folder = os.path.normpath(os.path.join(self.animePath, f))
+                    return folder
         folderFormat = self.getFolderFormat(anime.title)
         folderName = "{} - {}".format(folderFormat, id)
         folder = os.path.normpath(os.path.join(self.animePath, folderName))
@@ -290,15 +297,13 @@ class Getters:
 
         return out
 
-    def getElemImages(self, que, start_thread=True):
+    def getElemImages(self, que, imQueue=None, start_thread=True):
         if start_thread:
-            # self.log("THREAD", "Started image thread")
+            self.log("THREAD", "Started image thread")
             imQueue = queue.Queue()
             threading.Thread(target=self.getImgThread, args=(que, imQueue), daemon=True).start()
-        else:
-            imQueue = que
 
-        if not imQueue.empty():
+        while not imQueue.empty():
             data = imQueue.get()
             if data == "STOP":
                 self.log("THREAD", "All images loaded")
@@ -313,23 +318,27 @@ class Getters:
                 pass
 
         if self.root is not None and not self.closing:
-            self.root.after(1, self.getElemImages, imQueue, False)
+            self.root.after(50, self.getElemImages, None, imQueue, False)
 
     def getImgThread(self, que, imQueue):
+        global processes, no_internet
+
         def usePlaceholder(can):
             im = Image.open(os.path.join(self.iconPath, "placeholder.png"))
             im = im.resize((225, 310))
             return im, can
 
         def get_processes_data():
+            if len(processes) == 0:
+                return
             for data in filter(lambda t: t[0].ready(), processes):
-                # p, element, can = data
                 p, filename, can = data
-                # filename = os.path.join(self.cache, str(element.id) + ".jpg")
                 if not p.ready():
                     continue
+
+                processes.remove(data)
                 try:
-                    req = p.get(1)
+                    req = p.get()
                 except requests.exceptions.ReadTimeout as e:
                     self.log("PICTURE", "Timed out!")
                     imQueue.put(usePlaceholder(can))
@@ -341,8 +350,7 @@ class Getters:
                     self.log("PICTURE", "[ERROR] - Invalid url!")
                     imQueue.put(usePlaceholder(can))
                 else:
-                    processes.remove(data)
-                    if req.status_code == 200:
+                    if req and req.status_code == 200:
                         raw_data = req.content
                         im = Image.open(io.BytesIO(raw_data))
                         im = im.resize((225, 310))
@@ -377,47 +385,44 @@ class Getters:
                         else:
                             imQueue.put(usePlaceholder(can))
 
-        # self.log("THREAD", "Started image thread")
+        self.log("THREAD", "Started image thread")
         no_internet = False
         args = que.get()
         processes = []
         c = 0
-        with ThreadPool() as pool:
-            while args != "STOP":
-                # element, can = args
-                # filename = os.path.join(self.cache, str(element.id) + ".jpg")
-                # url = element.picture
-                filename, url, can = args
-                if no_internet:
-                    imQueue.put(usePlaceholder(can))
+        while args != "STOP":
+            filename, url, can = args
+            if no_internet:
+                imQueue.put(usePlaceholder(can))
 
-                if os.path.exists(filename):
-                    try:
-                        with Image.open(filename) as im:
-                            imQueue.put((im.copy(), can))
-                        args = que.get()
-                        continue
-                    except BaseException:
-                        self.log(
-                            'DISK_ERROR',
-                            "[ERROR] Image file is corrupted, deleting file",
-                            filename)
-                        os.remove(filename)
+            if os.path.exists(filename):
+                try:
+                    with Image.open(filename) as im:
+                        imQueue.put((im.copy(), can))
+                    args = que.get()
+                    continue
+                except BaseException:
+                    self.log(
+                        'DISK_ERROR',
+                        "[ERROR] Image file is corrupted, deleting file",
+                        filename)
+                    os.remove(filename)
 
-                self.log("PICTURE", "Requesting picture for url", url)
+            self.log("PICTURE", "Requesting picture for url", url)
 
-                if url is not None:
-                    p = pool.apply_async(requests.get, args=(url,))
-                    processes.append((p, filename, can))
-                else:
-                    self.log("PICTURE", "No image yet")
-                    que.put((filename, url, can))
+            if url is not None:
+                p = ReturnThread(target=requests.get, args=(url,))
+                processes.append((p, filename, can))
+            else:
+                imQueue.put(usePlaceholder(can))
 
-                get_processes_data()
+            get_processes_data()
 
-                args = que.get()
-            while len(processes) > 0:
-                get_processes_data()
+            args = que.get()
+
+        while len(processes) > 0:
+            get_processes_data()
+            time.sleep(0.1)
 
         imQueue.put("STOP")
         self.log("THREAD", "Stopped image thread")

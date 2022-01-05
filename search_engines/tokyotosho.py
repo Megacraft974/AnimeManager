@@ -49,7 +49,7 @@ class Parser():
                         'file_size': file_size}
                     yield out
                 except Exception as e:
-                    print("Tokyotosho - error:", e)
+                    print("Tokyotosho - error:", traceback.format_exc())
 
     def table_iter(self, table):
         a, b = None, None

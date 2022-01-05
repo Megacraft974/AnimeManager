@@ -16,24 +16,21 @@ class torrentFilesWindow:
         if True:
             def import_torrent(id):
                 def removeOld(self, t_id, t_torrents):
+                    return  # Disabled
                     self.log('DB_UPDATE', "Removing torrent duplicates")
                     database = self.getDatabase()
-                    toRemove = []
-                    for id, torrents in database.sql(
-                            "SELECT id,torrent FROM anime WHERE torrent is not null AND id != ?;", (t_id,), iterate=True):
-                        torrents = json.loads(torrents)
-                        for t_torrent in t_torrents:
-                            if id != t_id and t_torrent in torrents:
-                                torrents.remove(t_torrent)
-                                if len(torrents) >= 1:
-                                    data = json.dumps(torrents)
-                                else:
-                                    data = None
+                    with database.get_lock():
+                        toRemove = []
+                        sql = "SELECT id,value FROM torrents WHERE value IN (" + ",".join("?" * len(t_torrents)) + ") AND id != ?;"
+                        for id, torrent in database.sql(sql, (*t_torrents, t_id,)):
+                            if id != t_id and torrent in t_torrents:
                                 self.log('DB_UPDATE', "Id", id,
                                          "has torrent", t_id, "removing")
-                                toRemove.append((data, id))
-                    for data, id in toRemove:
-                        database.update('torrent', data, id=id, table="anime")
+                                toRemove.append((id, torrent))
+                        if toRemove:
+                            for id, torrent in toRemove:
+                                database.sql("DELETE FROM torrents WHERE id=? AND value=?;", (id, torrent))
+                            database.save()
                     self.log('DB_UPDATE', "Done!")
 
                 torrents = getTorrents(id)
@@ -49,18 +46,15 @@ class torrentFilesWindow:
                 torrents = []
                 for path in filepaths:
                     torrents.append(path.rsplit("/")[-1])
-                if len(torrents) >= 1:
-                    self.database.set(
-                        {'id': id, 'torrent': json.dumps(torrents)}, table="anime")
+                if len(torrents) >= 1:  # Disabled
+                    self.database.save_metadata(id, {"torrents": torrents})
                     threading.Thread(target=removeOld, args=(
                         self, id, torrents), daemon=True).start()
 
                 self.torrentFilesWindow(id)
 
             def getTorrents(id):
-                torrents = self.database.sql(
-                    "SELECT torrent FROM anime WHERE id=?", (id,))[0][0]
-                torrents = json.loads(torrents) if torrents is not None else []
+                torrents = self.database.get_metadata(id, "torrents")
                 return torrents
 
             def getTorrentsState(id):
@@ -153,7 +147,7 @@ class torrentFilesWindow:
                     database = self.getDatabase()
                     torrents = getTorrents(id)
 
-                    if t in torrents:
+                    if t in torrents and False:  # Disabled
                         torrents.remove(t)
                         if len(torrents) >= 1:
                             data = json.dumps(torrents)

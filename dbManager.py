@@ -7,7 +7,7 @@ import traceback
 import threading
 import queue
 import time
-from classes import Anime, Character, NoneDict
+from classes import Anime, Character, NoneDict, AnimeList, Item, LockWrapper
 from logger import log, Logger
 
 
@@ -16,17 +16,17 @@ class db():
 
     def __init__(self, path):
         self.path = path
-        self.remote_lock = threading.RLock()
+        self.remote_lock = LockWrapper(threading.RLock())
         if not os.path.exists(self.path):
             self.createNewDb()
-        self.con = sqlite3.connect(path)  # , check_same_thread=False)  # TODO
+        self.con = sqlite3.connect(path)
         # self.con.row_factory = sqlite3.Row
         sqlite3.register_adapter(bool, int)
         sqlite3.register_converter("BOOLEAN", lambda v: bool(int(v)))
         self.cur = self.con.cursor()
         table = "anime"
         self.alltable_keys = {}
-        # self.updateKeys()
+        self.log_commands = False
 
     def createNewDb(self):
         open(self.path, "w")
@@ -34,70 +34,77 @@ class db():
         # self.con.row_factory = sqlite3.Row
         self.cur = self.con.cursor()
         commands = ('''CREATE TABLE "anime" (
-                    "id"    INTEGER NOT NULL UNIQUE,
-                    "title"    TEXT,
-                    "title_synonyms",
-                    "picture"    TEXT,
-                    "date_from"    TEXT,
-                    "date_to"    TEXT,
-                    "synopsis"    TEXT,
-                    "episodes"    INTEGER,
-                    "duration"    INTEGER,
-                    "rating"    TEXT,
-                    "status"    TEXT,
-                    "torrent"    TEXT,
-                    "broadcast"    TEXT,
-                    "last_seen"    INTEGER,
-                    "trailer"    TEXT,
-                    "genres",
-                    PRIMARY KEY("id")
+                        "id"    INTEGER NOT NULL UNIQUE,
+                        "title" TEXT,
+                        "picture"   TEXT,
+                        "date_from" TEXT,
+                        "date_to"   TEXT,
+                        "synopsis"  TEXT,
+                        "episodes"  INTEGER,
+                        "duration"  INTEGER,
+                        "rating"    TEXT,
+                        "status"    TEXT,
+                        "broadcast" TEXT,
+                        "last_seen" INTEGER,
+                        "trailer"   TEXT,
+                        "like"  INTEGER,
+                        "tag"   TEXT,
+                        PRIMARY KEY("id")
                     )''',
                     '''CREATE TABLE "indexList" (
-                    "id"    INTEGER NOT NULL UNIQUE,
-                    "mal_id"    INTEGER UNIQUE,
-                    "kitsu_id"    INTEGER UNIQUE,
-                    "anilist_id"    INTEGER UNIQUE,
-                    "anidb_id"    INTEGER UNIQUE,
-                    PRIMARY KEY("id" AUTOINCREMENT)
+                        "id"    INTEGER NOT NULL UNIQUE,
+                        "mal_id"    INTEGER UNIQUE,
+                        "kitsu_id"    INTEGER UNIQUE,
+                        "anilist_id"    INTEGER UNIQUE,
+                        "anidb_id"    INTEGER UNIQUE,
+                        PRIMARY KEY("id" AUTOINCREMENT)
                     )''',
                     '''CREATE TABLE "charactersIndex" (
-                    "id"    INTEGER NOT NULL UNIQUE,
-                    "mal_id"    INTEGER UNIQUE,
-                    "kitsu_id"    INTEGER UNIQUE,
-                    PRIMARY KEY("id" AUTOINCREMENT)
+                        "id"    INTEGER NOT NULL UNIQUE,
+                        "mal_id"    INTEGER UNIQUE,
+                        "kitsu_id"    INTEGER UNIQUE,
+                        PRIMARY KEY("id" AUTOINCREMENT)
+                    )''',
+                    '''CREATE TABLE "genresIndex" (
+                        "id"    INTEGER NOT NULL UNIQUE,
+                        "mal_id"    INTEGER,
+                        "kitsu_id"  INTEGER,
+                        "name"  INTEGER,
+                        PRIMARY KEY("id" AUTOINCREMENT)
                     )''',
                     '''CREATE TABLE "characters" (
-                    "id"    INTEGER NOT NULL,
-                    "anime_id"    INTEGER NOT NULL,
-                    "name"    TEXT NOT NULL,
-                    "role"    TEXT,
-                    "picture"    TEXT,
-                    "desc"    TEXT,
-                    "like"    INTEGER
+                        "id"    INTEGER NOT NULL,
+                        "anime_id"    INTEGER NOT NULL,
+                        "name"    TEXT NOT NULL,
+                        "role"    TEXT,
+                        "picture"    TEXT,
+                        "desc"    TEXT,
+                        "like"    INTEGER
                     )''',
                     '''CREATE TABLE "like" (
-                    "id"    INTEGER NOT NULL UNIQUE,
-                    "like"    INTEGER
+                        "id"    INTEGER NOT NULL UNIQUE,
+                        "like"    INTEGER
                     )''',
                     '''CREATE TABLE "related" (
-                    "id"    INTEGER NOT NULL,
-                    "relation"    TEXT NOT NULL,
-                    "rel_id"    INTEGER NOT NULL
-                    )''',
-                    '''CREATE TABLE "searchTitles" (
-                    "id"    INTEGER,
-                    "title"    TEXT
+                        "id"    INTEGER NOT NULL,
+                        "relation"    TEXT NOT NULL,
+                        "rel_id"    INTEGER NOT NULL
                     )''',
                     '''CREATE TABLE "tag" (
-                    "id"    INTEGER NOT NULL UNIQUE,
-                    "tag"    TEXT
+                        "id"    INTEGER NOT NULL UNIQUE,
+                        "tag"    TEXT
                     )''',
                     '''CREATE TABLE "genres" (
-                    "id"    INTEGER NOT NULL UNIQUE,
-                    "mal_id"    INTEGER,
-                    "kitsu_id"    INTEGER,
-                    "name"    INTEGER,
-                    PRIMARY KEY("id" AUTOINCREMENT)
+                        "id"    INTEGER NOT NULL,
+                        "value" INTEGER NOT NULL
+                    )''',
+                    '''CREATE TABLE "title_synonyms" (
+                        "id"    INTEGER NOT NULL,
+                        "value" TEXT NOT NULL
+                    )''',
+                    '''CREATE TABLE "torrents" (
+                        "id"    INTEGER NOT NULL,
+                        "value" TEXT NOT NULL
                     )''')
         with self.get_lock():
             for c in commands:
@@ -139,8 +146,12 @@ class db():
     def __str__(self):
         return str(self.__repr__())
 
-    def __del__(self):
-        self.cur.close()
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+        return False
 
     def keys(self, table):
         return self.updateKeys(table)
@@ -180,9 +191,9 @@ class db():
             # keys = self.keys(table)
             # out = dict(zip(keys, row))
         if table == "anime":
-            return Anime(out)
+            return self.get_all_metadata(Anime(out))
         elif table == "characters":
-            return Character(out)
+            return self.get_all_metadata(Character(out))
         else:
             return NoneDict(out)
 
@@ -226,10 +237,12 @@ class db():
     def execute(self, sql, *args):
         try:
             with self.get_lock():
+                if self.log_commands:
+                    log(sql, *args)
                 self.cur.execute(sql, *args)
         except sqlite3.OperationalError as e:
             if e.args == ('database is locked',):
-                log("[ERROR] - Database is locked!")
+                log("[ERROR] - Database is locked! - On execute({}{}{})".format(sql, ", " if len(args) > 0 else "", ", ".join(map(str, args))))
                 raise
             else:
                 log(e, sql, args)
@@ -266,18 +279,21 @@ class db():
         values = []
         with self.get_lock():
             self.updateKeys(table)
+            if isinstance(data, Item):
+                data, meta = data.save_format()
+            else:
+                meta = []
             for k, v in data.items():
                 if (table not in ("anime", "characters") or k in self.tablekeys):
-                    keys.append(k)
                     if type(v) in (dict, list):
-                        values.append(json.dumps(v))
-                    elif isinstance(v, bool):
-                        values.append(int(v))
+                        meta[k] = v
                     else:
+                        keys.append(k)
                         values.append(v)
+
             if self.exist(data["id"], table, "id"):
                 sql = "UPDATE " + table + " SET " + \
-                    ",".join(["{} = ?"] * len(keys)) + " WHERE {} = ?"
+                    ",".join(["{} = ?"] * len(keys)) + " WHERE {} = ?;"
                 sql = sql.format(*keys, "id")
                 self.execute(sql, (*values, data["id"]))
             else:
@@ -285,29 +301,23 @@ class db():
                     "(" + ",".join(["{}"] * len(keys)) + \
                       ") VALUES(" + ",".join("?" * len(keys)) + ");"
                 sql = sql.format(*keys)
-                try:
-                    self.execute(sql, (*values,))
-                except Exception:
-                    log("Error in db.set() -", sql)
-                    for v in values:
-                        log("Error in db.set() - values:", v)
-                    raise
+                self.execute(sql, (*values,))
+
+            self.save_metadata(data["id"], meta)
             if save:
                 self.save()
 
     def insert(self, data, table, save=True):
-        keys, values = [], []
+        keys, values, meta = [], [], {}
         for k, v in data.items():
-            keys.append(k)
             if type(v) in (dict, list):
-                values.append(json.dumps(v))
-            elif isinstance(v, bool):
-                values.append(int(v))
+                meta[k] = v
             else:
+                keys.append(k)
                 values.append(v)
 
         sql = "INSERT INTO " + table + \
-            "(" + ",".join("{}" * len(keys)) + \
+            "(" + ",".join(["{}"] * len(keys)) + \
               ") VALUES(" + ",".join("?" * len(keys)) + ");"
         sql = sql.format(*keys)
         with self.get_lock():
@@ -315,34 +325,18 @@ class db():
             if save:
                 self.save()
 
-    # TODO
-    def addRelated(self, id, relation, rel_id):
-        sql = "SELECT rel_id FROM related WHERE id=? AND relation=?"
-        self.execute(sql, (str(id), relation))
-        out = self.cur.fetchall()
-        rel_ids = [rel_id]
-        if len(out) >= 1:
-            for comp_ids in out:
-                comp_ids = json.loads(comp_ids[0])
-                if rel_id in comp_ids:
-                    rel_ids = comp_ids
-                else:
-                    rel_ids += comp_ids
-            sql = "UPDATE related SET rel_id = ? WHERE id = ? AND relation=?"
-        else:
-            sql = "INSERT INTO related(rel_id,id,relation) VALUES(?,?,?)"
-        self.execute(sql, (json.dumps(rel_ids), str(id), relation))
-        self.save()
-        return len(out) == 0
-
     def remove(self, key=None, id=None, table=None, save=True):
         with self.get_lock():
             if key is None:
                 sql = """
                     DELETE FROM anime WHERE id={id};
-                    DELETE FROM searchTitles WHERE id={id};
+                    DELETE FROM title_synonyms WHERE id={id};
+                    DELETE FROM torrents WHERE id={id};
+                    DELETE FROM genres WHERE id={id};
                     DELETE FROM indexList WHERE id={id};
+                    DELETE FROM characters WHERE anime_id={id};
                 """
+                # TODO
                 self.cur.executescript(sql.format(id=id))
             else:
                 # self.update(key, None, id, table)
@@ -350,38 +344,62 @@ class db():
             if save:
                 self.save()
 
-    def filter(self, table=None, sort="",
-               range=(0, 50), order=None, filter=None):
+    def filter(self, table=None, sort=None, range=(0, 50), order=None, filter=None):
+
         if table is not None:
             table = table
-        limit = "\nLIMIT {start},{stop}".format(
-            start=range[0], stop=range[1]) if range else ""
-        filter = "\nWHERE {filter}".format(filter=filter) if filter else ""
+
+        if range is not None:
+            limit = "\nLIMIT {start},{stop}".format(
+                start=range[0],
+                stop=range[1])
+        else:
+            limit = ""
+
+        if filter is not None:
+            filter = "\nWHERE {filter}".format(filter=filter)
+        else:
+            filter = ""
+
         if order is None:
-            sort = "DESC" if sort is None else sort
+            if sort is None:
+                sort = "DESC"
             order = "anime.date_from"
-        sql = """SELECT anime.*,tag.tag,like.like FROM anime LEFT JOIN tag using(id) LEFT JOIN like using(id) {filter} \nORDER BY {order} {sort} {limit};""".format(
-            filter=filter, order=order, sort=sort, limit=limit)
+
+        sql = """
+            SELECT anime.*,tag.tag,like.like
+            FROM anime LEFT JOIN tag using(id)
+            LEFT JOIN like using(id)
+            {filter}
+            ORDER BY {order}
+            {sort} {limit};
+        """.format(
+            filter=filter,
+            order=order,
+            sort=sort,
+            limit=limit)
+
+        self.updateKeys("anime")
+        keys = list(self.tablekeys) + ['tag', 'like']
         with self.get_lock():
             self.updateKeys(table="anime")
             self.execute(sql)
             data_list = self.cur.fetchall()
-        keys = list(self.tablekeys) + ['tag', 'like']
-        for data in data_list:
-            yield Anime(keys=keys, values=data)
+
+        return AnimeList([self.get_all_metadata(Anime(keys=keys, values=data)) for data in data_list])
+        # return (Anime(keys=keys, values=data) for data in data_list)
 
     def sql(self, sql, values=[], save=False, to_dict=False, iterate=False):
         def cur_iterator():
             for row in self.cur:
                 yield row
-        if not isinstance(values, list):
-            values = list(values)
+        values = list(values)  # dict_keys type raise a ValueError
 
         with self.get_lock():
             try:
                 self.execute(sql, values)
             except sqlite3.ProgrammingError:
-                log(sql, values, list(map(type, values)))
+                log(sql, list(values), list(map(type, values)))
                 raise
             else:
                 if save:
@@ -397,14 +415,59 @@ class db():
                         return out
                     else:
                         return self.cur.fetchall()
-        print("OUT", flush=True)
 
     def save(self):
-        self.con.commit()
+        with self.get_lock():
+            if self.log_commands:
+                log("SAVE animeData.db")
+            try:
+                self.con.commit()
+            except sqlite3.OperationalError as e:
+                if e.args == ('database is locked',):
+                    log("[ERROR] - Database is locked! - On save()")
+                    raise
+                else:
+                    raise
+
+    def close(self):
+        self.cur.close()
+
+    def get_all_metadata(self, item):
+        for key in item.metadata_keys:
+            item[key] = lambda path=self.path, id=item.id, key=key: thread_safe_db(path).get_metadata(id, key)
+
+        return item
+
+    def get_metadata(self, id, key):
+        data = self.sql("SELECT value FROM {} WHERE id=?;".format(key), (id,))
+        return [e[0] for e in data]
+
+    def save_metadata(self, id, meta):
+        if not meta:
+            return
+        with self.get_lock():
+            c = 0
+            for key, values in meta.items():
+                if type(values) not in {list, set, tuple}:
+                    raise TypeError("Values must be of type list, not", type(values))
+                db_values = [e[0] for e in self.sql("SELECT value FROM {} WHERE id=?".format(key), (id,))]
+                toUpdate = []
+                for v in values:
+                    if v:
+                        if v not in db_values:
+                            toUpdate.append((id, v))
+                        else:
+                            db_values.remove(v)
+
+                self.executemany("INSERT INTO {}(id, value) VALUES (?,?)".format(key), toUpdate)
+                self.executemany("DELETE FROM {} WHERE id=? AND value=?".format(key), ((id, value) for value in db_values))
+                c += len(toUpdate) + len(db_values)
+            return c
 
 
 class thread_safe_db(Logger):
     def __init__(self, path):
+        super().__init__()
         if 'database_main_tasks_queue' in globals().keys():
             main = globals()['database_main_thread']
             self.db = main.db
@@ -434,6 +497,10 @@ class thread_safe_db(Logger):
             else:
                 output.put(out)
             task = self.tasks.get()
+        try:
+            self.db.close()
+        except Exception as e:
+            self.log("THREAD", "[ERROR] - While closing db:", e)
         self.log("THREAD", "Stopped db thread")
 
     def __getattr__(self, a):
@@ -455,40 +522,43 @@ class thread_safe_db(Logger):
     def __str__(self, *args, **kwargs):
         return self.task_planner("__str__", *args, **kwargs)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+        return False
+
     def get_lock(self):
         try:
             return self.db.remote_lock
         except:
-            print(self.db, dir(self.db))
+            log("[ERROR] - No lock found!", self.db, dir(self.db))
             raise
 
     def close(self):
         self.tasks.put("STOP")
+        self.db_thread.join()
 
     def task_planner(self, name, *args, **kwargs):
         with self.get_lock():
             output = queue.Queue()
+            if False:  # Used for logging
+                log("sql req: db.{}({}{}{})".format(
+                    name,
+                    ", ".join(map(str, args)),
+                    ", " if len(args) > 0 and len(kwargs) > 0 else "",
+                    ", ".join(map(
+                        lambda e: "{}={}".format(
+                            e[0],
+                            str(e[1])
+                        ),
+                        kwargs.items()
+                    ))
+                ))
             self.tasks.put((output, name, args, kwargs))
             out = output.get()
             if isinstance(out, Exception):
                 raise out
             else:
-                # print(str(round(time.time() - start, 5)).ljust(8, "0") + " - " + name.ljust(20) + ("|" * int((time.time() - start) * 1000)) + "\n", end="")
                 return out
-
-
-if __name__ == "__main__":
-    # from animeManager import Manager
-    # m = Manager()
-
-    appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
-    dbPath = os.path.join(appdata, "animeData.db")
-
-    sql = "select 1 from anime;"
-    db = db(dbPath)
-    data = thread_safe_db(dbPath)
-
-    a = db.execute(sql)
-    b = data.execute(sql)
-    print(a == b)
-    data.close()

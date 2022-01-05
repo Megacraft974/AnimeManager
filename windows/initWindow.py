@@ -77,6 +77,8 @@ class initWindow:
             self.root.iconify()
             self.root.bind("<Map>", bringToTop)
 
+            self.root.report_callback_exception = self.mainloop_error_handler
+
         if self.fen is None:
             self.fen = Toplevel(self.root)
             self.fen.focus_force()
@@ -246,4 +248,4 @@ class initWindow:
         self.log('TIME', "Ready:".ljust(25), round(
             time.time() - self.start, 2), "sec")
 
-        self.fen.mainloop()
+        self.root.mainloop()

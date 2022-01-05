@@ -16,8 +16,13 @@ class Logger:
         self.maxLogsSize = 50000
         self.logs = ['DB_ERROR', 'DB_UPDATE', 'MAIN_STATE',
                      'NETWORK', 'SERVER', 'SETTINGS', 'TIME']
-        if logs in ("DEFAULT", "ALL", "NONE"):
+
+        if hasattr(self, 'remote') and self.remote:
+            self.log_mode = "NONE"
+        elif logs in ("DEFAULT", "ALL", "NONE"):
             self.log_mode = logs
+        else:
+            self.log_mode = "DEFAULT"
 
         self.initLogs()
 
@@ -47,13 +52,10 @@ class Logger:
         with open(self.logFile, "w") as f:
             f.write("_" * 10 + date.today().strftime("%d/%m/%y") + "_" * 10 + "\n")
 
-        if hasattr(self, 'remote') and self.remote:
-            self.log_mode = "NONE"
-
     def log(self, *text, end="\n"):
         if self.log_mode == "NONE":
             return
-        if self.log_mode == "DEFAULT":
+        elif self.log_mode == "DEFAULT":
             category, text = text[0], text[1:]
             if category in self.logs:
                 toLog = "[{}]".format(category.center(13)) + " - "

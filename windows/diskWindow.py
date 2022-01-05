@@ -22,6 +22,17 @@ class diskWindow:
                             folders += b
                 return files, folders
 
+            def size_format(size):
+                units = ("b", "Kb", "Mb", "Gb", "Tb")
+                u = 0
+                while u < len(units) - 1:
+                    if size >= 1000:
+                        size = size // 1000
+                        u += 1
+                    else:
+                        break
+                return f'{size:,}' + " " + units[u]
+
             def exit(e=None):
                 self.diskfen.destroy()
 
@@ -80,32 +91,70 @@ class diskWindow:
                 fill=self.colors[color],
                 width=radius)
             bar.grid(row=1, column=0, columnspan=3)
-            Label(barFrame,
-                  text="%d GB used" % (used // (2**30)),
-                  wraplength=900,
-                  font=("Source Code Pro Medium",
-                        12),
-                  bg=self.colors['Gray2'],
-                  fg=self.colors['Gray4']).grid(row=2,
-                                                column=0)
-            Label(barFrame,
-                  text="%d GB total" % (total // (2**30)),
-                  wraplength=900,
-                  font=("Source Code Pro Medium",
-                        12),
-                  bg=self.colors['Gray2'],
-                  fg=self.colors['Gray4']).grid(row=2,
-                                                column=1)
-            Label(barFrame,
-                  text="%d GB free" % (free // (2**30)),
-                  wraplength=900,
-                  font=("Source Code Pro Medium",
-                        12),
-                  bg=self.colors['Gray2'],
-                  fg=self.colors['Gray4']).grid(row=2,
-                                                column=2)
+            Label(
+                barFrame,
+                text="%d GB used" % (used // (2**30)),
+                wraplength=900,
+                font=("Source Code Pro Medium", 12),
+                bg=self.colors['Gray2'],
+                fg=self.colors['Gray4']
+            ).grid(row=2, column=0)
+            Label(
+                barFrame,
+                text="%d GB total" % (total // (2**30)),
+                wraplength=900,
+                font=("Source Code Pro Medium", 12),
+                bg=self.colors['Gray2'],
+                fg=self.colors['Gray4']
+            ).grid(row=2, column=1)
+            Label(
+                barFrame,
+                text="%d GB free" % (free // (2**30)),
+                wraplength=900,
+                font=("Source Code Pro Medium", 12),
+                bg=self.colors['Gray2'],
+                fg=self.colors['Gray4']
+            ).grid(row=2, column=2)
             barFrame.grid_columnconfigure(1, weight=1)
             barFrame.pack(pady=20)
+
+        # Size info
+        if True:
+            cache_size = sum(os.path.getsize(os.path.join(self.cache, f)) for f in os.listdir(self.cache))
+            db_size = os.path.getsize(self.dbPath)
+
+            sizeFrame = Frame(self.diskfen, bg=self.colors['Gray2'])
+            Label(
+                sizeFrame,
+                text="Cache size:",
+                font=("Source Code Pro Medium", 12),
+                bg=self.colors['Gray2'],
+                fg=self.colors['Gray4']
+            ).grid(row=0, column=0)
+            Label(
+                sizeFrame,
+                text=size_format(cache_size),
+                font=("Source Code Pro Medium", 12),
+                bg=self.colors['Gray2'],
+                fg=self.colors['Gray4']
+            ).grid(row=0, column=1)
+
+            Label(
+                sizeFrame,
+                text="Database size:",
+                font=("Source Code Pro Medium", 12),
+                bg=self.colors['Gray2'],
+                fg=self.colors['Gray4']
+            ).grid(row=1, column=0)
+            Label(
+                sizeFrame,
+                text=size_format(db_size),
+                font=("Source Code Pro Medium", 12),
+                bg=self.colors['Gray2'],
+                fg=self.colors['Gray4']
+            ).grid(row=1, column=1)
+            [sizeFrame.grid_columnconfigure(i, weight=1) for i in range(2)]
+            sizeFrame.pack(pady=20)
 
         # Stats info
         if True:

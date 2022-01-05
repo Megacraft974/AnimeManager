@@ -122,7 +122,6 @@ class characterWindow:
         # Title panel
         if True:
             self.log("MAIN_STATE", character)
-            # print(self.characterInfo.titleFrame)
             self.characterInfo.titleFrame.destroy()
             titleFrame = Frame(self.characterInfo, bg=self.colors['Gray2'])
             titleFrame.grid_columnconfigure(0, weight=1)
@@ -131,8 +130,6 @@ class characterWindow:
             titleLbl = Label(titleFrame, text=character['name'], wraplength=500, bg=self.colors['Gray2'], font=(
                 "Source Code Pro Medium", 18), fg=self.colors['Blue' if character['role'] == "Main" else 'White'])
             titleLbl.grid(row=0, column=0, sticky="nsew", columnspan=2)
-            # self.characterInfo.titleLbl.configure(text=character['name'], wraplength=500, bg=self.colors['Gray2'], font=(
-            #     "Source Code Pro Medium", 18), fg=self.colors['Blue' if character['role'] == "Main" else 'White'])
             self.characterInfo.titleLbl = titleLbl
             self.characterInfo.handles = [titleLbl]
             self.characterInfo.update()

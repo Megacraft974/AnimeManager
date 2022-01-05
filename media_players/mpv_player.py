@@ -1,6 +1,7 @@
 from .base_player import BasePlayer
 import os
 import time
+import traceback
 
 path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib")
 if not os.path.exists(path):
@@ -37,6 +38,7 @@ class MpvPlayer(BasePlayer):
 
         if len(self.playlist) == 0:
             self.log("No video found!")
+            self.player = None
             self.OnClose()
             return
 
@@ -359,7 +361,8 @@ class MpvPlayer(BasePlayer):
         self.parent.destroy()
         self.updateDb()
         try:
-            self.player.stop()
+            if self.player:
+                self.player.stop()
         except Exception as e:
-            self.log("Error while stopping player:", type(e), e)
+            self.log("Error while stopping player:", traceback.format_exc())
         self.log("Closed media player")

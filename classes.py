@@ -14,27 +14,30 @@ class Item(dict):
         super().__init__(self)
         if "data_keys" not in self.__dict__.keys():
             self.data_keys = ()
-        if "meta_data_keys" not in self.__dict__.keys():
-            self.meta_data_keys = ()
+        if "metadata_keys" not in self.__dict__.keys():
+            self.metadata_keys = ()
         self.__add__(*args, **kwargs)
 
     def __getattr__(self, key):
-        if key in ("data_keys", "meta_data_keys"):
+        if key in ("data_keys", "metadata_keys"):
             return self.__dict__[key]
         if key in self.data_keys:
             if key not in self.keys():
                 return None
             else:
+                if key in self.metadata_keys and callable(self[key]):
+                    data = self[key]()
+                    self[key] = data
                 return self[key]
 
     def __setattr__(self, key, value):
-        if key in ("data_keys", "meta_data_keys"):
+        if key in ("data_keys", "metadata_keys"):
             self.__dict__[key] = value
             return
         if key in self.data_keys:
             self[key] = value
         else:
-            log(type(self), key, value)
+            log(type(self), "has not key", key, "value", value)
 
     def __add__(self, *args, **kwargs):
         data = None
@@ -61,29 +64,38 @@ class Item(dict):
                 type(self).__name__, args, kwargs))
 
         for k, v in data:
-            if k not in self.keys():
+            if k not in self.keys() or self[k] is None:
                 self[k] = v
+            elif v is not None:
+                if type(v) != type(self[k]):
+                    raise TypeError("On key {} - types do not match: {}:{} / {}:{}".format(k, v, type(v), self[k], type(self[k])))
+                if hasattr(v, "__len__"):
+                    if len(v) > len(self[k]):
+                        self[k] = v
+                elif v > self[k]:
+                    self[k] = v
         return self
 
     def __contains__(self, e):
         return e in self.keys()
 
     def save_format(self):
-        main_keys = {}
-        meta_data = {}
+        data, meta = {}, {}
         for key, value in self.items():
-            if key in self.meta_data_keys:
-                meta_data[key] = {}
-                for e in value:
-                    meta_data[key] = {'id': self.id, key: e}
+            if key in self.data_keys:
+                if key in self.metadata_keys:
+                    meta[key] = value
+                else:
+                    data[key] = value
             else:
-                main_keys[key] = value
-        return main_keys, meta_data
+                log(type(self), "Key not in data_keys:", key, value)
+        return data, meta
 
 
 class Anime(Item):
     def __init__(self, *args, **kwargs):
         self.data_keys = (
+            'broadcast',
             'date_from',
             'date_to',
             'duration',
@@ -100,8 +112,8 @@ class Anime(Item):
             'title',
             'title_synonyms',
             'trailer',
-            'torrent')
-        self.meta_data_keys = ('title_synonyms', 'genres', 'torrent')
+            'torrents')
+        self.metadata_keys = ('title_synonyms', 'genres', 'torrents')
         super().__init__(*args, **kwargs)
 
 
@@ -241,7 +253,7 @@ class ItemList(queue.Queue):
         return len(self.sources) == 0 and len(self.list) == 0
 
     def is_ready(self):
-        return len(self.list) > 0
+        return len(self.list) > 0 or len(self.sources) == 0
 
 
 class AnimeList(ItemList):
@@ -287,6 +299,51 @@ class NoneDict(DefaultDict):
             super().__init__("NONE", *args, **kwargs)
 
 
+class RegroupList(list):
+    """A list of dict, wich regroup values based on a PK, creating a sub-list if values are different"""
+    def __init__(self, pk, merge_keys, *args):
+        super().__init__()
+        self.pk = pk
+        self.merge_keys = merge_keys
+        self.keys = {}
+        for sub in args:
+            if not isinstance(dict, sub):
+                raise TypeError("Elements must be dicts")
+            self.add_element(sub)
+
+    def add_element(sub, index=None):
+        sub_id = sub[self.pk]
+        if sub_id in self.keys:
+            for t in self:
+                if sub_id == t[self.pk]:
+                    for k, v in sub.items():
+                        if k in t:
+                            if v != t[k]:
+                                if type(t[k]) == list:
+                                    t[k].append(v)
+                                else:
+                                    t[k] = [t[k], v]
+                        else:
+                            t[k] = v
+                    break
+        else:
+            if index is None:
+                super().append(sub)
+            else:
+                super().insert(index, sub)
+            self.keys.add(sub_id)
+
+    def append(self, sub):
+        self.add_element(sub)
+
+    def extend(self, subs):
+        for sub in subs:
+            self.add_element(sub)
+
+    def insert(self, i, sub):
+        self.add_element(sub, i)
+
+
 class SortedList(list):
     def __init__(self, keys=None):
         if keys is None:  # Keys must be either None or a list of tuples containing the key and a "reverse" bool
@@ -300,6 +357,12 @@ class SortedList(list):
             super().append(e)
         else:
             self.binary_insert(e, 0, length)
+        return self
+
+    def extend(self, e):
+        for sub in e:
+            super().append(sub)
+        return self
 
     def __contains__(self, e):
         length = len(self)
@@ -327,13 +390,13 @@ class SortedList(list):
         middle = (stop + start) // 2
         if self.compare(e, self[middle]):  # Hacky - see reverse truth table
             if middle == start:
-                super().insert(start + 1, e)
+                self.insert(start + 1, e)
                 return start + 1
             else:
                 return self.binary_insert(e, middle, stop)
         else:
             if middle == stop:
-                super().insert(stop, e)
+                self.insert(stop, e)
                 return stop
             else:
                 return self.binary_insert(e, start, middle)
@@ -448,6 +511,51 @@ class SortedDict():
                 return False
             else:
                 return self.binary_search(e, start, middle)
+
+
+class ReturnThread(threading.Thread):
+    def __init__(self, target=None, args=(), kwargs={}, daemon=True):
+        super().__init__(daemon=daemon)
+        self.target = target
+        self.args = args
+        self.kwargs = kwargs
+        self.output = queue.Queue()
+
+        self.start()
+
+    def run(self):
+        try:
+            out = self.target(*self.args, **self.kwargs)
+        except:
+            self.output.put(None)
+        else:
+            self.output.put(out)
+
+    def get(self, *args, **kwargs):
+        return self.output.get(*args, **kwargs)
+
+    def empty(self):
+        return self.output.empty()
+
+    def ready(self):
+        return not self.empty()
+
+
+class LockWrapper():
+    """A lock wrapper, useful for logging or callbacks"""
+    def __init__(self, lock):
+        self.lock = lock
+
+    def __enter__(self, *args, **kwargs):
+        print("Acquired lock")
+        return self.lock.__enter__(*args, **kwargs)
+
+    def __exit__(self, *args, **kwargs):
+        print("Released lock")
+        return self.lock.__exit__(*args, **kwargs)
+
+    def __getattr__(self, *args, **kwargs):
+        return self.lock.__getattr__(*args, **kwargs)
 
 
 if __name__ == "__main__":

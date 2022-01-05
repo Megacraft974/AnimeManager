@@ -14,6 +14,8 @@ import time
 import traceback
 import urllib
 import webbrowser
+from collections import defaultdict
+from contextlib import closing
 from datetime import datetime, timedelta
 from operator import itemgetter
 from tkinter import *
@@ -59,23 +61,22 @@ except ModuleNotFoundError as e:
     sys.exit()
 
 
+# TODO - Memory cache of indexlist?
+# TODO - Load new images on downloading error
 # TODO - Add filter for torrent list (seeds / name)
-# TODO - Add scrolling bar on ScrollableFrame
-# TODO - Implement dropdowns (Episode list)
-# TODO - Handle huge seasons / Add an episode window?
 # TODO - Allow window resizing
 # TODO - Online search raise database is locked error
 # TODO - Some image aren't loading with online search (sk8)
 # TODO - jikanpy.exceptions.APIException: HTTP 500 - status=500, type=ParserException, message=Unable to parse this request. Please follow report_url to generate an issue on GitHub, error=Failed to parse 'https://myanimelist.net/...'
 # TODO - Avoid accessing to db with the API wrappers
-# TODO - Figure out how to update anime list when tag change
+# TODO - Create a factory method to save anime relations
+# TODO - Use the db.get_lock() with API wrappers
 # TODO - Torrent publisher list freeze when internet is slow
 # TODO - Add an option to modify the torrent search
 # TODO - Improve torrent matching algorithm
 # TODO - Auto associate latest torrents?
 # TODO - Add python-based torrent client
 # TODO - Characters don't have the 'anime_id' key
-# TODO - Image thread starting multiple times
 # TODO - Add RSS option
 # TODO - Automatic torrent downloading from RSS?
 # TODO - Compile into an executable
@@ -132,30 +133,30 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
             {'text': 'Delete all files', 'color': 'Red', 'command': self.deleteFiles},
             {'text': 'Remove from db', 'color': 'Red', 'command': self.delete},)
 
-        self.database = self.getDatabase()
-        if not os.path.exists(self.dbPath):
-            self.checkSettings()
-            self.reloadAll()
-            return
-        else:
-            self.checkSettings()
+        with self.getDatabase() as self.database:
+            if not os.path.exists(self.dbPath):
+                self.checkSettings()
+                self.reloadAll()
+                return
+            else:
+                self.checkSettings()
 
-        self.api = animeAPI.AnimeAPI('all', self.dbPath)
-        self.player = self.media_players[self.player_name]
-        self.getQB(use_thread=True)
+            self.api = animeAPI.AnimeAPI('all', self.dbPath)
+            self.player = self.media_players[self.player_name]
+            self.getQB(use_thread=True)
 
-        if not self.remote:
-            try:
-                self.initWindow()
-            except Exception as e:
-                self.log("MAIN_STATE", "[ROOT]:\n", traceback.format_exc())
+            if not self.remote:
+                try:
+                    self.initWindow()
+                except Exception as e:
+                    self.log("MAIN_STATE", "[ROOT]:\n", traceback.format_exc())
 
-            self.log('MAIN_STATE', "Stopping")
-            self.start = time.time()
-            self.updateAll()
-            self.database.close()
-            self.log('TIME', "Stopping time:".ljust(25),
-                     round(time.time() - self.start, 2), 'sec')
+                self.log('MAIN_STATE', "Stopping")
+                self.start = time.time()
+                self.updateAll()
+                self.database.close()
+                self.log('TIME', "Stopping time:".ljust(25),
+                         round(time.time() - self.start, 2), 'sec')
 
     # ___Search___
     def search(self, *args, force_search=False):
@@ -196,20 +197,59 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
 
     def searchDb(self, terms):
         def enumerator(terms):
-            sql = "SELECT anime.*,tag.tag,like.like FROM searchTitles JOIN anime using(id) LEFT JOIN tag using(id) LEFT JOIN like using(id) WHERE searchTitles.title LIKE '%{}%' GROUP BY anime.id ORDER BY anime.date_from DESC;".format(
-                terms)
+            sql = """
+                SELECT anime.*,tag.tag,like.like
+                FROM title_synonyms
+                JOIN anime using(id)
+                LEFT JOIN tag using(id)
+                LEFT JOIN like using(id)
+                WHERE title_synonyms.value LIKE '%{}%'
+                GROUP BY anime.id
+                ORDER BY anime.date_from DESC;
+            """.format(terms)
             keys = list(self.database.keys(table="anime")) + ['tag', 'like']
-            anime_list = AnimeList(Anime(keys=keys, values=data) for data in self.database.sql(sql, iterate=True))
+            anime_list = AnimeList(Anime(keys=keys, values=data) for data in self.database.sql(sql))
             return anime_list
 
-        self.updateTitles()  # TODO
         terms = "".join([c for c in terms if c.isalnum()]).lower()
+        print("T", terms)
+        # return self.searchNgrams(terms)
         if bool(
             self.database.sql(
-                "SELECT EXISTS(SELECT 1 FROM searchTitles WHERE searchTitles.title LIKE '%{}%');".format(terms))[0][0]):
+                "SELECT EXISTS(SELECT 1 FROM title_synonyms WHERE title_synonyms.value LIKE '%{}%');".format(terms))[0][0]):
             return enumerator(terms)
         else:
             return False
+
+    def searchNgrams(self, terms):  # TODO
+        def ngrams(string, n=3):
+            string = [l for l in string.lower() if l.isalnum() or l == " "]
+            ngrams = zip(*[string[i:] for i in range(n)])
+            return (''.join(ngram) for ngram in ngrams)
+
+        with self.database.get_lock():
+            data = self.database.sql("SELECT id, value FROM title_synonyms")
+
+            t_ngrams = set(ngrams(terms))
+            matches = defaultdict(lambda: 0)
+            for id, value in data:
+                # for ngram in ngrams(value):
+                    if ngram in t_ngrams:
+                        matches[id] += 1
+
+            sql = 'SELECT * FROM anime WHERE id IN(' + ','.join("?" * len(matches)) + ');'
+            return AnimeList(
+                Anime(data)
+                for data in SortedList(
+                    [(lambda e: matches[e['id']], True)]
+                ).extend(
+                    self.database.sql(
+                        sql,
+                        matches.keys(),
+                        to_dict=True
+                    )
+                )
+            )
 
     def searchTorrents(self, id):
         def sortkey(k):
@@ -231,11 +271,10 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
 
         database = self.getDatabase()
         data = database(id=id, table="anime")
-        titles = json.loads(data['title_synonyms'])
-        titles.append(data['title'])
+        titles = data.title_synonyms
+        titles.append(data.title)
         publisher_pattern = re.compile(r'^\[(.*?)\]+')
 
-        data = []
         torrents = TorrentList(search_engines.search(titles))
         timer = utils.Timer("Torrent search")
 
@@ -273,7 +312,9 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
     # ___Main List generation___
     def createList(self, criteria="DEFAULT", listrange=None, add_to_end=False):
         def wait_for_next(animelist, default):
-            if isinstance(animelist, AnimeList):
+            if animelist is None:
+                return None
+            elif isinstance(animelist, AnimeList):
                 empty_test = "not animelist.is_ready()"
             else:
                 que = queue.Queue()
@@ -356,12 +397,14 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                 filter=filter)
 
         self.animeListReady = True  # Interrupt previous list generation
-        self.root.update()
+        if self.root:
+            self.root.update()
 
         if listrange is None:
             listrange = (0, 50)
             if not add_to_end:
-                self.scrollable_frame.canvas.yview_moveto(0)
+                if self.root:
+                    self.scrollable_frame.canvas.yview_moveto(0)
 
         if not add_to_end:
             for child in self.scrollable_frame.winfo_children():
@@ -403,7 +446,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                             columnspan=self.animePerRow,
                             row=0,
                             pady=50)
-                        print("NO RESULTS")
                     break
                 self.createElem(i, data, que)
 
@@ -413,7 +455,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                     return
                 self.fen.update()
 
-        # self.list_timer.stats()
+        self.list_timer.stats()
         que.put("STOP")
 
         try:
@@ -550,6 +592,10 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
         self.stopSearch = True
         self.closing = True
         try:
+            self.database.close()
+        except Exception as e:
+            self.log("MAIN_STATE", "[ERROR] - While closing db:", e)
+        try:
             self.root.update()
             if self.fen is not None:
                 # self.fen.destroy()
@@ -561,6 +607,12 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
             self.log("MAIN_STATE", "[ERROR] - Can't destroy root:", e)
 
     # ___Utils___
+    def mainloop_error_handler(self, exc, val, tb):
+        # if exc == tkinter.TclError and "application has been destroyed" in val:
+        #     self.log("MAIN_STATE", "[ERROR] - In tkinter mainloop: Application has been destroyed")
+        # else:
+        self.log("MAIN_STATE", "[ERROR] - In tkinter mainloop:\n", ''.join(map(lambda t: t.replace('  ', '    '), traceback.format_exception(exc, val, tb))))
+
     def reloadAll(self):
         self.log('MAIN_STATE', "Reloading")
         self.stopSearch = True
@@ -640,7 +692,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
     # ___Misc___
     def downloadFile(self, id, url=None, file=None):
         def handler(id, url=None, file=None):
-            database = self.getDatabase()
             isMagnet = False
             if url is not None:
                 pattern = re.compile(r"^magnet:\?xt=urn:")
@@ -697,17 +748,14 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                 self.log(
                     'NETWORK', "[ERROR] - Couldn't find the torrent client!")
 
-            torrents = database.sql(
-                "SELECT torrent FROM anime WHERE id = ?", (id,))[0][0]
-            torrents = json.loads(torrents) if torrents is not None else []
-            torrents.append(file)
-            torrents = list(set(torrents))
-            database.set(
-                {'id': id, 'torrent': json.dumps(torrents)},
-                table="anime")
+            database = self.getDatabase()
+            with database.get_lock():
+                torrents = database.get_metadata(id, "torrents")
+                database.save_metadata(id, {"torrents": torrents + [file]})
 
-            if database(id=id, table='tag')['tag'] != 'WATCHING':
-                database.set({'id': id, 'tag': 'WATCHING'}, table='tag')
+                if database(id=id, table='tag')['tag'] != 'WATCHING':
+                    database.set({'id': id, 'tag': 'WATCHING'}, table='tag')
+                database.save()
 
         assert url is not None or file is not None, "You need to specify either an url or a file path"
         threading.Thread(target=handler, args=(id, url, file), daemon=True).start()
@@ -716,9 +764,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
         if self.getQB() == "OK":
             database = self.getDatabase()
 
-            torrents = database.sql(
-                "SELECT torrent FROM anime WHERE id = ?", (id,))[0][0]
-            torrents = json.loads(torrents) if torrents is not None else []
+            torrents = database.get_metadata(id, "torrents")
 
             for torrent in torrents:
                 self.downloadFile(id, file=torrent)
@@ -764,7 +810,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
         # threading.Thread(target=handler, args=(year, season), daemon=True).start()
 
         self.animeList = self.api.season(year, season)
-        print(self.animeList)
         self.animeListReady = True
         self.root.update()
         self.createList(None, (0, 1000))

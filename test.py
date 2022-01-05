@@ -59,106 +59,23 @@
 #         print(url)
 #         getTracker(v.scheme,url,v.port,info_hash,size)
 
-from tkinter import *
-from PIL import Image, ImageTk, ImageDraw
+from getters import Getters
+import time
+from collections import defaultdict, deque
+from classes import SortedDict, Anime, AnimeList, SortedList
+import re
 
+database = Getters.getDatabase()
 
-class CustomScrollbar(Frame):
-    def __init__(self, parent, orient='V', **kwargs):
-        self.parent = parent
-        if orient in ('V', 'H'):
-            self.orient = orient
+def size_format(size):
+    units = ("b", "Kb", "Mb", "Gb", "Tb")
+    u = 0
+    while u < len(units) - 1:
+        if size >= 1000:
+            size = size // 1000
+            u += 1
         else:
-            raise ValueError("Orient must be either 'V' or 'H'.")
+            break
+    return f'{size:,}'.replace(",", " ") + " " + units[u]
 
-        self.padding = 5
-        self.thickness = 30
-        self.fg = "#000000"
-        self.bg = "#FFFFFF"
-        self.command = None
-
-        super().__init__(self.parent, bg="#00FF00")
-
-        self.frame = Canvas(self, width=self.thickness, bg=self.bg, bd=0, highlightthickness=0)
-
-        self.frame.bind("<B1-Motion>", self.move_thumb)
-
-        self.configure(**kwargs)
-        self.frame.pack()
-
-    def configure(self, **kwargs):
-        if "command" in kwargs:
-            self.command = kwargs.pop("command")
-        if "thickness" in kwargs:
-            self.thickness = kwargs.pop("thickness")
-            kwargs["width" if self.orient == "V" else "height"] = self.thickness
-        if "padding" in kwargs:
-            self.padding = kwargs.pop("padding")
-        if "fg" in kwargs:
-            self.fg = kwargs.pop("fg")
-        if "bg" in kwargs:
-            self.bg = kwargs["bg"]
-
-        self.frame.configure(**kwargs)
-
-    def get(self):
-        return self.start, self.stop
-
-    def set(self, a, b):
-        self.start, self.stop = float(a), float(b)
-        self.draw_thumb(self.start, self.stop)
-
-    def draw_thumb(self, start, stop):
-        width = self.frame.winfo_width()
-        height = self.frame.winfo_height()
-        if self.orient == "H":
-            width, height = height, width
-
-        self.frame.delete(ALL)
-        scale = 10
-        img_size = ((width - self.padding * 2) * scale, int(((stop - start) * height - self.padding * 2) * scale))
-        img_width = img_size[0 if self.orient == "V" else 1]
-        img_height = img_size[1 if self.orient == "V" else 0]
-
-        if img_height <= img_width:
-            image = Image.new('RGB', (img_width, img_width), self.bg)
-            draw = ImageDraw.Draw(image)
-            draw.ellipse((0, 0, img_width, img_width), fill=self.fg, outline=None)
-        else:
-            image = Image.new('RGB', img_size, self.bg)
-            draw = ImageDraw.Draw(image)
-            draw.rectangle((0, img_width / 2, img_width, img_height - img_width / 2), fill=self.fg, outline=None)
-            draw.ellipse((0, 0, img_width, img_width), fill=self.fg, outline=None)
-            draw.ellipse((0, img_height - img_width - 1, img_width, img_height - 1), fill=self.fg, outline=None)
-
-        self.thumb = image.resize((img_size[0] // scale, img_size[1] // scale), Image.ANTIALIAS)
-        thumb_img = ImageTk.PhotoImage(self.thumb, master=self.frame)
-
-        pos = start * height + self.padding
-        self.frame.create_image(self.padding, pos, image=thumb_img, anchor="nw")
-        self.frame.image = thumb_img
-
-    def move_thumb(self, event):
-        if self.orient == "V":
-            fensize = self.frame.winfo_height()
-            pos = event.y / fensize
-        else:
-            fensize = self.frame.winfo_width()
-            pos = event.x / fensize
-
-        if self.command is not None:
-            self.command('moveto', str(pos))
-
-
-root = Tk()
-scrollbar = CustomScrollbar(root, width=20, fg="#383935", bg="#AAAAAA")
-scrollbar.pack(side=RIGHT, fill=Y)
-
-mylist = Listbox(root, yscrollcommand=scrollbar.set)
-for line in range(100):
-    mylist.insert(END, "This is line number " + str(line))
-
-mylist.pack(side=LEFT, fill=BOTH)
-scrollbar.configure(command=mylist.yview)  # lambda *args: print(args))
-
-mainloop()
+print(size_format(500000))

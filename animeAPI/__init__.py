@@ -121,7 +121,6 @@ class AnimeAPI(Getters):
         elif isinstance(data, Character):
             table = "characters"
         elif isinstance(data, ItemList):
-            print("Added callback!")
             data.add_callback(self.save)
             return
         else:

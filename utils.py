@@ -27,10 +27,8 @@ class RoundTopLevel(Frame):
         self.windowX, self.windowY = None, None
 
         self.fen = Toplevel(self.parent)
-        # Toplevel.__init__(self,self.parent)
         self.fen.overrideredirect(True)
         self.fen.wm_attributes("-transparentcolor", "pink")
-        # self.fen.attributes('-topmost', 'true')
         self.fen.geometry(
             "+{}+{}".format(50 + self.fen.winfo_x(), 50 + self.fen.winfo_y()))
         self.fen.minsize(*self.minFensize)
@@ -359,7 +357,7 @@ class DropDown(Toplevel):
         self.config = {}
 
         self.column_width = 100
-        self.row_height = 30
+        self.row_height = 35
 
         self.sep_bg = "#FFFFFF"
         self.fg = "#FFFFFF"
@@ -372,12 +370,12 @@ class DropDown(Toplevel):
 
     def show(self):
         x, y = self.master.winfo_rootx(), self.master.winfo_rooty() + self.master.winfo_height()
-        max_x, max_y = self.master.winfo_screenwidth() - x, self.master.winfo_screenheight() - y
-        self.maxsize(max_x, max_y)
-        self.geometry("+{}+{}".format(x, y))
+        size_x, size_y = self.master.winfo_width() * 2, min(20, len(self.values)) * self.row_height
+        if self.main_frame is not None:
+            size_x = min(self.main_frame.winfo_width(), size_x)
+        self.geometry("{}x{}+{}+{}".format(size_x, size_y, x, y))
         self.deiconify()
         self.focus_force()
-        self.minsize(self.master.winfo_width() * 2, min(self.main_frame.winfo_height(), len(self.values) * self.row_height))
 
     def hide(self, arg=None):
         self.withdraw()
@@ -408,7 +406,7 @@ class DropDown(Toplevel):
         self.main_frame.pack(expand=True, fill="both")
 
         columns, rows = len(self.values) // self.elem_per_row + 1, min(self.elem_per_row, len(self.values))
-        # self.minsize(self.column_width * columns, self.row_height * rows)
+
         for i in range(columns):
             self.main_frame.grid_columnconfigure(i * 2, weight=1)
         for i in range(rows):
@@ -417,7 +415,7 @@ class DropDown(Toplevel):
         self.rows = []
         for i, val in enumerate(self.values):
             row = Button(self.main_frame, text=val, command=self.handle_command(val), anchor="w", **self.config)
-            row.grid(row=i % self.elem_per_row, column=i // self.elem_per_row * 2, sticky="nsew")
+            row.grid(row=i % self.elem_per_row, column=i // self.elem_per_row * 2, sticky="new")
             self.rows.append(row)
         for i in range(columns - 1):
             sep = Frame(self.main_frame, bg=self.fg, width=2)
@@ -492,7 +490,10 @@ class CustomScrollbar(Frame):
 
     def set(self, a, b):
         self.start, self.stop = float(a), float(b)
-        self.draw_thumb(self.start, self.stop)
+        try:
+            self.draw_thumb(self.start, self.stop)
+        except:
+            pass
 
     def draw_thumb(self, start, stop):
         self.update()
@@ -558,16 +559,6 @@ class Timer():
         log(nameBracks, "Total:", time.time() - self.startTime)
         if len(self.timeList) > 0:
             log(nameBracks, "Average:", sum(self.timeList) / len(self.timeList), "- Loops:", len(self.timeList))
-
-
-class POINT(Structure):
-    _fields_ = [("x", c_long), ("y", c_long)]
-
-
-def queryMousePosition():
-    pt = POINT()
-    windll.user32.GetCursorPos(byref(pt))
-    return pt.x, pt.y
 
 
 def new_iter(first, iter):

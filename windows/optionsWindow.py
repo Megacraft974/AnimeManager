@@ -25,16 +25,11 @@ class optionsWindow:
                 if self.getQB() == "OK":
                     database = self.getDatabase()
 
-                    torrents = database.sql(
-                        "SELECT torrent FROM anime WHERE id = ?", (id,))[0]
-                    if len(torrents) is not None:
-                        torrents = torrents[0]
-                    torrents = json.loads(
-                        torrents) if torrents is not None else []
-                    target = None
-
+                    torrents = database.get_metadata(id, "torrents")
                     if torrents == []:
                         return
+
+                    target = None
 
                     torrent_hashes = []
                     for t in torrents:
@@ -89,15 +84,6 @@ class optionsWindow:
                     for i in range(pathList.index(os.path.normpath(last_seen)) + 1):
                         epsList.menu.entryconfig(
                             i, foreground=self.colors['Green'])
-
-            def tag(id, tag):
-                self.database.set({'id': id, 'tag': tag}, table='tag')
-
-                for lbl in self.scrollable_frame.winfo_children():
-                    if lbl.winfo_class() == 'Label' and lbl.name == str(id):
-                        lbl.configure(fg=self.colors[self.tagcolors[tag]])
-                        break
-                self.reload(id, False)
 
             def like(id, b):
                 d = self.database(id=id, table='like')
@@ -155,6 +141,15 @@ class optionsWindow:
                         var,
                         id),
                     fentype="TEXT")
+
+            def tag(id, tag):
+                self.database.set({'id': id, 'tag': tag}, table='tag')
+
+                for lbl in self.scrollable_frame.winfo_children():
+                    if lbl.winfo_class() == 'Label' and lbl.name == str(id):
+                        lbl.configure(fg=self.colors[self.tagcolors[tag]])
+                        break
+                self.reload(id, False)
 
             def trailer(id):
                 data = self.database(id=id, table="anime")
@@ -675,12 +670,8 @@ class optionsWindow:
         if True:
             genresFrame = Frame(self.choice, bg=self.colors['Gray2'])
             genres = anime.genres
-            if genres is not None:
-                genres = json.loads(anime.genres)
-            else:
-                genres = []
 
-            all_genres = dict(self.database.sql("SELECT id, name FROM genres"))
+            all_genres = dict(self.database.sql("SELECT id, name FROM genresIndex"))
 
             for genre_id in genres:
                 txt = all_genres[genre_id]
@@ -950,8 +941,7 @@ class optionsWindow:
 
         if os.path.exists(path):
             anime = self.database(id=id, table="anime")
-            torrents = json.loads(
-                anime.torrent) if anime.torrent is not None else []
+            torrents = anime.torrents
 
             if self.getQB() == "OK":
                 hashes = [self.getTorrentHash(os.path.join(
@@ -972,10 +962,24 @@ class optionsWindow:
                 self.log('DISK_ERROR', "Error while removing folder", path)
                 raise
             else:
-                tag(id, "SEEN")
+                self.database.set({'id': id, 'tag': "SEEN"}, table='tag')
+
+                for lbl in self.scrollable_frame.winfo_children():
+                    if lbl.winfo_class() == 'Label' and lbl.name == str(id):
+                        lbl.configure(fg=self.colors[self.tagcolors["SEEN"]])
+                        break
+                self.reload(id, False)
 
                 self.log("DB_UPDATE", "Deleted all files and updated tag")
         else:
+            self.database.set({'id': id, 'tag': "SEEN"}, table='tag')
+
+            for lbl in self.scrollable_frame.winfo_children():
+                if lbl.winfo_class() == 'Label' and lbl.name == str(id):
+                    lbl.configure(fg=self.colors[self.tagcolors["SEEN"]])
+                    break
+            self.reload(id, False)
+
             self.log("DISK_ERROR", "Folder path doesn't exist:", path)
         self.reload(id, False)
 
@@ -1011,9 +1015,8 @@ class optionsWindow:
                         break
                     toDelete.append(p)
 
-            torrents = json.loads(
-                anime.torrent) if anime.torrent is not None else []
-
+            torrents = anime.torrents
+            
             if self.getQB() == "OK":
                 hashes = [self.getTorrentHash(os.path.join(
                     self.torrentPath, torrent)) for torrent in torrents]

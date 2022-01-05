@@ -165,10 +165,6 @@ def GetHandler(dbPath, manager):
 
             for c in content:
                 value = dict(zip(keys, c))
-                if value['title_synonyms'] is None:
-                    value['title_synonyms'] = []
-                else:
-                    value['title_synonyms'] = json.loads(value['title_synonyms'])
                 rep.append(value)
 
             return rep

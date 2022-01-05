@@ -61,9 +61,9 @@ class APIUtils(Getters):
             index = "indexList"
         elif table == "characters":
             index = "charactersIndex"
-        database = self.getDatabase()
-        api_id = self.database.sql(
-            "SELECT {} FROM {} WHERE id=?".format(self.apiKey, index), (id,))
+        with self.database.get_lock():
+            api_id = self.database.sql(
+                "SELECT {} FROM {} WHERE id=?".format(self.apiKey, index), (id,))
         if api_id == []:
             log("Key not found!", "SELECT {} FROM {} WHERE id={}".format(
                 self.apiKey, index, id))
@@ -72,25 +72,37 @@ class APIUtils(Getters):
         return api_id[0][0]
 
     def getGenres(self, genres):
-        # Genres must be an iterable of dicts each containing two fields: 'id' and 'name'
+        # Genres must be an iterable of dicts, each one containing two fields: 'id' and 'name'
         if len(genres) == 0:
             return []
         try:
             ids = {}
             for g in genres:
                 ids[g['id']] = g['name']
-            # ids = {g['id']: g['name'] for g in genres}
         except KeyError:
             log("KeyError while parsing genres:", genres, dir(genres[0]))
             raise
 
-        sql = ("SELECT id, {api} FROM genres WHERE {api} IN(" + ",".join("?" * len(ids)) + ");").format(api=self.apiKey)
-        data = self.database.sql(sql, ids.keys())
-        new = set(id for id in ids if id not in (g[1] for g in data))
-        if len(new) > 0:
-            self.database.executemany("INSERT INTO genres(kitsu_id,name) VALUES(?,?)", ids.items())
-            data = self.database.sql(sql, ids.keys())
-        return list(g[0] for g in data)
+        sql = ("SELECT * FROM genresIndex WHERE name IN(" + ",".join("?" * len(ids)) + ");").format(api_key=self.apiKey)
+        data = self.database.sql(sql, ids.values(), to_dict=True)
+        new = set()
+        update = set()
+        for g_id, g_name in ids.items():
+            matches = [m for m in data if m['name'] == g_name]
+            if matches:
+                match = matches[0]
+                if match[self.apiKey] is None:
+                    update.add((g_id, match['id']))
+            else:
+                new.add(g_id)
+
+        if new or update:
+            if new:
+                self.database.executemany("INSERT INTO genresIndex({},name) VALUES(?,?);".format(self.apiKey), ((id, ids[id]) for id in new))
+            if update:
+                self.database.executemany("UPDATE genresIndex SET {}=? WHERE id=?;".format(self.apiKey), update)
+            data = self.database.sql(sql, ids.keys(), to_dict=True)
+        return list(g['id'] for g in data)
 
     def saveRelations(self, id, api_key, relations):
         ids = []
@@ -100,7 +112,6 @@ class APIUtils(Getters):
         sql = "SELECT R.id, R.rel_id, I.id, I.{api_key} FROM related AS R LEFT JOIN indexList AS I ON R.rel_id = I.id \
                WHERE R.id = ? AND I.{api_key} IN(" + ",".join("?" * len(ids)) + ");"
         sql.format(self.apiKey)
-        print(sql)
         data = self.database.sql(sql, (id, rel_id))
 
 class EnhancedSession(requests.Session):
