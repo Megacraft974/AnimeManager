@@ -59,6 +59,8 @@
 #         print(url)
 #         getTracker(v.scheme,url,v.port,info_hash,size)
 
+from tkinter import *
+from thefuzz import fuzz, process as fuzz_process
 from getters import Getters
 import time
 from collections import defaultdict, deque
@@ -67,15 +69,13 @@ import re
 
 database = Getters.getDatabase()
 
-def size_format(size):
-    units = ("b", "Kb", "Mb", "Gb", "Tb")
-    u = 0
-    while u < len(units) - 1:
-        if size >= 1000:
-            size = size // 1000
-            u += 1
-        else:
-            break
-    return f'{size:,}'.replace(",", " ") + " " + units[u]
 
-print(size_format(500000))
+terms = "seraph"
+# print(fuzz.ratio(a, b), fuzz.partial_ratio(a, b), fuzz.token_sort_ratio(a, b), fuzz.token_set_ratio(a, b))
+# print(process.extractOne(b, (a,)))
+
+fen = Tk()
+fen.after(100, fen.destroy)
+fen.mainloop()
+
+print(dir(fen))

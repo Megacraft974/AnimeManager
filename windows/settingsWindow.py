@@ -117,7 +117,6 @@ class settingsWindow:
                     value = var.get()
                     if field == "ADDRESS":
                         if value == "":
-                            print("DEFAULT A")
                             value = 'http://' + \
                                 str(socket.gethostbyname(socket.gethostname())) + ":8080"
                             if entries is not None:
@@ -125,14 +124,12 @@ class settingsWindow:
                         self.setSettings({"torrentApiAddress": value})
                     elif field == "LOGIN":
                         if value == "":
-                            print("DEFAULT B")
                             value = 'admin'
                             if entries is not None:
                                 entries['login'].setvar(entries['address'].cget("textvariable"), value)
                         self.setSettings({"torrentApiLogin": value})
                     elif field == "PASSWORD":
                         if value == "":
-                            print("DEFAULT C")
                             value = ''.join(map(str, range(1, 7)))
                             if entries is not None:
                                 entries['password'].setvar(entries['address'].cget("textvariable"), value)
@@ -170,8 +167,6 @@ class settingsWindow:
             else:
                 self.settings.clear()
                 self.settings.focus()
-            # self.settings.titleLbl.configure(text="Settings", font=("Source Code Pro Medium",20),
-            #         bg= self.colors['Gray2'], fg= self.colors['Gray4'],)
 
         # Path update frame "iconPath","cache","path","torrentPath","dbPath"
         if True:
@@ -427,7 +422,8 @@ class settingsWindow:
                     (address,
                      "ADDRESS"),
                     (port,
-                     "PORT"))).grid(
+                     "PORT"))
+            ).grid(
                 row=2,
                 column=3,
                 sticky="nsew",
@@ -444,7 +440,7 @@ class settingsWindow:
         if True:
             torrentFrame = Frame(self.settings, bg=self.colors['Gray2'])
             entries = {}
-            auth = self.getQB()
+            auth = self.getQB(update=False)
             if auth == "ADDRESS":
                 colA, colC = 'Red', 'White'
             elif auth == "CREDENTIALS":

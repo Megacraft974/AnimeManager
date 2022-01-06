@@ -132,6 +132,7 @@ class AnimeAPI(Getters):
 # nautiljon.com
 # anisearch.com
 
+
 if __name__ == "__main__":
     appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
     dbPath = os.path.join(appdata, "animeData.db")

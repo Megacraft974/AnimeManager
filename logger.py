@@ -12,7 +12,7 @@ class Logger:
         # Not necessary if used as class slave
 
         appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
-        self.logsPath = os.path.join(appdata, "logs")
+        self.logsPath = os.path.join(appdata, "logs")  # TODO
         self.maxLogsSize = 50000
         self.logs = ['DB_ERROR', 'DB_UPDATE', 'MAIN_STATE',
                      'NETWORK', 'SERVER', 'SETTINGS', 'TIME']
@@ -29,6 +29,11 @@ class Logger:
     def initLogs(self):
         if not hasattr(self, "log_mode"):
             self.log_mode = "DEFAULT"
+
+        if "log_file" in globals().keys():
+            self.logFile = globals()['log_file']
+            return
+
         if not os.path.exists(self.logsPath):
             os.mkdir(self.logsPath)
 
@@ -41,14 +46,18 @@ class Logger:
                 os.remove(os.path.join(self.logsPath, logsList[0]))
             except FileNotFoundError:
                 pass
-            logsList = os.listdir(self.logsPath)
-            size = sum(os.path.getsize(os.path.join(self.logsPath, f))
-                       for f in logsList)
+            except PermissionError:
+                pass
+            else:
+                logsList = os.listdir(self.logsPath)
+                size = sum(os.path.getsize(os.path.join(self.logsPath, f))
+                           for f in logsList)
 
         self.logFile = os.path.normpath(
             os.path.join(
                 self.logsPath, "log_{}.txt".format(
                     datetime.today().strftime("%Y-%m-%dT%H.%M.%S"))))
+        globals()['log_file'] = self.logFile
         with open(self.logFile, "w") as f:
             f.write("_" * 10 + date.today().strftime("%d/%m/%y") + "_" * 10 + "\n")
 

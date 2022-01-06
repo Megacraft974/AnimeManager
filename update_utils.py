@@ -125,7 +125,7 @@ class UpdateUtils:
             keys = database.keys(table="anime")
             c = 0
 
-            anime_db = database.sql('SELECT * FROM anime WHERE status="UPCOMING" AND date_from is not null ORDER BY date_from ASC;')  #, iterate=True)
+            anime_db = database.sql('SELECT * FROM anime WHERE status="UPCOMING" AND date_from is not null ORDER BY date_from ASC;')  # , iterate=True)
             for data in anime_db:
                 anime = Anime(keys=keys, values=data)
                 delta = date.today() - date.fromisoformat(anime.date_from)

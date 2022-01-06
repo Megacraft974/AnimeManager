@@ -16,9 +16,12 @@ class initWindow:
                 self.menuOptions[e]['command']()
 
             def filter(e):
-                self.animeList = None
                 self.searchTerms.set("")
-                self.createList(self.filterOptions[e]['filter'])
+                filter_name = self.filterOptions[e]['filter']
+                if filter_name == "SEASON":
+                    self.seasonSelector()
+                else:
+                    self.animeList.from_filter(filter_name)
 
             def bringToTop(e):
                 try:
@@ -215,12 +218,16 @@ class initWindow:
                     column=4,
                     padx=10)
 
-            self.scrollable_frame = utils.ScrollableFrame(
-                dbFrame, scrollbar=True, bg=self.colors['Gray2'], width=900)
-            self.scrollable_frame.pack(fill="both", expand=True)
+            self.animeList = utils.AnimeListFrame(
+                dbFrame,
+                self,
+                scrollbar=True,
+                bg=self.colors['Gray2'],
+                width=900)
+            self.animeList.pack(fill="both", expand=True)
 
             Label(
-                self.scrollable_frame,
+                self.animeList,
                 text="Loading...",
                 bg=self.colors['Gray2'],
                 fg=self.colors['Gray4'],
@@ -234,15 +241,14 @@ class initWindow:
 
             dbFrame.pack(fill="both", expand=True)
             for i in range(4):
-                self.scrollable_frame.grid_columnconfigure(i, weight=1)
+                self.animeList.grid_columnconfigure(i, weight=1)
 
         self.fen.update()
 
         self.log('TIME', "Window created:".ljust(25),
                  round(time.time() - self.start, 2), "sec")
 
-        self.animeList = None
-        self.createList()
+        self.animeList.from_filter("DEFAULT")
         checkServer()
 
         self.log('TIME', "Ready:".ljust(25), round(

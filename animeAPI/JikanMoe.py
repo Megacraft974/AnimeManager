@@ -1,4 +1,4 @@
-from APIUtils import APIUtils, EnhancedSession, Anime, Character, log
+from APIUtils import APIUtils, EnhancedSession, Anime, Character
 from jikanpy import Jikan, exceptions as jikan_exceptions
 from datetime import date
 import json
@@ -69,10 +69,10 @@ class JikanMoeWrapper(APIUtils):
         try:
             rep = self.jikan.search('anime', search, parameters={'limit': limit})
         except requests.exceptions.ReadTimeout:
-            log("Jikan.moe timed out!")
+            self.log("Jikan.moe timed out!")
             return
         except jikan_exceptions.APIException:
-            log("Jikan.moe had a parser exception!")
+            self.log("Jikan.moe had a parser exception!")
             return
         for a in rep['results']:
             data = self._convertAnime(a)

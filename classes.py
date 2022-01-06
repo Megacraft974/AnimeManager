@@ -67,7 +67,7 @@ class Item(dict):
             if k not in self.keys() or self[k] is None:
                 self[k] = v
             elif v is not None:
-                if type(v) != type(self[k]):
+                if not isinstance(v, type(self[k])):
                     raise TypeError("On key {} - types do not match: {}:{} / {}:{}".format(k, v, type(v), self[k], type(self[k])))
                 if hasattr(v, "__len__"):
                     if len(v) > len(self[k]):
@@ -248,7 +248,6 @@ class ItemList(queue.Queue):
             log("Error on ItemList iterator: Timed out")
             return default  # Timed out
 
-
     def empty(self):
         return len(self.sources) == 0 and len(self.list) == 0
 
@@ -276,6 +275,7 @@ class CharacterList(ItemList):
 
 class DefaultDict(dict):
     """A dict with a default value instead of raising a KeyError"""
+
     def __init__(self, default, *args, **kwargs):
         self.default = default
         super().__init__(*args, **kwargs)
@@ -290,6 +290,7 @@ class DefaultDict(dict):
 
 class NoneDict(DefaultDict):
     """A dict, which return "NONE" instead of raising a KeyError and allow to initialize with keys and values as kwargs"""
+
     def __init__(self, *args, **kwargs):
         if len(args) == 0 and "keys" in kwargs.keys() and "values" in kwargs.keys():
             keys, values = kwargs["keys"], kwargs["values"]
@@ -301,6 +302,7 @@ class NoneDict(DefaultDict):
 
 class RegroupList(list):
     """A list of dict, wich regroup values based on a PK, creating a sub-list if values are different"""
+
     def __init__(self, pk, merge_keys, *args):
         super().__init__()
         self.pk = pk
@@ -319,7 +321,7 @@ class RegroupList(list):
                     for k, v in sub.items():
                         if k in t:
                             if v != t[k]:
-                                if type(t[k]) == list:
+                                if isinstance(t[k], list):
                                     t[k].append(v)
                                 else:
                                     t[k] = [t[k], v]
@@ -361,7 +363,7 @@ class SortedList(list):
 
     def extend(self, e):
         for sub in e:
-            super().append(sub)
+            self.append(sub)
         return self
 
     def __contains__(self, e):
@@ -526,7 +528,7 @@ class ReturnThread(threading.Thread):
     def run(self):
         try:
             out = self.target(*self.args, **self.kwargs)
-        except:
+        except BaseException:
             self.output.put(None)
         else:
             self.output.put(out)
@@ -543,15 +545,16 @@ class ReturnThread(threading.Thread):
 
 class LockWrapper():
     """A lock wrapper, useful for logging or callbacks"""
+
     def __init__(self, lock):
         self.lock = lock
 
     def __enter__(self, *args, **kwargs):
-        print("Acquired lock")
+        # print("Acquired lock")
         return self.lock.__enter__(*args, **kwargs)
 
     def __exit__(self, *args, **kwargs):
-        print("Released lock")
+        # print("Released lock")
         return self.lock.__exit__(*args, **kwargs)
 
     def __getattr__(self, *args, **kwargs):

@@ -27,6 +27,7 @@ try:
     from PIL import Image, ImageTk
     import qbittorrentapi.exceptions
     import requests
+    from thefuzz import fuzz
 
     import sys
     if getattr(sys, 'frozen', None):
@@ -34,7 +35,7 @@ try:
         os.environ['REQUESTS_CA_BUNDLE'] = os.path.join(basedir, 'certifi', 'cacert.pem')  # Required for requests and certifi
 except ModuleNotFoundError as e:
     print("Installing modules!", e)
-    subprocess.run("pip install qbittorrent-api lxml jikanpy jsonapi_client requests Pillow python-mpv pytube bencoding bs4")
+    subprocess.run("pip install qbittorrent-api lxml jikanpy jsonapi_client requests Pillow python-mpv pytube bencoding bs4 thefuzz")
     time.sleep(20)
     import sys
     # os.execv(sys.argv[0], sys.argv)
@@ -61,9 +62,10 @@ except ModuleNotFoundError as e:
     sys.exit()
 
 
-# TODO - Memory cache of indexlist?
 # TODO - Load new images on downloading error
 # TODO - Add filter for torrent list (seeds / name)
+# TODO - Merge 'like' and 'tag' tables with 'anime'
+# TODO - Check if loadMore is working properly
 # TODO - Allow window resizing
 # TODO - Online search raise database is locked error
 # TODO - Some image aren't loading with online search (sk8)
@@ -99,7 +101,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
         self.stopSearch = False
         self.closing = False
         self.maxLogsSize = 50000  # In bytes
-        self.animeListReady = False
         self.blank_image = None
 
         self.qb = None
@@ -163,33 +164,17 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
         terms = None
         loop = True
         terms = self.searchTerms.get()
-        if force_search:
-            self.stopSearch = False
-            self.animeListReady = True
-            self.root.update()
-            self.animeList = self.searchAnime(terms)
-            self.loading()
-            self.createList(None)
-        elif len(terms) > 2:
-            animeList = self.searchDb(terms)
-            if animeList is not False:
-                self.animeListReady = True
-                self.root.update()
-                self.animeList = animeList
-                self.createList(None)
+        if len(terms) > 2 or force_search:
+            if not force_search:
+                animeList = self.searchDb(terms)
+            if not force_search and animeList is not False:
+                self.animeList.set(animeList)
             else:
                 self.stopSearch = False
-                self.animeList = self.searchAnime(terms)
                 self.loading()
-                self.animeListReady = True
-                self.root.update()
-                self.createList(None)
-        elif self.animeList is not None:
-            self.stopSearch = True
-            self.animeListReady = True
-            self.root.update()
-            self.animeList = None
-            self.createList()
+                self.animeList.set(self.searchAnime(terms))
+        else:
+            self.animeList.from_filter("DEFAULT")
 
         if self.root is None:
             return
@@ -198,26 +183,41 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
     def searchDb(self, terms):
         def enumerator(terms):
             sql = """
-                SELECT anime.*,tag.tag,like.like
+                SELECT value, anime.*,tag.tag,like.like
                 FROM title_synonyms
                 JOIN anime using(id)
                 LEFT JOIN tag using(id)
                 LEFT JOIN like using(id)
-                WHERE title_synonyms.value LIKE '%{}%'
                 GROUP BY anime.id
                 ORDER BY anime.date_from DESC;
-            """.format(terms)
+            """
+            match_threshold = 70
+            partial_threshold = 50
             keys = list(self.database.keys(table="anime")) + ['tag', 'like']
-            anime_list = AnimeList(Anime(keys=keys, values=data) for data in self.database.sql(sql))
-            return anime_list
-
+            match = SortedList(keys=[(lambda e: e[1], True)])
+            partial = []
+            for data in self.database.sql(sql):
+                ratio = fuzz.WRatio(terms, data[0])
+                if ratio >= match_threshold:
+                    match.append((data[1:], ratio))
+                elif ratio >= partial_threshold:
+                    partial.append((data[1:], ratio))
+            if len(match) == 0:
+                yield False
+                return
+            else:
+                print(terms, match[0][0][1])
+                yield True
+            for data in match + partial:
+                yield Anime(keys=keys, values=data[0])
         terms = "".join([c for c in terms if c.isalnum()]).lower()
-        print("T", terms)
         # return self.searchNgrams(terms)
-        if bool(
-            self.database.sql(
-                "SELECT EXISTS(SELECT 1 FROM title_synonyms WHERE title_synonyms.value LIKE '%{}%');".format(terms))[0][0]):
-            return enumerator(terms)
+
+        enum = enumerator(terms)
+        if next(enum):
+            anime_list = AnimeList(enum)
+            print(terms, anime_list.list[0].title)
+            return anime_list
         else:
             return False
 
@@ -234,8 +234,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
             matches = defaultdict(lambda: 0)
             for id, value in data:
                 # for ngram in ngrams(value):
-                    if ngram in t_ngrams:
-                        matches[id] += 1
+                if ngram in t_ngrams:
+                    matches[id] += 1
 
             sql = 'SELECT * FROM anime WHERE id IN(' + ','.join("?" * len(matches)) + ');'
             return AnimeList(
@@ -308,253 +308,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
             # timer.stop()
 
         timer.stats()
-
-    # ___Main List generation___
-    def createList(self, criteria="DEFAULT", listrange=None, add_to_end=False):
-        def wait_for_next(animelist, default):
-            if animelist is None:
-                return None
-            elif isinstance(animelist, AnimeList):
-                empty_test = "not animelist.is_ready()"
-            else:
-                que = queue.Queue()
-                t = threading.Thread(
-                    target=lambda que, animelist, default: que.put(
-                        next(animelist, default)),
-                    args=(que, animelist, default), daemon=True)
-                t.start()
-                animelist = que
-                empty_test = "que.empty()"
-            while eval(empty_test):
-                try:
-                    self.root.update()
-                except AttributeError:
-                    pass
-                if self.closing:
-                    return None
-                time.sleep(0.01)
-            data = animelist.get()
-            return data
-
-        if criteria == "DEFAULT" or self.animeList is None:
-            if criteria == "DEFAULT":
-                filter = "anime.status != 'UPCOMING'"
-                if self.hideRated:
-                    filter += " AND (rating NOT IN('R+','Rx') OR rating IS null)"
-                sort = "DESC"
-                order = "anime.date_from"
-            else:
-                # \nAND rating NOT IN('R+','Rx')"
-                commonFilter = "\nAND anime.id NOT IN(SELECT anime.id FROM anime WHERE status = 'UPCOMING')"
-                order = "anime.date_from"
-                sort = "DESC"
-                if self.hideRated:
-                    commonFilter += " \nAND (rating NOT IN('R+','Rx') OR rating IS null)"
-
-                if criteria == 'LIKED':
-                    filter = "like.like = 1" + commonFilter
-
-                elif criteria == 'NONE':
-                    filter = "tag.tag = 'NONE' OR anime.id NOT IN(SELECT id FROM tag)" + commonFilter
-
-                elif criteria in ['UPCOMING', 'FINISHED', 'AIRING']:
-                    if criteria == 'UPCOMING':
-                        commonFilter = "\nAND (rating NOT IN('R+','Rx') OR rating IS null)" if self.hideRated else ""
-                    if criteria == "UPCOMING":
-                        sort = "ASC"
-                    filter = "status = '{}'".format(criteria) + commonFilter
-
-                elif criteria == 'RATED':
-                    filter = "rating IN('R+','Rx')\nAND anime.id NOT IN(SELECT anime.id FROM anime WHERE status = 'UPCOMING')"
-
-                elif criteria == "RANDOM":
-                    order = "RANDOM()"
-                    filter = "anime.picture is not null"
-
-                elif criteria == "SEASON":
-                    return self.seasonSelector()
-                else:
-                    if criteria == 'WATCHING':
-                        commonFilter = "\nAND anime.id NOT IN(SELECT anime.id FROM anime WHERE status = 'UPCOMING')"
-                        order = """
-                            CASE WHEN anime.status = "AIRING" AND broadcast IS NOT NULL
-                            THEN (({}-SUBSTR(broadcast,1,1)+6)%7*24*60
-                                +({}-SUBSTR(broadcast,3,2))*60
-                                +({}-SUBSTR(broadcast,6,2))
-                            +86400)%86400 ELSE "9" END ASC,
-                            date_from
-                        """
-                        sort_date = datetime.today() - timedelta(hours=5)
-                        order = order.format(
-                            sort_date.weekday(), sort_date.hour, sort_date.minute)
-                        # Depend on timezone - TODO
-                    filter = "tag.tag = '{}'".format(criteria) + commonFilter
-
-            self.animeList = self.database.filter(
-                sort=sort,
-                range=listrange,
-                order=order,
-                filter=filter)
-
-        self.animeListReady = True  # Interrupt previous list generation
-        if self.root:
-            self.root.update()
-
-        if listrange is None:
-            listrange = (0, 50)
-            if not add_to_end:
-                if self.root:
-                    self.scrollable_frame.canvas.yview_moveto(0)
-
-        if not add_to_end:
-            for child in self.scrollable_frame.winfo_children():
-                child.destroy()
-
-        # Ensure the Load More button is on the last column
-        listrange = (
-            listrange[0],
-            listrange[1] // self.animePerRow * self.animePerRow - 1)
-
-        que = queue.Queue()
-        self.getElemImages(que)
-
-        self.animeListReady = False
-        self.list_timer = utils.Timer("list")
-        for i in range(listrange[0], listrange[1]):
-            try:
-                data = wait_for_next(self.animeList, None)
-            except TypeError:
-                if isinstance(self.animeList, None):
-                    self.animeList = []
-                    break
-            else:
-                if self.animeListReady or self.closing:
-                    que.put("STOP")
-                    return
-                if data is None:
-                    if i == listrange[0]:
-                        self.log("MAIN_STATE", "No results!")
-                        Label(
-                            self.scrollable_frame,
-                            text="No results",
-                            font=(
-                                "Source Code Pro Medium",
-                                20),
-                            bg=self.colors['Gray2'],
-                            fg=self.colors['Gray4'],
-                        ).grid(
-                            columnspan=self.animePerRow,
-                            row=0,
-                            pady=50)
-                    break
-                self.createElem(i, data, que)
-
-            if i % self.animePerRow == 0:
-                if self.root is None:
-                    que.put("STOP")
-                    return
-                self.fen.update()
-
-        self.list_timer.stats()
-        que.put("STOP")
-
-        try:
-            e, self.animeList = utils.peek(self.animeList)
-        except TypeError:
-            pass
-        else:
-            if e is not None:
-                self.loadMoreButton(i + 1, listrange, criteria)
-
-        self.scrollable_frame.update()
-        try:
-            self.fen.update()
-        except BaseException:
-            pass
-
-    def createElem(self, index, anime, queue):
-        if self.root is None:
-            return
-        self.list_timer.start()
-        if self.blank_image is None:
-            self.blank_image = self.getImage(None, (225, 310))
-        title = anime.title
-        if title is None:
-            self.list_timer.stop()
-            return
-        if len(title) > 35:
-            title = title[:35] + "..."
-
-        img_can = Canvas(self.scrollable_frame, width=225, height=310, highlightthickness=0, bg=self.colors['Gray3'])
-        img_can.bind("<Button-1>", lambda e,
-                     id=anime.id: self.optionsWindow(id))
-        img_can.bind("<Button-3>", lambda e, id=anime.id: self.view(id))
-        img_can.grid(column=index % self.animePerRow,
-                     row=index // self.animePerRow * 2)
-
-        img_can.create_image(0, 0, image=self.blank_image, anchor='nw')
-        img_can.image = self.blank_image
-
-        data = self.database(id=anime.id, table='tag')
-        if 'tag' in anime:
-            tag = anime.tag
-            if tag is None:
-                tag = "NONE"
-        else:
-            tag = data['tag']
-        if 'like' in anime:
-            like = anime.like
-        else:
-            like = data['like']
-        if like == 1:
-            title += " ❤"
-        lbl = Label(self.scrollable_frame,
-                    text=title,
-                    bg=self.colors['Gray2'],
-                    fg=self.colors[self.tagcolors[tag]],
-                    font=("Source Code Pro Medium", 13),
-                    bd=0,
-                    wraplength=220)
-        lbl.grid(column=index % self.animePerRow,
-                 row=(index // self.animePerRow * 2) + 1)
-        lbl.name = str(anime.id)
-
-        self.scrollable_frame.update()
-
-        filename = os.path.join(self.cache, str(anime.id) + ".jpg")
-        url = anime.picture
-        queue.put((filename, url, img_can))
-        self.list_timer.stop()
-
-    def loadMoreButton(self, index, listrange, filter):
-        img_can = Canvas(self.scrollable_frame, width=225, height=310, highlightthickness=0, bg=self.colors['Gray2'])
-        img_can.grid(column=index % self.animePerRow,
-                     row=index // self.animePerRow * 2)
-        img_can.bind("<Button-1>", lambda e, a=listrange,
-                     b=filter: self.loadMore(a, b))
-
-        size = 75
-        x, y = int(225 / 2 - size / 2), int(310 / 2 - size / 2)
-        pos = (x, y + size / 2, x + size, y + size / 2, x + size / 2,
-               y + size / 2, x + size / 2, y, x + size / 2, y + size)
-        img_can.create_line(*pos, capstyle='round',
-                            fill=self.colors['Gray4'], width=15)
-
-        lbl = Label(self.scrollable_frame, text="Load more...",
-                    bg=self.colors['Gray2'], fg=self.colors['Gray4'], font=(
-                        "Source Code Pro Medium", 13),
-                    bd=0, wraplength=220)
-        lbl.grid(column=index % self.animePerRow,
-                 row=(index // self.animePerRow * 2) + 1)
-        lbl.name = str(-1)
-
-    def loadMore(self, listrange, filter):
-        listrange = (listrange[1], (listrange[1] + (listrange[1] - listrange[0])) // self.animePerRow * self.animePerRow - 1)
-        # posy = self.scrollable_frame.canvas.canvasy(0)
-        self.animeList = None
-        self.createList(filter, listrange, add_to_end=True)
-        # self.scrollable_frame.canvas.yview_moveto(posy / self.scrollable_frame.canvas.bbox('all')[3])
-        return
 
     # ___Clean up___
     def clearLogs(self):
@@ -809,10 +562,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                         break
         # threading.Thread(target=handler, args=(year, season), daemon=True).start()
 
-        self.animeList = self.api.season(year, season)
-        self.animeListReady = True
-        self.root.update()
-        self.createList(None, (0, 1000))
+        self.animeList.set(self.api.season(year, season))
 
     def getCharactersData(self, id):
         database = self.getDatabase()

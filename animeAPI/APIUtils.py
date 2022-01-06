@@ -8,15 +8,16 @@ sys.path.append(os.path.abspath("../"))
 try:
     from dbManager import db
     from classes import Anime, Character
-    from logger import log
+    from logger import Logger
     from getters import Getters
 except ModuleNotFoundError:
-    log("DB module not found!")
+    print("DB module not found!")
     db = None
 
 
-class APIUtils(Getters):
+class APIUtils(Getters, Logger):
     def __init__(self, dbPath):
+        super().__init__(logs="ALL")
         self.states = {
             'airing': 'AIRING',
             'Currently Airing': 'AIRING',
@@ -113,6 +114,7 @@ class APIUtils(Getters):
                WHERE R.id = ? AND I.{api_key} IN(" + ",".join("?" * len(ids)) + ");"
         sql.format(self.apiKey)
         data = self.database.sql(sql, (id, rel_id))
+
 
 class EnhancedSession(requests.Session):
     def __init__(self, timeout=(3.05, 4)):

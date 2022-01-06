@@ -49,19 +49,20 @@ class Getters:
                 globals()['database_threads'][t] = database
                 return database
 
-    def getQB(self, use_thread=False, reconnect=False):
+    def getQB(self, use_thread=False, reconnect=False, update=True):
         if use_thread:
             threading.Thread(target=self.getQB, args=(False, reconnect), daemon=True).start()
             return
         try:
-            if reconnect and self.qb is not None:
+            if update and reconnect and self.qb is not None:
                 self.qb.auth_log_out()
                 self.log("MAIN_STATE",
                          "Logged off from qBittorrent client")
             if self.qb is None or not self.qb.is_logged_in:
-                self.qb = Client(self.torrentApiAddress)
-                self.qb.auth_log_in(self.torrentApiLogin,
-                                    self.torrentApiPassword)
+                if update:
+                    self.qb = Client(self.torrentApiAddress, REQUESTS_ARGS={'timeout': 2})
+                    self.qb.auth_log_in(self.torrentApiLogin,
+                                        self.torrentApiPassword)
                 if not self.qb.is_logged_in:
                     self.log(
                         'MAIN_STATE',
@@ -69,7 +70,8 @@ class Getters:
                     self.qb = None
                     state = "CREDENTIALS"
                 else:
-                    self.qb.app_set_preferences(self.qb_settings)
+                    if update:
+                        self.qb.app_set_preferences(self.qb_settings)
                     self.log(
                         'MAIN_STATE',
                         'Qbittorrent version:',
@@ -201,7 +203,7 @@ class Getters:
 
             try:
                 f_id = int(f.rsplit(" ", 1)[1])
-            except:
+            except BaseException:
                 pass
             else:
                 if f_id == id:

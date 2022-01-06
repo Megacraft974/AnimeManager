@@ -105,7 +105,7 @@ class optionsWindow:
                 b.image = image
                 b.update()
 
-                for lbl in self.scrollable_frame.winfo_children():
+                for lbl in self.animeList.winfo_children():
                     if lbl.winfo_class() == 'Label' and lbl.name == str(id):
                         text = lbl.cget("text").replace(" ❤", "")
                         if not liked:
@@ -145,7 +145,7 @@ class optionsWindow:
             def tag(id, tag):
                 self.database.set({'id': id, 'tag': tag}, table='tag')
 
-                for lbl in self.scrollable_frame.winfo_children():
+                for lbl in self.animeList.winfo_children():
                     if lbl.winfo_class() == 'Label' and lbl.name == str(id):
                         lbl.configure(fg=self.colors[self.tagcolors[tag]])
                         break
@@ -365,7 +365,8 @@ class optionsWindow:
                     var,
                     *titles,
                     command=lambda e, var=var:
-                        watch(e, eps, var)
+                        watch(e, eps, var),
+                    scrollbar=True
                 )
                 epsList.configure(
                     state=state,
@@ -932,8 +933,8 @@ class optionsWindow:
                          "Some files haven't been removed from folder", path)
             try:
                 os.rmdir(path)
-            except BaseException:
-                self.log("DISK_ERROR", "Couldn't delete folder", path)
+            except BaseException as e:
+                self.log("DISK_ERROR", "Couldn't delete folder", path, e)
         folder = self.getFolder(id)
         path = os.path.join(
             self.animePath,
@@ -964,7 +965,7 @@ class optionsWindow:
             else:
                 self.database.set({'id': id, 'tag': "SEEN"}, table='tag')
 
-                for lbl in self.scrollable_frame.winfo_children():
+                for lbl in self.animeList.winfo_children():
                     if lbl.winfo_class() == 'Label' and lbl.name == str(id):
                         lbl.configure(fg=self.colors[self.tagcolors["SEEN"]])
                         break
@@ -974,7 +975,7 @@ class optionsWindow:
         else:
             self.database.set({'id': id, 'tag': "SEEN"}, table='tag')
 
-            for lbl in self.scrollable_frame.winfo_children():
+            for lbl in self.animeList.winfo_children():
                 if lbl.winfo_class() == 'Label' and lbl.name == str(id):
                     lbl.configure(fg=self.colors[self.tagcolors["SEEN"]])
                     break
@@ -984,13 +985,9 @@ class optionsWindow:
         self.reload(id, False)
 
     def delete(self, id):
-        self.log('DB_UPDATE', "Deleted", self.database(
-            id=id, table="anime")['title'])
-        for anime in self.animeList:
-            if anime.id == id:
-                self.animeList.remove(anime)
-        self.database.remove("id", id=id, table="anime")
-        self.createList()
+        self.log('DB_UPDATE', "Deleted", self.database(id=id, table="anime")['title'])
+        self.animeList.remove(id=id)
+        self.database.remove(None, id=id, table="anime")
         self.choice.exit()
 
     def deleteSeenEpisodes(self, id):
@@ -1016,7 +1013,7 @@ class optionsWindow:
                     toDelete.append(p)
 
             torrents = anime.torrents
-            
+
             if self.getQB() == "OK":
                 hashes = [self.getTorrentHash(os.path.join(
                     self.torrentPath, torrent)) for torrent in torrents]

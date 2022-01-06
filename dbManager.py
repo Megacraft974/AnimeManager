@@ -27,6 +27,7 @@ class db():
         table = "anime"
         self.alltable_keys = {}
         self.log_commands = False
+        self.last_op = ""
 
     def createNewDb(self):
         open(self.path, "w")
@@ -215,9 +216,10 @@ class db():
                     sql = "SELECT id FROM {} WHERE {}=?;".format(index, apiKey)
                     ids = self.sql(sql, (apiId,))
                     return ids[0][0]
-                self.save()
-                ids = self.sql(sql, (apiId,))
-                return ids[0][0]
+                else:
+                    self.save()
+                    ids = self.sql(sql, (apiId,))
+                    return ids[0][0]
 
     def update(self, key, data, id, table, save=True):
         sql = "UPDATE " + table + " SET {} = ? WHERE id = ?".format(key)
@@ -240,9 +242,11 @@ class db():
                 if self.log_commands:
                     log(sql, *args)
                 self.cur.execute(sql, *args)
+                if "INSERT" in sql or "UPDATE" in sql:
+                    self.last_op = sql
         except sqlite3.OperationalError as e:
             if e.args == ('database is locked',):
-                log("[ERROR] - Database is locked! - On execute({}{}{})".format(sql, ", " if len(args) > 0 else "", ", ".join(map(str, args))))
+                log("[ERROR] - Database is locked! - {} - On execute({}{}{})".format(self.last_op, sql, ", " if len(args) > 0 else "", ", ".join(map(str, args))))
                 raise
             else:
                 log(e, sql, args)
@@ -532,7 +536,7 @@ class thread_safe_db(Logger):
     def get_lock(self):
         try:
             return self.db.remote_lock
-        except:
+        except BaseException:
             log("[ERROR] - No lock found!", self.db, dir(self.db))
             raise
 
