@@ -1,3 +1,4 @@
+import time
 from tkinter import *
 
 import utils
@@ -7,14 +8,27 @@ class ddlFileListWindow:
     def ddlFileListWindow(self, data, id):
         # Function
         def startDownload(labels, url, id):
-            self.downloadFile(id, url=url)
+            out = self.downloadFile(id, url=url)
             for label in labels:
                 try:
-                    label.configure(fg=self.colors['Blue'])
+                    label.configure(fg=self.colors['Gray4'])
                 except BaseException:
                     pass
             table.update()
-            self.fileChooser.update()
+            while out.empty():
+                try:
+                    self.fileChooser.update()
+                except:
+                    return
+                else:
+                    time.sleep(0.01)
+            value = out.get()
+            color = 'Blue' if value is True else 'Red'
+            for label in labels:
+                try:
+                    label.configure(fg=self.colors[color])
+                except BaseException:
+                    pass
 
         # Window init - Fancy corners - Main frame - Events
         if True:

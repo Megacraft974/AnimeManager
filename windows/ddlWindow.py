@@ -8,29 +8,31 @@ import utils
 
 
 class ddlWindow:
-    def ddlWindow(self, id):
+    def ddlWindow(self, id, fetcher=None, parent=None):
         # Functions
         if True:
             def updateTable(fetcher, table):
                 def handler(fetcher, que):
-                    try:
-                        titles = next(fetcher)
-                    except StopIteration:
-                        que.put("STOP")
-                    else:
-                        que.put(titles)
+                    while True:
+                        try:
+                            titles = next(fetcher)
+                        except StopIteration:
+                            que.put("STOP")
+                            break
+                        else:
+                            que.put(titles)
 
                 que = queue.Queue()
                 is_empty = True
-                while True:
-                    threading.Thread(target=handler, args=(fetcher, que), daemon=True).start()
+                t = threading.Thread(target=handler, args=(fetcher, que), daemon=True)
+                t.start()
+                while t.is_alive() or not que.empty():
                     while que.empty():
-                        for i in range(int(2 / 0.01)):
-                            try:
-                                self.root.update()
-                            except AttributeError:
-                                pass
-                            time.sleep(0.01)
+                        try:
+                            self.root.update()
+                        except AttributeError:
+                            pass
+                        time.sleep(0.01)
 
                     titles = que.get()
                     if titles == "STOP":
@@ -64,7 +66,7 @@ class ddlWindow:
                     bg = (self.colors['Gray2'], self.colors['Gray3'])[i % 2]
                     if publisher is None:
                         publisher = 'None'
-                    if not self.publisherChooser.winfo_exists():
+                    if self.closing or not self.publisherChooser.winfo_exists():
                         return
                     Button(
                         table,
@@ -96,14 +98,17 @@ class ddlWindow:
                     pass
 
                 table.update()
+                self.publisherChooser.update()
 
         # Window init - Fancy corners - Main frame - Events
         if True:
             size = (self.publisherDDLWindowMinWidth,
                     self.publisherDDLWindowMinHeight)
             if self.publisherChooser is None or not self.publisherChooser.winfo_exists():
+                if parent is None:
+                    parent = self.choice
                 self.publisherChooser = utils.RoundTopLevel(
-                    self.choice,
+                    parent,
                     title="Loading...",
                     minsize=size,
                     bg=self.colors['Gray3'],
@@ -123,12 +128,13 @@ class ddlWindow:
             table.grid_columnconfigure(0, weight=1)
             table.grid()
 
-            self.publisherChooser.update()
-            if not self.publisherChooser.winfo_exists():
+            if self.closing or not self.publisherChooser.winfo_exists():
                 return
+            self.publisherChooser.update()
 
         # Torrent publisher list
         if True:
-            self.log("FILE_SEARCH", "Looking files for id:", id)
-            fetcher = self.searchTorrents(id)
+            if fetcher is None:
+                self.log("FILE_SEARCH", "Looking files for id:", id)
+                fetcher = self.searchTorrents(id)
             updateTable(fetcher, table)

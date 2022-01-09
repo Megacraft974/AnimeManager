@@ -222,7 +222,10 @@ class initWindow:
                 dbFrame,
                 self,
                 scrollbar=True,
+                fg=self.colors['Gray3'],
                 bg=self.colors['Gray2'],
+                thickness=15,
+                padding=4,
                 width=900)
             self.animeList.pack(fill="both", expand=True)
 

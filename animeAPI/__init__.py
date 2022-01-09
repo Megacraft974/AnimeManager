@@ -64,10 +64,10 @@ class AnimeAPI(Getters):
 
             try:
                 r = f(*args, **kwargs)
-            except requests.exceptions.ConnectionError:
-                log("Error on API - handler: No internet connection!")
-            except requests.exceptions.ReadTimeout:
-                log("Error on API - handler: Timed out!")
+            except requests.exceptions.ConnectionError as e:
+                log("Error on API - handler: No internet connection! -", e)
+            except requests.exceptions.ReadTimeout as e:
+                log("Error on API - handler: Timed out! -", e)
             except Exception as e:
                 log(
                     "Error on API - handler:",

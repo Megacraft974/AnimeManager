@@ -45,12 +45,3 @@ class Parser:
                             yield out
                 except Exception as e:
                     print("Anirena - error:", e)
-
-
-if __name__ == "__main__":
-    p = Parser()
-
-    r = p.search("meikyuu")
-    for m in r:
-        print(m)
-        # pass

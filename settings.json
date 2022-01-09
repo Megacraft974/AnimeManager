@@ -54,7 +54,7 @@
     },
     "anime": {
         "animePerRow": 4,
-        "animePerSearch": 50,
+        "animePerPage": 50,
         "apiHost": "kitsu.io",
         "hideRated": true,
         "maxTimeout": 30,

@@ -14,7 +14,6 @@ class Parser:
         tree = None
         url = "https://nyaa.si/?page=rss&q={}&c=1_0&f=0".format(searchterms)
         try:
-            # print(url)
             r = requests.get(url, timeout=10)
         except requests.exceptions.ConnectionError:
             print("Nyaasi - No internet connection!")

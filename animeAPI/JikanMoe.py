@@ -49,7 +49,10 @@ class JikanMoeWrapper(APIUtils):
     def schedule(self, limit=50):
         # TODO - Limit + status
         self.delay()
-        rep = self.jikan.schedule()
+        try:
+            rep = self.jikan.schedule()
+        except jikan_exceptions.APIException:
+            return
         for day, data in list(rep.items())[3:12]:
             break
             for anime in data:
@@ -160,21 +163,14 @@ class JikanMoeWrapper(APIUtils):
             genres = []
         out['genres'] = genres
 
-        with self.database.get_lock():
-            if 'related' in a.keys():
-                for relation, rel_data_list in a['related'].items():
-                    for rel_data in rel_data_list:
-                        rel = {'type': rel_data['type'], 'relation': relation, 'rel_id': rel_data['mal_id']}
-                        # saveRelation(id, rel)
-                        if rel_data['type'] == "anime":
-                            rel_id = self.database.getId("mal_id", rel_data["mal_id"])
-                            if not self.database.sql(
-                                    "SELECT EXISTS(SELECT 1 FROM related WHERE id=? AND rel_id=?);", (id, rel_id)):
-                                rel = {"id": id, "relation": relation,
-                                       "rel_id": rel_id}
-                                self.database.set(rel, table="related", save=False)
-            self.database.save()
-
+        if 'related' in a.keys():
+            rels = []
+            for relation, rel_data_list in a['related'].items():
+                for rel_data in rel_data_list:
+                    rel = {'type': rel_data['type'], 'name': relation, 'rel_id': int(rel_data["mal_id"])}
+                    rels.append(rel)
+            if len(rels) > 0:
+                self.save_relations(id, rels)
         return out
 
     def _convertCharacter(self, c, anime_id=None):

@@ -3,6 +3,7 @@ import urllib.parse
 import requests
 import io
 import re
+import traceback
 
 from bs4 import BeautifulSoup
 
@@ -16,7 +17,6 @@ class Parser():
         url = "https://www.tokyotosho.info/search.php?terms={}&type=1&searchName=true&searchComment=true".format(
             searchterms)
         try:
-            # print(url)
             r = requests.get(url, timeout=10)
         except requests.exceptions.ConnectionError:
             print("Tokyotosho - No internet connection!")
@@ -30,6 +30,8 @@ class Parser():
             for rowA, rowB in self.table_iter(body):
                 try:
                     title_column = rowA.find("td", class_="desc-top")
+                    if title_column is None:
+                        continue
                     filename = title_column.find_all("a")[-1].text
                     torrent_url = title_column.find_all("a")[-1]['href']
 

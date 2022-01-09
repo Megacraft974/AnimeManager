@@ -1,4 +1,5 @@
-import auto_launch
+if __name__ == "__main__":
+    import auto_launch
 
 import queue
 import threading
@@ -16,22 +17,30 @@ class Item(dict):
             self.data_keys = ()
         if "metadata_keys" not in self.__dict__.keys():
             self.metadata_keys = ()
+        if "default_values" not in self.__dict__.keys():
+            self.default_values = ()
         self.__add__(*args, **kwargs)
 
     def __getattr__(self, key):
-        if key in ("data_keys", "metadata_keys"):
+        if key in ("data_keys", "metadata_keys", "default_values"):
             return self.__dict__[key]
         if key in self.data_keys:
             if key not in self.keys():
-                return None
+                if key in self.default_values:
+                    return self.default_values[key]
+                else:
+                    return None
             else:
                 if key in self.metadata_keys and callable(self[key]):
                     data = self[key]()
                     self[key] = data
-                return self[key]
+                if self[key] is None and key in self.default_values:
+                    return self.default_values[key]
+                else:
+                    return self[key]
 
     def __setattr__(self, key, value):
-        if key in ("data_keys", "metadata_keys"):
+        if key in ("data_keys", "metadata_keys", "default_values"):
             self.__dict__[key] = value
             return
         if key in self.data_keys:
@@ -114,6 +123,10 @@ class Anime(Item):
             'trailer',
             'torrents')
         self.metadata_keys = ('title_synonyms', 'genres', 'torrents')
+        self.default_values = {
+            'tag': 'NONE',
+            'like': 0
+        }
         super().__init__(*args, **kwargs)
 
 
@@ -131,7 +144,7 @@ class Character(Item):
         super().__init__(*args, **kwargs)
 
 
-class ItemList(queue.Queue):
+class ItemList():
     def __init__(self, *sources):
         self.list = []
 
@@ -158,6 +171,10 @@ class ItemList(queue.Queue):
             if e is not None:
                 yield e
 
+    def __add__(self, elem, *args, **kwargs):
+        self.addSource(elem)
+        return self
+
     def sourceListener(self, s):
         try:
             iterator = iter(s)
@@ -173,12 +190,12 @@ class ItemList(queue.Queue):
                     self.new_elem_event["event"].set()
                     self.new_elem_event["enabled"] = False
                 break
-            except requests.exceptions.ConnectionError:
-                log("Error on ItemList iterator: No internet connection!")
+            except requests.exceptions.ConnectionError as e:
+                log("Error on ItemList iterator: No internet connection! -", e)
                 self.sources.remove(s)
                 break
-            except requests.exceptions.ReadTimeout:
-                log("Error on ItemList iterator: Timed out!")
+            except requests.exceptions.ReadTimeout as e:
+                log("Error on ItemList iterator: Timed out! - ", e)
                 self.sources.remove(s)
                 break
             except Exception as e:
@@ -206,7 +223,7 @@ class ItemList(queue.Queue):
                 self.addSource(s)
 
     def addSource(self, source):
-        if isinstance(source, type(self)):
+        if source == self:
             return
         if isinstance(source, tuple) and isinstance(source[0], queue.Queue):  # Add a tuple like (data_queue, data_threads)
             t = threading.Thread(target=self.queueListener, args=source, daemon=True)
@@ -257,19 +274,19 @@ class ItemList(queue.Queue):
 
 class AnimeList(ItemList):
     def __init__(self, sources):
-        super().__init__(self, sources)
+        super().__init__(sources)
         self.identifier = lambda a: a["id"]
 
 
 class TorrentList(ItemList):
     def __init__(self, sources):
-        super().__init__(self, sources)
+        super().__init__(sources)
         self.identifier = lambda t: t["torrent_url"]
 
 
 class CharacterList(ItemList):
     def __init__(self, sources):
-        super().__init__(self, sources)
+        super().__init__(sources)
         self.identifier = lambda c: c["id"]
 
 
@@ -303,17 +320,16 @@ class NoneDict(DefaultDict):
 class RegroupList(list):
     """A list of dict, wich regroup values based on a PK, creating a sub-list if values are different"""
 
-    def __init__(self, pk, merge_keys, *args):
+    def __init__(self, pk, merge_keys=[], *args):
         super().__init__()
         self.pk = pk
-        self.merge_keys = merge_keys
-        self.keys = {}
-        for sub in args:
-            if not isinstance(dict, sub):
-                raise TypeError("Elements must be dicts")
-            self.add_element(sub)
+        self.merge_keys = []
+        self.keys = set()
+        self.extend(args)
 
-    def add_element(sub, index=None):
+    def add_element(self, sub, index=None):
+        if not isinstance(sub, dict):
+            raise TypeError("Elements must be dicts, not " + str(type(sub)))
         sub_id = sub[self.pk]
         if sub_id in self.keys:
             for t in self:
@@ -550,11 +566,9 @@ class LockWrapper():
         self.lock = lock
 
     def __enter__(self, *args, **kwargs):
-        # print("Acquired lock")
         return self.lock.__enter__(*args, **kwargs)
 
     def __exit__(self, *args, **kwargs):
-        # print("Released lock")
         return self.lock.__exit__(*args, **kwargs)
 
     def __getattr__(self, *args, **kwargs):

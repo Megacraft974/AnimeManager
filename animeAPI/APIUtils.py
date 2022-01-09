@@ -10,8 +10,8 @@ try:
     from classes import Anime, Character
     from logger import Logger
     from getters import Getters
-except ModuleNotFoundError:
-    print("DB module not found!")
+except ModuleNotFoundError as e:
+    print("Module not found:", e)
     db = None
 
 
@@ -66,7 +66,7 @@ class APIUtils(Getters, Logger):
             api_id = self.database.sql(
                 "SELECT {} FROM {} WHERE id=?".format(self.apiKey, index), (id,))
         if api_id == []:
-            log("Key not found!", "SELECT {} FROM {} WHERE id={}".format(
+            self.log("Key not found!", "SELECT {} FROM {} WHERE id={}".format(
                 self.apiKey, index, id))
             return None
             # raise Exception("Wrong api")
@@ -81,7 +81,7 @@ class APIUtils(Getters, Logger):
             for g in genres:
                 ids[g['id']] = g['name']
         except KeyError:
-            log("KeyError while parsing genres:", genres, dir(genres[0]))
+            self.log("KeyError while parsing genres:", genres, dir(genres[0]))
             raise
 
         sql = ("SELECT * FROM genresIndex WHERE name IN(" + ",".join("?" * len(ids)) + ");").format(api_key=self.apiKey)
@@ -105,15 +105,20 @@ class APIUtils(Getters, Logger):
             data = self.database.sql(sql, ids.keys(), to_dict=True)
         return list(g['id'] for g in data)
 
-    def saveRelations(self, id, api_key, relations):
-        ids = []
-        for rel in relations:
-            if rel["type"] == "anime":  # TODO - Handle non-anime relations
-                ids.append((rel["api_key"], rel["rel_id"]))
-        sql = "SELECT R.id, R.rel_id, I.id, I.{api_key} FROM related AS R LEFT JOIN indexList AS I ON R.rel_id = I.id \
-               WHERE R.id = ? AND I.{api_key} IN(" + ",".join("?" * len(ids)) + ");"
-        sql.format(self.apiKey)
-        data = self.database.sql(sql, (id, rel_id))
+    def save_relations(self, id, rels):
+        # Rels must be a list of dicts, each containing three fields: 'type', 'name' and 'rel_id'
+        if len(rels) == 0:
+            return
+        with self.database.get_lock():
+            db_rels = self.get_relations(id)
+            for rel in rels:
+                if rel["type"] == "anime":
+                    rel["id"] = id
+                    rel["rel_id"] = self.database.getId(self.apiKey, rel["rel_id"])
+                    if not filter(lambda e: all(e[k] == v for k, v in rel.items()), db_rels):
+                        sql = "INSERT INTO relations (" + ", ".join(rel.keys()) + ") VALUES (" + ", ".join("?" * len(rel)) + ");"
+                        self.database.sql(sql, rel.values())
+            self.database.save()
 
 
 class EnhancedSession(requests.Session):

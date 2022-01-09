@@ -152,7 +152,7 @@ class settingsWindow:
         # Main window - Events - Fancy corners - Title
         if True:
             try:
-                exist = self.settings.winfo_exists() and self.fen.winfo_exists()
+                exist = not self.closing and self.settings.winfo_exists()
             except BaseException:
                 exist = False
             if self.settings is None or not exist:

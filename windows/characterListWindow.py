@@ -160,7 +160,7 @@ class characterListWindow:
 
             index = None
             for index, character in enumerate(characters):
-                if self.characterList is None or not self.characterList.winfo_exists():
+                if self.closing or self.characterList is None or not self.characterList.winfo_exists():
                     return
 
                 try:
@@ -174,7 +174,7 @@ class characterListWindow:
 
             que.put("STOP")
 
-            if self.characterListTable.winfo_exists():
+            if self.closing or self.characterListTable.winfo_exists():
                 if index is None:
                     Label(
                         self.characterListTable,

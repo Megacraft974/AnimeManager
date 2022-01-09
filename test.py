@@ -64,18 +64,22 @@ from thefuzz import fuzz, process as fuzz_process
 from getters import Getters
 import time
 from collections import defaultdict, deque
-from classes import SortedDict, Anime, AnimeList, SortedList
-import re
+from classes import SortedDict, Anime, AnimeList, SortedList, RegroupList
+import re, os, threading, queue, multiprocessing, json
+from qbittorrentapi import Client
 
-database = Getters.getDatabase()
+db = Getters.getDatabase()
 
 
-terms = "seraph"
-# print(fuzz.ratio(a, b), fuzz.partial_ratio(a, b), fuzz.token_sort_ratio(a, b), fuzz.token_set_ratio(a, b))
-# print(process.extractOne(b, (a,)))
+def lol():
+    try:
+        a = 0
+        while True:
+            a += 1
+            if a > 100:
+                print("A")
+                return
+    finally:
+        print("OUT")
 
-fen = Tk()
-fen.after(100, fen.destroy)
-fen.mainloop()
-
-print(dir(fen))
+lol()

@@ -13,22 +13,20 @@ added_files = [
     ('windows', 'windows'),
 ]
 
-added_libs = ('certifi', 'jsonschema', 'mpv')
+added_libs = ('certifi', 'jsonschema', 'mpv', 'ffpyplayer')
 for name in added_libs:
     added_files += collect_data_files(name)
 
 print("-- datas:\n", '\n--'.join(sorted(map(str, added_files))))
 
 binaries = []
-binaries += collect_dynamic_libs('ffpyplayer')
+bin_names = ('mpv', 'vlc')
+for name in bin_names:
+    binaries += collect_data_files(name)
 
-print("\n-- bins:\n", '\n--'.join(map(str, binaries)))
+print("\n-- bins:", '\n--'.join(map(str, binaries)))
 
-modules = ['lxml._elementpath', 'mobile_server', 'tkinter.ttk', 'tkinter.filedialog', 'pytube', 'jikanpy', 'jsonapi_client', 'vlc', 'mpv', 'ffpyplayer', 'ffpyplayer.player']
-"""
-    ('cert.pem','cert.pem'),
-    ('key.pem','key.pem')
-]"""
+modules = ['lxml._elementpath', 'thefuzz', 'bs4', 'mobile_server', 'tkinter.ttk', 'tkinter.filedialog', 'pytube', 'jikanpy', 'jsonapi_client', 'vlc', 'mpv', 'ffpyplayer.player', 'python-Levenshtein']
 
 # excluded = ['_gtkagg', '_tkagg', 'bsddb', 'curses', 'pywin.debugger', 'pywin.debugger.dbgcon', 'pywin.dialogs', 'tcl', 'Tkconstants', 'Tkinter']
 

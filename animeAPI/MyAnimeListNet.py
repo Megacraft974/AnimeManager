@@ -108,19 +108,12 @@ class MyAnimeListNetWrapper(APIUtils):
         out['genres'] = genres
 
         if 'related' in a.keys():
-            with self.database.get_lock():
-                for relation, rel_data_list in a['related'].items():
-                    for rel_data in rel_data_list:
-                        rel = {'type': rel_data['type'], 'relation': relation, 'rel_id': rel_data['id']}
-                        # saveRelation(id, rel)
-                        if rel_data['type'] == "anime":
-                            rel_id = self.database.getId("mal_id", rel_data["id"])
-                            if not self.database.sql(
-                                    "SELECT EXISTS(SELECT 1 FROM related WHERE id=? AND rel_id=?);", (id, rel_id)):
-                                rel = {"id": id, "relation": relation,
-                                       "rel_id": rel_id}
-                                self.database.set(rel, table="related", save=False)
-                self.database.save()
+            rel = []
+            for relation, rel_data_list in a['related'].items():
+                for rel_data in rel_data_list:
+                    rel = {'type': rel_data['type'], 'name': relation, 'rel_id': rel_data['id']}
+                    # saveRelation(id, rel)
+            self.save_relations(id, rels)
 
         return out
 

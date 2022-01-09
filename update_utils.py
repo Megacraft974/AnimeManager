@@ -1,4 +1,5 @@
-import auto_launch
+if __name__ == "__main__":
+    import auto_launch
 
 from datetime import date, datetime, timedelta
 import os
@@ -59,8 +60,13 @@ class UpdateUtils:
             if os.path.isfile(os.path.join(self.animePath, file)):
                 files.append(file)
 
-        if self.getQB() == "OK":
-            torrents = self.qb.torrents_info()
+        if self.getQB() == "OK":  # TODO
+            try:
+                torrents = self.qb.torrents_info()
+            except Exception as e:
+                self.log("MAIN_STATE", "[ERROR] - While fetching qb.torrents_info(), disconnecting")
+                self.qb = None
+                torrents = []
         else:
             torrents = []
 
@@ -108,12 +114,21 @@ class UpdateUtils:
 
     def updateDirs(self):
         modified = False
+        pattern = re.compile(r"^.*? - (\d+)$")
         for f in os.listdir(self.animePath):
             path = os.path.join(self.animePath, f)
-            if len(os.listdir(path)) == 0:
-                self.log("DB_UPDATE", os.path.normpath(path), 'is empty!')
-                os.rmdir(path)
-                modified = True
+            if os.path.isdir(path):
+                if len(os.listdir(path)) == 0:
+                    self.log("DB_UPDATE", os.path.normpath(path), 'is empty!')
+                    os.rmdir(path)
+                    modified = True
+                match = re.findall(pattern, f)
+                if not match or not match[0]:
+                    # TODO - Find corresponding torrent
+                    pass
+            elif os.path.isfile(path):
+                pass
+                # TODO - Find corresponding anime and put in a directory
         if not modified:
             self.log("DB_UPDATE", "No empty directory to remove.")
 
@@ -159,13 +174,11 @@ class UpdateUtils:
 
     def updateTag(self):
         self.log("DB_UPDATE", "Updating tags")
-        database = self.getDatabase()
-        with database.get_lock():
-            toWatch = set()
-            toSeen = {data[0] for data in database.sql('SELECT id FROM tag LEFT JOIN anime using(id) WHERE tag="WATCHING" AND id IN (SELECT id FROM torrents)')}
-            toDelete = {data[0] for data in database.sql('SELECT id FROM tag WHERE id NOT IN (SELECT id FROM anime);')}
+        pattern = re.compile(r"^.*? - (\d+)$")
 
-            pattern = re.compile(r"^.*? - (\d+)$")
+        with self.database.get_lock():
+            toWatch = set()
+            toSeen = {data[0] for data in self.database.sql('SELECT id FROM anime WHERE tag="WATCHING" AND id IN (SELECT id FROM torrents)')}
 
             for f in os.listdir(self.animePath):
                 path = os.path.join(self.animePath, f)
@@ -178,35 +191,17 @@ class UpdateUtils:
                         else:
                             toWatch.add(anime_id)
 
-            if len(toSeen) > 0:
-                sql = "SELECT id FROM anime WHERE id IN(" + ",".join("?" * (len(toSeen))) + ");"
-                existing_ids = {data[0] for data in database.sql(sql, (toSeen))}
-
-                tmp = {id for id in toSeen if id not in existing_ids}
-                toDelete.update(tmp)
-                toSeen -= tmp
-
-            if len(toWatch) > 0:
-                sql = "SELECT id FROM anime WHERE id IN(" + ",".join("?" * (len(toWatch))) + ");"
-                existing_ids = {data[0] for data in database.sql(sql, (toWatch))}
-
-                tmp = {id for id in toWatch if id not in existing_ids}
-                toDelete.update(tmp)
-                toWatch -= tmp
-
             try:
                 if len(toWatch) >= 1:
-                    database.sql("UPDATE tag SET tag = 'WATCHING' WHERE id IN(" + ",".join("?" * len(toWatch)) + ");", toWatch)
+                    self.database.sql("UPDATE anime SET tag = 'WATCHING' WHERE id IN(" + ",".join("?" * len(toWatch)) + ");", toWatch)
                 if len(toSeen) >= 1:
-                    database.sql("UPDATE tag SET tag = 'SEEN' WHERE id IN(" + ",".join("?" * len(toSeen)) + ");", toSeen)
-                if len(toDelete) >= 1:
-                    database.sql("DELETE FROM tag WHERE id IN(" + ",".join("?" * (len(toDelete))) + ");", toDelete)
+                    self.database.sql("UPDATE anime SET tag = 'SEEN' WHERE id IN(" + ",".join("?" * len(toSeen)) + ");", toSeen)
             except OperationalError:
                 self.log('DB_UPDATE', 'Error while updating tags')
 
-        c = len(toSeen) + len(toWatch) + len(toDelete)
+        c = len(toSeen) + len(toWatch)
         if c >= 1:
-            database.save()
+            self.database.save()
             self.log('DB_UPDATE', "{} tags updated!".format(c))
         else:
             self.log('DB_UPDATE', "No tags to update.")

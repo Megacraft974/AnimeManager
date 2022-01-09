@@ -1,4 +1,5 @@
-import auto_launch
+if __name__ == "__main__":
+    import auto_launch
 
 import threading
 import os
@@ -63,7 +64,7 @@ class Getters:
                     self.qb = Client(self.torrentApiAddress, REQUESTS_ARGS={'timeout': 2})
                     self.qb.auth_log_in(self.torrentApiLogin,
                                         self.torrentApiPassword)
-                if not self.qb.is_logged_in:
+                if self.qb is None or not self.qb.is_logged_in:
                     self.log(
                         'MAIN_STATE',
                         '[ERROR] - Invalid credentials for the torrent client!')
@@ -147,6 +148,11 @@ class Getters:
         info_hash = hashlib.sha1(bencoding.bencode(
             decodedDict[b"info"])).hexdigest()
         return info_hash
+
+    def getMagnetHash(self, url):
+        m = re.findall(r'magnet:\?xt=urn:btih:([a-fA-F0-9]*)', url)
+        if len(m) > 0:
+            return m[0]
 
     def getTorrentColor(self, title):
         def fileFormat(f):
@@ -430,42 +436,6 @@ class Getters:
         self.log("THREAD", "Stopped image thread")
         return
 
-    def getCharacterImgThread(self, queue):
-        args = None
-        with ThreadPool() as pool:
-            while args != "STOP":
-                args = queue.get()
-                if args == "STOP":
-                    break
-                filename, character, can = args
-
-                filename = os.path.join(self.cache, "c" + str(character['id']) + ".jpg")
-                if os.path.exists(filename):
-                    image = self.getImage(filename, (225, 310))
-
-                if character.picture is not None:
-                    p = pool.apply_async(requests.get, args=(character.picture,))
-                    processes.append((p, anime, can))
-                else:
-                    self.log("PICTURE", "No image yet", character.name)
-                    que.put((filename, character, can))
-                # downloadPic(*args)
-
-    def downloadPic(filename, character, can):
-        if character['picture'] is None:
-            return
-        self.log("NETWORK", "Requesting picture for character id",
-                 character['id'], "name", character["name"])
-        raw_data = requests.get(character['picture']).content
-        im = Image.open(io.BytesIO(raw_data))
-        im = im.resize((225, 310))
-        if im.mode != 'RGB':
-            im = im.convert('RGB')
-        im.save(filename)
-
-        image = ImageTk.PhotoImage(im, master=self.characterList)
-        try:
-            can.create_image(0, 0, image=image, anchor='nw')
-            can.image = image
-        except BaseException:
-            pass
+    def get_relations(self, id, **filters):
+        data = self.database.sql("SELECT * FROM relations WHERE id=?", (id,), to_dict=True)
+        return filter(lambda e: all(e[k] == v for k, v in filters.items()), data)

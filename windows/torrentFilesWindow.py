@@ -53,6 +53,30 @@ class torrentFilesWindow:
 
                 self.torrentFilesWindow(id)
 
+            def search_torrent(id):
+                def callback(var, id):
+                    text = var.get()
+                    self.popupWindow.exit()
+
+                    web_reg = re.compile(r"^(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)$")
+                    mag_reg = re.compile(r"^magnet:\?xt=urn:\S+$")
+                    if re.match(web_reg, text):
+                        # Web url
+                        self.downloadFile(id, url=text)
+                    elif re.match(mag_reg, text):
+                        # Magnet url
+                        self.downloadFile(id, url=text)
+                    else:
+                        fetcher = self.searchTorrents(id, [text])
+                        self.ddlWindow(id, fetcher, parent=self.torrentFilesChooser)
+
+                self.textPopupWindow(
+                    self.torrentFilesChooser,
+                    "Search torrents with name:",
+                    lambda var,
+                    id=id: callback(var, id),
+                    fentype="TEXT")
+
             def getTorrents(id):
                 torrents = self.database.get_metadata(id, "torrents")
                 return torrents
@@ -69,7 +93,11 @@ class torrentFilesWindow:
                     else:
                         out[t] = "NOT_FOUND"
 
-                d = self.qb.torrents_info(torrent_hashes=hashes.values())
+                if self.getQB() == "OK":
+                    d = self.qb.torrents_info(torrent_hashes=hashes.values())
+                else:
+                    self.log("MAIN_STATE", "[ERROR] - qBittorent not found!")
+                    return {}
                 qb_data, qb_hashes = dict(), set()
                 for tmp in d:
                     qb_data[tmp.hash] = tmp
@@ -89,41 +117,6 @@ class torrentFilesWindow:
                                 out[t_name] = "UNKNOWN"
                     else:
                         out[t_name] = "DELETED"
-
-                def sortkey(item):
-                    filename, status = item
-                    epsPatternsFormat = (
-                        r"-\s(\d+)",
-                        r"(?:E|Episode|Ep|Eps)(\d+)",
-                        r" (\d+) ")
-                    epsPatterns = list(re.compile(p) for p in epsPatternsFormat)
-
-                    seasonPatternsFormat = (
-                        r'(?:S|Season|Seasons)\s?([0-9]{1,2})',
-                        r'([0-9])(?:|st|nd|rd|th)\s?(?:S|Season|Seasons)')
-                    seasonPatterns = list(re.compile(p)
-                                          for p in seasonPatternsFormat)
-                    episode = "?"
-
-                    for p in epsPatterns:
-                        m = re.findall(p, filename)
-                        if len(m) > 0:
-                            episode = m[0]
-                            break
-                    if episode == "?":
-                        episode = str(len(eps) + 1).zfill(2)  # Hacky
-
-                    season = ""
-                    for p in seasonPatterns:
-                        result = re.findall(p, filename)
-                        if len(result) >= 1:
-                            season = result[0]
-                            break
-
-                    key = int(str(season).zfill(5) + str(episode).zfill(5))
-                    return key
-
-                out = dict(sorted(out.items(), key=sortkey, reverse=True))
 
                 return out
 
@@ -173,9 +166,31 @@ class torrentFilesWindow:
                 self.torrentFilesChooser.clear()
                 self.torrentFilesChooser.focus()
             self.torrentFilesChooser.grid_rowconfigure(1, weight=1)
+            [self.torrentFilesChooser.grid_columnconfigure(i, weight=1) for i in range(2)]
 
-        # Add torrent button
+        # Add/search torrent buttons
         if True:
+            Button(
+                self.torrentFilesChooser,
+                text="Search torrent online",
+                bd=0,
+                height=1,
+                relief='solid',
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                activebackground=self.colors['Gray2'],
+                activeforeground=self.colors['Gray3'],
+                bg=self.colors['Gray3'],
+                fg=self.colors['White'],
+                command=lambda id=id: search_torrent(id)
+            ).grid(
+                row=0,
+                column=0,
+                sticky="nsew",
+                pady=3,
+                padx=(0, 2))
+
             Button(
                 self.torrentFilesChooser,
                 text="Locate new torrent",
@@ -192,17 +207,17 @@ class torrentFilesWindow:
                 command=lambda id=id: import_torrent(id)
             ).grid(
                 row=0,
-                column=0,
-                sticky="nse",
-                pady=(0, 10),
-                padx=(0, 0))
+                column=1,
+                sticky="nsew",
+                pady=3,
+                padx=(2, 0))
 
         # Torrents list
         if True:
             torrent_list_frame = utils.ScrollableFrame(
                 self.torrentFilesChooser, bg=self.colors['Gray2'], width=900)
             # torrent_list_frame.pack(fill="both", expand=True)
-            torrent_list_frame.grid(row=1, column=0, sticky="nsew")
+            torrent_list_frame.grid(row=1, column=0, columnspan=2, sticky="nsew")
             torrent_list_frame.grid_columnconfigure(0, weight=1)
 
             downloadIcon = self.getImage(os.path.join(
@@ -265,5 +280,23 @@ class torrentFilesWindow:
                         sticky="nsew",
                         pady=3,
                         ipadx=5)
+            else:
+                Label(
+                    torrent_list_frame,
+                    text="No torrents yet",
+                    bd=0,
+                    height=1,
+                    relief='solid',
+                    font=(
+                        "Source Code Pro Medium",
+                        15),
+                    bg=self.colors['Gray2'],
+                    fg=self.colors['Gray4'],
+                ).grid(
+                    row=0,
+                    column=0,
+                    sticky="nsew",
+                    pady=15,
+                    ipady=8)
 
             torrent_list_frame.update()

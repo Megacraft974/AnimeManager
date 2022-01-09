@@ -1,8 +1,10 @@
-import auto_launch
+if __name__ == "__main__":
+    import auto_launch
 
 import ctypes
 import io
 import json
+import multiprocessing
 import os
 import queue
 import re
@@ -22,7 +24,7 @@ from tkinter import *
 
 try:
     import bencoding
-    from bs4 import BeautifulSoup
+    # from bs4 import BeautifulSoup
     from lxml import etree
     from PIL import Image, ImageTk
     import qbittorrentapi.exceptions
@@ -34,11 +36,15 @@ try:
         basedir = sys._MEIPASS
         os.environ['REQUESTS_CA_BUNDLE'] = os.path.join(basedir, 'certifi', 'cacert.pem')  # Required for requests and certifi
 except ModuleNotFoundError as e:
-    print("Installing modules!", e)
-    subprocess.run("pip install qbittorrent-api lxml jikanpy jsonapi_client requests Pillow python-mpv pytube bencoding bs4 thefuzz")
-    time.sleep(20)
     import sys
-    # os.execv(sys.argv[0], sys.argv)
+    if getattr(sys, 'frozen', None):
+        print("Module missing:", e)
+    else:
+        print("Installing modules!", e)
+        subprocess.run("pip install qbittorrent-api lxml jikanpy jsonapi_client requests Pillow bencoding bs4 thefuzz python-Levenshtein pytube python-mpv ffpyplayer python-vlc")
+        # os.execv(sys.argv[0], sys.argv)
+    time.sleep(20)
+
     sys.exit()
 
 try:
@@ -51,7 +57,6 @@ try:
     from logger import Logger
     from update_utils import UpdateUtils
     from getters import Getters
-    from anime_search import AnimeSearch
     from media_players import MediaPlayers
     from dbManager import db
     from classes import Anime, Character, AnimeList, TorrentList, SortedList, SortedDict
@@ -63,29 +68,26 @@ except ModuleNotFoundError as e:
 
 
 # TODO - Load new images on downloading error
+# TODO - Table class
 # TODO - Add filter for torrent list (seeds / name)
-# TODO - Merge 'like' and 'tag' tables with 'anime'
-# TODO - Check if loadMore is working properly
+# TODO - Play button on media player isn't centered
+# TODO - Put single files in directories
+# TODO - Add search by studios
 # TODO - Allow window resizing
 # TODO - Online search raise database is locked error
-# TODO - Some image aren't loading with online search (sk8)
-# TODO - jikanpy.exceptions.APIException: HTTP 500 - status=500, type=ParserException, message=Unable to parse this request. Please follow report_url to generate an issue on GitHub, error=Failed to parse 'https://myanimelist.net/...'
 # TODO - Avoid accessing to db with the API wrappers
 # TODO - Create a factory method to save anime relations
 # TODO - Use the db.get_lock() with API wrappers
-# TODO - Torrent publisher list freeze when internet is slow
-# TODO - Add an option to modify the torrent search
 # TODO - Improve torrent matching algorithm
 # TODO - Auto associate latest torrents?
 # TODO - Add python-based torrent client
-# TODO - Characters don't have the 'anime_id' key
 # TODO - Add RSS option
 # TODO - Automatic torrent downloading from RSS?
 # TODO - Compile into an executable
 # TODO - Phone version
 
 
-class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers, *windows.windows):
+class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.windows):
     def __init__(self, remote=False):
         self.start = time.time()
         Logger.__init__(self)
@@ -115,6 +117,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
         self.characterInfo = None
         self.settings = None
         self.diskfen = None
+        self.popupWindow = None
 
         self.menuOptions = {
             'Liked characters': {'color': 'Green', 'command': lambda: self.characterListWindow("LIKED")},
@@ -172,7 +175,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
             else:
                 self.stopSearch = False
                 self.loading()
-                self.animeList.set(self.searchAnime(terms))
+                # self.animeList.set(self.searchAnime(terms))
+                self.animeList.set(self.api.searchAnime(terms, limit=self.animePerPage))
         else:
             self.animeList.from_filter("DEFAULT")
 
@@ -183,17 +187,15 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
     def searchDb(self, terms):
         def enumerator(terms):
             sql = """
-                SELECT value, anime.*,tag.tag,like.like
+                SELECT value, anime.*
                 FROM title_synonyms
                 JOIN anime using(id)
-                LEFT JOIN tag using(id)
-                LEFT JOIN like using(id)
                 GROUP BY anime.id
                 ORDER BY anime.date_from DESC;
             """
             match_threshold = 70
             partial_threshold = 50
-            keys = list(self.database.keys(table="anime")) + ['tag', 'like']
+            keys = list(self.database.keys(table="anime"))
             match = SortedList(keys=[(lambda e: e[1], True)])
             partial = []
             for data in self.database.sql(sql):
@@ -206,7 +208,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                 yield False
                 return
             else:
-                print(terms, match[0][0][1])
                 yield True
             for data in match + partial:
                 yield Anime(keys=keys, values=data[0])
@@ -216,7 +217,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
         enum = enumerator(terms)
         if next(enum):
             anime_list = AnimeList(enum)
-            print(terms, anime_list.list[0].title)
             return anime_list
         else:
             return False
@@ -234,8 +234,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
             matches = defaultdict(lambda: 0)
             for id, value in data:
                 # for ngram in ngrams(value):
-                if ngram in t_ngrams:
-                    matches[id] += 1
+                    if ngram in t_ngrams:
+                        matches[id] += 1
 
             sql = 'SELECT * FROM anime WHERE id IN(' + ','.join("?" * len(matches)) + ');'
             return AnimeList(
@@ -251,7 +251,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                 )
             )
 
-    def searchTorrents(self, id):
+    def searchTorrents(self, id, titles=None):
         def sortkey(k):
             score = 0
             if k[0] in self.topPublishers:
@@ -269,15 +269,17 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                     break
             return score
 
-        database = self.getDatabase()
-        data = database(id=id, table="anime")
-        titles = data.title_synonyms
-        titles.append(data.title)
-        publisher_pattern = re.compile(r'^\[(.*?)\]+')
+        if titles is None:
+            database = self.getDatabase()
+            data = database(id=id, table="anime")
+            titles = data.title_synonyms
+
+        print("Searching for titles:", titles)
 
         torrents = TorrentList(search_engines.search(titles))
         timer = utils.Timer("Torrent search")
 
+        publisher_pattern = re.compile(r'^\[(.*?)\]+')
         keys = (
             (lambda k: max((t['seeds'] for t in k[1])), True),
             (sortkey, True)
@@ -388,7 +390,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
             try:
                 self.loadLabel['text'] = text
             except BaseException:
-                if not self.loadfen.winfo_exists():
+                if self.closing or not self.loadfen.winfo_exists():
                     break
             loadStop = (i + 1) / lenght * 100
             while thread.is_alive():
@@ -398,7 +400,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                     self.loadProgress['value'] = loadStart
                     self.loadfen.update()
                 except BaseException:
-                    if not self.loadfen.winfo_exists():
+                    if self.closing or not self.loadfen.winfo_exists():
                         break
 
         try:
@@ -412,8 +414,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
         except AttributeError:
             pass
         self.__init__()
-        # del self
-        # Manager()
 
     def view(self, id):
         index = "indexList"
@@ -442,9 +442,9 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
             self.fen.after_cancel(self.timer_id)
         self.timer_id = self.fen.after(30, self.loading, n + 1, True)  # TODO - Use a timer instead of n
 
-    # ___Misc___
+    # ___Networking___
     def downloadFile(self, id, url=None, file=None):
-        def handler(id, url=None, file=None):
+        def handler(id, put, url=None, file=None):
             isMagnet = False
             if url is not None:
                 pattern = re.compile(r"^magnet:\?xt=urn:")
@@ -465,17 +465,19 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                             url,
                             "status_code",
                             req.status_code if req is not None else "unknown")
+                        out.put(False)
                         return
                     self.log('NETWORK', "Downloading", file)
                     filePath = os.path.join(self.torrentPath, file)
                     with open(filePath, 'wb') as f:
                         f.write(req.content)
-            else:
+            else:  # File is not None
                 filePath = os.path.join(self.torrentPath, file)
             if not isMagnet:
                 filePath = os.path.normpath(filePath)
 
             if self.getQB() == "OK":
+                out.put(True)
                 path = self.getFolder(id)
                 if not os.path.isdir(path):
                     try:
@@ -483,21 +485,34 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                     except FileExistsError:
                         pass
                 if isMagnet:
-                    torrent_url = url
+                    args = {'urls': url}
                 else:
-                    torrent_url = open(filePath, 'rb')
+                    args = {'torrent_files': open(filePath, 'rb')}
                 try:
-                    self.qb.torrents_add(
-                        torrent_files=torrent_url, save_path=path)  # urls=url
+                    self.qb.torrents_add(**args, save_path=path)
                 except qbittorrentapi.exceptions.APIConnectionError:
                     self.log(
                         'NETWORK', "[ERROR] - Couldn't find the torrent client!")
                 else:
+                    if isMagnet:
+                        torrenthash = self.getMagnetHash(url)
+                    else:
+                        torrenthash = self.getTorrentHash(filePath)
+                    qb_path = os.path.join(self.qbCache, str(torrenthash) + ".torrent")
 
-                    torrenthash = self.getTorrentHash(filePath)
+                    if isMagnet:
+                        file = str(torrenthash) + ".torrent"
+                        qb_path = os.path.join(self.qbCache, torrenthash)
+                        filePath = os.path.join(self.torrentPath, file)
+                        shutil.copyfile(qb_path, filePath)
+
+                    while not os.path.exists(qb_path):
+                        time.sleep(1)
+                        print("Waiting for torrent:", qb_path)
                     self.qb.torrents_set_location(
                         location=path, torrent_hashes=[torrenthash])
             else:
+                out.put(False)
                 self.log(
                     'NETWORK', "[ERROR] - Couldn't find the torrent client!")
 
@@ -506,12 +521,16 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
                 torrents = database.get_metadata(id, "torrents")
                 database.save_metadata(id, {"torrents": torrents + [file]})
 
-                if database(id=id, table='tag')['tag'] != 'WATCHING':
-                    database.set({'id': id, 'tag': 'WATCHING'}, table='tag')
+                if database(id=id, table='anime')['tag'] != 'WATCHING':
+                    database.set({'id': id, 'tag': 'WATCHING'}, table='anime')
                 database.save()
 
+            self.root.after(10, self.optionsWindow(id))
+
         assert url is not None or file is not None, "You need to specify either an url or a file path"
-        threading.Thread(target=handler, args=(id, url, file), daemon=True).start()
+        out = queue.Queue()
+        threading.Thread(target=handler, args=(id, out, url, file), daemon=True).start()
+        return out
 
     def redownload(self, id):
         if self.getQB() == "OK":
@@ -626,4 +645,5 @@ class Manager(Constants, Logger, UpdateUtils, Getters, AnimeSearch, MediaPlayers
 
 
 if __name__ == '__main__':
+    multiprocessing.freeze_support()
     m = Manager()

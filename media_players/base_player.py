@@ -11,7 +11,7 @@ import urllib.error
 from tkinter import *
 from PIL import Image, ImageTk
 from ctypes import windll, Structure, c_long, byref
-from multiprocessing import Process
+from multiprocessing import Process, freeze_support
 
 from pytube import YouTube
 import pytube.exceptions
@@ -353,7 +353,7 @@ class BasePlayer:
                 filename = self.playlist[self.index]
                 db(self.database).set(
                     {'id': self.id, 'last_seen': str(filename)}, table="anime")
-        self.thread = threading.Thread(target=handler, args=(self,))
+        self.thread = threading.Thread(target=handler, args=(self,), daemon=True)
         self.thread.start()
 
     def getPlaylist(self, url, playlist):
@@ -361,7 +361,7 @@ class BasePlayer:
             que = queue.Queue()
             threads = []
             for i, v in enumerate(playlist):
-                t = threading.Thread(target=self.getVideoUrl, args=(que, i, v))
+                t = threading.Thread(target=self.getVideoUrl, args=(que, i, v), daemon=True)
                 threads.append(t)
                 t.start()
             for t in threads:
@@ -391,7 +391,7 @@ class BasePlayer:
                 q.put(None)
         video = YouTube(v)
         title = queue.Queue()
-        threading.Thread(target=getTitle, args=(video, title)).start()
+        threading.Thread(target=getTitle, args=(video, title), daemon=True).start()
 
         try:
             streams = list(video.streams.filter(file_extension='mp4'))
@@ -415,38 +415,5 @@ class BasePlayer:
 class POINT(Structure):
     _fields_ = [("x", c_long), ("y", c_long)]
 
-
-if __name__ == "__main__":  # TODO - Move somewhere else
-    path = "D:/Animes/"
-    if not os.path.isdir(path):
-        from tkinter.filedialog import askdirectory
-        fen = Tk()
-        fen.withdraw()
-        path = askdirectory(parent=fen, title="Choose anime folder")
-        fen.destroy()
-        if path == "":
-            raise SystemExit("No folder selected!")
-
-    folders = [path]
-    files = []
-    while len(folders) > 0:
-        folder = folders.pop()
-        for f in os.listdir(folder):
-            f = os.path.join(folder, f)
-            if os.path.isdir(f):
-                folders.append(f)
-            elif os.path.isfile(f):
-                files.append(f)
-    fileFormats = ('mkv', 'mp4')
-    playlist = []
-    playlist = [f for f in files if f.rsplit('.', 1)[-1] in fileFormats]
-    log("Root folder: {} - Files: {} - Videos: {}".format(path,
-                                                          len(files), len(playlist)))
-
-    # MpvPlayer(["https://youtu.be/tlTKTTt47WE"],0,url=True)
-    fen = Tk()
-    Button(fen, text="yoooo", command=log).pack()
-    # MpvPlayer(playlist, 0, root=fen)
-    VlcPlayer(playlist, 0)
-    # FFPlayer(playlist,0)
-    fen.mainloop()
+if __name__ == "__main__":
+    freeze_support()

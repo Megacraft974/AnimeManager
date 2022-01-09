@@ -243,7 +243,7 @@ class VlcPlayer(BasePlayer):
         self.player.set_hwnd(h)
 
         def cb(e):
-            threading.Thread(target=self.changeVideo, args=(1,)).start()
+            threading.Thread(target=self.changeVideo, args=(1,), daemon=True).start()
         events = self.player.event_manager()
         # lambda e:self.changeVideo(1))
         events.event_attach(vlc.EventType().MediaPlayerEndReached, cb)

@@ -1,8 +1,10 @@
-import auto_launch
+if __name__ == "__main__":
+    import auto_launch
 
 import sqlite3
 import json
 import os
+import re
 import traceback
 import threading
 import queue
@@ -82,18 +84,10 @@ class db():
                         "desc"    TEXT,
                         "like"    INTEGER
                     )''',
-                    '''CREATE TABLE "like" (
-                        "id"    INTEGER NOT NULL UNIQUE,
-                        "like"    INTEGER
-                    )''',
                     '''CREATE TABLE "related" (
                         "id"    INTEGER NOT NULL,
                         "relation"    TEXT NOT NULL,
                         "rel_id"    INTEGER NOT NULL
-                    )''',
-                    '''CREATE TABLE "tag" (
-                        "id"    INTEGER NOT NULL UNIQUE,
-                        "tag"    TEXT
                     )''',
                     '''CREATE TABLE "genres" (
                         "id"    INTEGER NOT NULL,
@@ -143,9 +137,6 @@ class db():
         self.updateKeys(table)
         for k in self.tablekeys:
             yield k
-
-    def __str__(self):
-        return str(self.__repr__())
 
     def __enter__(self):
         return self
@@ -217,9 +208,10 @@ class db():
                     ids = self.sql(sql, (apiId,))
                     return ids[0][0]
                 else:
-                    self.save()
                     ids = self.sql(sql, (apiId,))
                     return ids[0][0]
+                finally:
+                    self.save()
 
     def update(self, key, data, id, table, save=True):
         sql = "UPDATE " + table + " SET {} = ? WHERE id = ?".format(key)
@@ -246,7 +238,12 @@ class db():
                     self.last_op = sql
         except sqlite3.OperationalError as e:
             if e.args == ('database is locked',):
-                log("[ERROR] - Database is locked! - {} - On execute({}{}{})".format(self.last_op, sql, ", " if len(args) > 0 else "", ", ".join(map(str, args))))
+                print(self.last_op)
+                log("[ERROR] - Database is locked! - On execute({sql}{comma}{args}) - Last op: {last_op}".format(
+                    sql=sql,
+                    comma=", " if len(args) > 0 else "",
+                    args=(", ".join(map(str, args))) if len(args) > 0 else ""),
+                    last_op=self.last_op)
                 raise
             else:
                 log(e, sql, args)
@@ -371,9 +368,8 @@ class db():
             order = "anime.date_from"
 
         sql = """
-            SELECT anime.*,tag.tag,like.like
-            FROM anime LEFT JOIN tag using(id)
-            LEFT JOIN like using(id)
+            SELECT *
+            FROM anime
             {filter}
             ORDER BY {order}
             {sort} {limit};
@@ -383,10 +379,11 @@ class db():
             sort=sort,
             limit=limit)
 
-        self.updateKeys("anime")
-        keys = list(self.tablekeys) + ['tag', 'like']
+        sql = re.sub(' +', ' ', sql)
         with self.get_lock():
-            self.updateKeys(table="anime")
+            self.updateKeys("anime")
+            keys = list(self.tablekeys)
+
             self.execute(sql)
             data_list = self.cur.fetchall()
 
@@ -472,6 +469,7 @@ class db():
 class thread_safe_db(Logger):
     def __init__(self, path):
         super().__init__()
+        self.path = path
         if 'database_main_tasks_queue' in globals().keys():
             main = globals()['database_main_thread']
             self.db = main.db
@@ -481,12 +479,12 @@ class thread_safe_db(Logger):
         else:
             self.tasks = queue.LifoQueue()
             self.ready_flag = threading.Event()
-            self.db_thread = threading.Thread(target=self.start_db_thread, args=(path,))
+            self.db_thread = threading.Thread(target=self.start_db_thread, args=(path,), daemon=True)
             self.db_thread.start()
             self.ready_flag.wait()
             del self.ready_flag
             globals()['database_main_thread'] = self
-            self.log("THREAD", "Started db thread")
+            self.log("DB_MAIN", "Started db thread")
 
     def start_db_thread(self, path):
         self.db = db(path)
@@ -504,8 +502,8 @@ class thread_safe_db(Logger):
         try:
             self.db.close()
         except Exception as e:
-            self.log("THREAD", "[ERROR] - While closing db:", e)
-        self.log("THREAD", "Stopped db thread")
+            self.log("DB_MAIN", "[ERROR] - While closing db:", e)
+        self.log("DB_MAIN", "Stopped db thread")
 
     def __getattr__(self, a):
         return lambda *args, **kwargs: self.task_planner(a, *args, **kwargs)
@@ -523,9 +521,6 @@ class thread_safe_db(Logger):
     def __iter__(self, *args, **kwargs):
         return self.task_planner("__iter__", *args, **kwargs)
 
-    def __str__(self, *args, **kwargs):
-        return self.task_planner("__str__", *args, **kwargs)
-
     def __enter__(self):
         return self
 
@@ -537,12 +532,13 @@ class thread_safe_db(Logger):
         try:
             return self.db.remote_lock
         except BaseException:
-            log("[ERROR] - No lock found!", self.db, dir(self.db))
+            self.log("DB_MAIN", "[ERROR] - No lock found!", self.db, dir(self.db))
             raise
 
     def close(self):
         self.tasks.put("STOP")
         self.db_thread.join()
+        self.log("DB_MAIN", "Closed database!")
 
     def task_planner(self, name, *args, **kwargs):
         with self.get_lock():
@@ -560,6 +556,8 @@ class thread_safe_db(Logger):
                         kwargs.items()
                     ))
                 ))
+            if not self.db_thread.is_alive():
+                self.__init__(self.path)
             self.tasks.put((output, name, args, kwargs))
             out = output.get()
             if isinstance(out, Exception):

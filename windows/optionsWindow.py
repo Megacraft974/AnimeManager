@@ -86,9 +86,8 @@ class optionsWindow:
                             i, foreground=self.colors['Green'])
 
             def like(id, b):
-                d = self.database(id=id, table='like')
-                liked = self.database.exist(id=id, table='like') and bool(d['like'])
-                self.database.set({'id': id, 'like': not liked}, table='like')
+                liked = bool(self.database(id=id, table='anime').like)
+                self.database.set({'id': id, 'like': not liked}, table='anime')
 
                 if not liked:
                     im_path = os.path.join(self.iconPath, "heart.png")
@@ -143,7 +142,8 @@ class optionsWindow:
                     fentype="TEXT")
 
             def tag(id, tag):
-                self.database.set({'id': id, 'tag': tag}, table='tag')
+                with self.database.get_lock():
+                    self.database.set({'id': id, 'tag': tag}, table='anime')
 
                 for lbl in self.animeList.winfo_children():
                     if lbl.winfo_class() == 'Label' and lbl.name == str(id):
@@ -248,13 +248,12 @@ class optionsWindow:
                     bg=self.colors['Gray2'],
                     fg=self.colors['Gray3'])
                 self.choice.titleLbl.configure(
-                    fg=self.colors[self.tagcolors[self.database(id=id, table='tag')['tag']]])
+                    fg=self.colors[self.tagcolors[self.database(id=id, table='anime').tag]])
             else:
                 self.choice.clear()
                 self.choice.titleLbl.configure(text=anime.title,
                                                bg=self.colors['Gray2'],
-                                               fg=self.colors[self.tagcolors[self.database(id=id,
-                                                                                           table='tag')['tag']]],
+                                               fg=self.colors[self.tagcolors[self.database(id=id, table='anime').tag]],
                                                font=("Source Code Pro Medium",
                                                      15))
 
@@ -366,9 +365,7 @@ class optionsWindow:
                     *titles,
                     command=lambda e, var=var:
                         watch(e, eps, var),
-                    scrollbar=True
-                )
-                epsList.configure(
+                    scrollbar=True,
                     state=state,
                     highlightthickness=0,
                     borderwidth=0,
@@ -378,12 +375,11 @@ class optionsWindow:
                     activebackground=self.colors['Gray3'],
                     activeforeground=self.colors['White'],
                     bg=self.colors['Gray3'],
-                    fg=self.colors['White'])
+                    fg=self.colors['White']
+                )
                 epsList.menu.configure(
                     bd=0,
-                    height=1,
                     borderwidth=0,
-                    # activeborderwidth=0,
                     font=(
                         "Source Code Pro Medium",
                         13),
@@ -391,7 +387,9 @@ class optionsWindow:
                     activeforeground=self.colors['White'],
                     bg=self.colors['Gray2'],
                     fg=self.colors['White'],
-                    padx=20
+                    thickness=20,
+                    padx=20,
+                    sb_fg=self.colors['Gray3']
                 )
                 epsList.menu.root_configure(
                     borderwidth=2,
@@ -410,8 +408,7 @@ class optionsWindow:
             [titleFrame.grid_columnconfigure(i, weight=1) for i in range(2)]
 
             iconSize = (50, 50) if showFolderButtons else (30, 30)
-            if self.database.exist(id=id, table='like') and bool(
-                    self.database(id=id, table='like')['like']):
+            if bool(self.database(id=id, table='anime').like):
                 image = self.getImage(
                     os.path.join(
                         self.iconPath,
@@ -454,86 +451,28 @@ class optionsWindow:
                 row=0,
                 column=0,
                 pady=10)
-            Button(
-                tags,
-                text="Seen",
-                bd=0,
-                height=1,
-                relief='solid',
-                font=(
-                    "Source Code Pro Medium",
-                    13),
-                activebackground=self.colors['Gray2'],
-                activeforeground=self.colors['Green'],
-                bg=self.colors['Gray2'],
-                fg=self.colors['Green'],
-                command=lambda id=id: tag(
-                    id,
-                    'SEEN')).grid(
-                row=0,
-                column=1,
-                sticky="nsew",
-                padx=5)
-            Button(
-                tags,
-                text="Watching",
-                bd=0,
-                height=1,
-                relief='solid',
-                font=(
-                    "Source Code Pro Medium",
-                    13),
-                activebackground=self.colors['Gray2'],
-                activeforeground=self.colors['Orange'],
-                bg=self.colors['Gray2'],
-                fg=self.colors['Orange'],
-                command=lambda id=id: tag(
-                    id,
-                    'WATCHING')).grid(
-                row=0,
-                column=2,
-                sticky="nsew",
-                padx=5)
-            Button(
-                tags,
-                text="To the Watchlist",
-                bd=0,
-                height=1,
-                relief='solid',
-                font=(
-                    "Source Code Pro Medium",
-                    13),
-                activebackground=self.colors['Gray2'],
-                activeforeground=self.colors['White'],
-                bg=self.colors['Gray2'],
-                fg=self.colors['Blue'],
-                command=lambda id=id: tag(
-                    id,
-                    'WATCHLIST')).grid(
-                row=0,
-                column=3,
-                sticky="nsew",
-                padx=5)
-            Button(
-                tags,
-                text="None",
-                bd=0,
-                height=1,
-                relief='solid',
-                font=(
-                    "Source Code Pro Medium",
-                    13),
-                activebackground=self.colors['Gray2'],
-                activeforeground=self.colors['White'],
-                bg=self.colors['Gray2'],
-                fg=self.colors['White'],
-                command=lambda id=id: tag(
-                    id,
-                    'NONE')).grid(
-                row=0,
-                column=4,
-                sticky="nsew",
-                padx=5)
+            for i, data in enumerate(self.tag_options.items()):
+                tag_txt, color, tag_filter = data[0], data[1]['color'], data[1]['filter']
+                Button(
+                    tags,
+                    text=tag_txt,
+                    bd=0,
+                    height=1,
+                    relief='solid',
+                    font=(
+                        "Source Code Pro Medium",
+                        13),
+                    activebackground=self.colors['Gray2'],
+                    activeforeground=self.colors['Green'],
+                    bg=self.colors['Gray2'],
+                    fg=self.colors[color],
+                    command=lambda id=id: tag(id, tag_filter)
+                ).grid(
+                    row=0,
+                    column=1 + i,
+                    sticky="nsew",
+                    padx=5)
+
             if anime.trailer is not None:
                 Label(
                     tags,
@@ -544,7 +483,7 @@ class optionsWindow:
                         "Source Code Pro Medium",
                         13)).grid(
                     row=0,
-                    column=5,
+                    column=i + 2,
                     pady=5)
                 Button(
                     tags,
@@ -561,7 +500,7 @@ class optionsWindow:
                     fg=self.colors['White'],
                     command=lambda id=id: trailer(id)).grid(
                     row=0,
-                    column=6,
+                    column=i + 3,
                     sticky="nsew",
                     padx=5)
             tags.grid(row=3, column=0)
@@ -729,7 +668,7 @@ class optionsWindow:
                            activebackground=self.colors['Gray2'],
                            activeforeground=self.colors['Red'],
                            bg=self.colors['Gray2'],
-                           fg=self.colors[self.tagcolors[self.database(id=rel_ids[0], table='tag')['tag']]],
+                           fg=self.colors[self.tagcolors[self.database(id=rel_ids[0], table='anime').tag]],
                            command=lambda ids=rel_ids: switch(ids[0])).grid(row=0,
                                                                             column=column)
                 elif len(titles) > 1:
@@ -771,7 +710,7 @@ class optionsWindow:
 
                     for i, rel_id in enumerate(rel_ids):
                         epsList['menu'].entryconfig(
-                            i, foreground=self.colors[self.tagcolors[self.database(id=rel_id, table="tag")['tag']]])
+                            i, foreground=self.colors[self.tagcolors[self.database(id=rel_id, table="anime").tag]])
                 else:
                     self.log("ERROR", "id:{}, rel_ids:{}, titles:{}".format(
                         str(id), str(rel_ids), str(titles)))
@@ -907,7 +846,7 @@ class optionsWindow:
 
             while thread_data.is_alive():
                 self.root.update()
-                if self.choice is None or not self.choice.winfo_exists():
+                if self.closing or self.choice is None or not self.choice.winfo_exists():
                     reloadFen = False
                 time.sleep(0.01)
             data = que.get()
@@ -920,7 +859,10 @@ class optionsWindow:
 
         if reloadFen:
             self.choice.clear()
-            self.optionsWindow(id)
+            try:
+                self.optionsWindow(id)
+            except Exception as e:
+                self.log("MAIN_STATE", "[ERROR] - While reloading choice window:", e)
             self.choice.focus_force()
 
             self.log('TIME', "Reloading:".ljust(25),
@@ -928,13 +870,19 @@ class optionsWindow:
 
     def deleteFiles(self, id):
         def clearFolder(path):
-            if len(os.listdir(path)) >= 1:
-                self.log("DISK_ERROR",
-                         "Some files haven't been removed from folder", path)
             try:
-                os.rmdir(path)
-            except BaseException as e:
-                self.log("DISK_ERROR", "Couldn't delete folder", path, e)
+                # rd /S /Q "\\?\D:\Animes\folder."
+                os.system('del /F /S /Q "{}"'.format(path))
+                if len(os.listdir(path)) == 0:
+                    os.rmdir(path)
+                else:
+                    self.log("DISK_ERROR", "Some files haven't been removed from folder", path)
+            except Exception:
+                self.log('DISK_ERROR', "Error while removing folder", path, e)
+                raise
+            else:
+                self.log("DB_UPDATE", "Deleted all files and updated tag")
+
         folder = self.getFolder(id)
         path = os.path.join(
             self.animePath,
@@ -955,33 +903,17 @@ class optionsWindow:
                     delete_files=True,
                     torrent_hashes=hashes)
 
-            try:
-                # rd /S /Q "\\?\D:\Animes\folder."
-                os.system('del /F /S /Q "{}"'.format(path))
-                clearFolder(path)
-            except Exception:
-                self.log('DISK_ERROR', "Error while removing folder", path)
-                raise
-            else:
-                self.database.set({'id': id, 'tag': "SEEN"}, table='tag')
-
-                for lbl in self.animeList.winfo_children():
-                    if lbl.winfo_class() == 'Label' and lbl.name == str(id):
-                        lbl.configure(fg=self.colors[self.tagcolors["SEEN"]])
-                        break
-                self.reload(id, False)
-
-                self.log("DB_UPDATE", "Deleted all files and updated tag")
+            threading.Timer(1, clearFolder)
         else:
-            self.database.set({'id': id, 'tag': "SEEN"}, table='tag')
-
-            for lbl in self.animeList.winfo_children():
-                if lbl.winfo_class() == 'Label' and lbl.name == str(id):
-                    lbl.configure(fg=self.colors[self.tagcolors["SEEN"]])
-                    break
-            self.reload(id, False)
-
             self.log("DISK_ERROR", "Folder path doesn't exist:", path)
+
+        with self.database.get_lock():
+            self.database.set({'id': id, 'tag': "SEEN"}, table='anime')
+
+        for lbl in self.animeList.winfo_children():
+            if lbl.winfo_class() == 'Label' and lbl.name == str(id):
+                lbl.configure(fg=self.colors[self.tagcolors["SEEN"]])
+                break
         self.reload(id, False)
 
     def delete(self, id):

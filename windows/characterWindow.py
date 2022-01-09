@@ -14,7 +14,7 @@ class characterWindow:
             def like(id, b):
                 d = self.database(id=id, table='characters')
                 liked = self.database.exist(id=id, table='characters') and bool(d['like'])
-                self.database.set({'id': id, 'like': not liked})
+                self.database.set({'id': id, 'like': not liked}, table="characters")
 
                 if not liked:
                     im_path = os.path.join(self.iconPath, "heart.png")

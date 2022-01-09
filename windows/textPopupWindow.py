@@ -7,10 +7,11 @@ class textPopupWindow:
     def textPopupWindow(self, parent, title, callback, fentype="TEXT"):
         # Main window
         if True:
+            if self.popupWindow is not None and self.popupWindow.winfo_exists():
+                self.popupWindow.exit()
+                self.popupWindow.destroy()
             self.popupWindow = utils.RoundTopLevel(parent, title=title, minsize=(
                 750, 150), bg=self.colors['Gray2'], fg=self.colors['Gray3'])
-            # self.popupWindow.titleLbl.configure(text=title, bg= self.colors['Gray2'], fg= self.colors['Gray3'], font=("Source Code Pro Medium",18))
-            self.popupWindow.fen.attributes('-topmost', 'true')
 
         if fentype == "TEXT":
             var = StringVar()
@@ -47,6 +48,8 @@ class textPopupWindow:
                 pady=(
                     0,
                     20))
+
+            self.popupWindow.update()
         else:
             self.log("ERROR", "Unknown window type", fentype)
             raise

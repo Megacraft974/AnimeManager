@@ -1,4 +1,5 @@
-import auto_launch
+if __name__ == "__main__":
+    import auto_launch
 
 import ctypes
 import os
@@ -28,6 +29,7 @@ class Constants:
         self.logsPath = os.path.join(appdata, "logs")
         if not os.path.exists(appdata):
             os.mkdir(appdata)
+        self.qbCache = os.path.join(os.path.expanduser("~"), "AppData\\Local\\qBittorrent\\BT_backup")
 
         filesData = os.path.expanduser('~\\Documents\\AnimeManager')
         if not os.path.exists(filesData):
@@ -50,8 +52,10 @@ class Constants:
         self.player_name = "mpv_player"  # TODO - Choose different player
 
         self.allLogs = [
+            'ANIME_LIST',
             'CHARACTER',
             'CONFIG',
+            'DB_MAIN',
             'DB_ERROR',
             'DB_UPDATE',
             'DISK_ERROR',
@@ -105,6 +109,12 @@ class Constants:
             'Not yet aired': 'UPCOMING',
             'NONE': 'UNKNOWN',
             'UPDATE': 'UNKNOWN'}
+        self.tag_options = {
+            'Seen': {'color': 'Green', 'filter': 'SEEN'},
+            'Watching': {'color': 'Orange', 'filter': 'WATCHING'},
+            'Watchlist': {'color': 'Blue', 'filter': 'WATCHLIST'},
+            'No tag': {'color': 'White', 'filter': 'NONE'},
+        }
 
         self.checkSettings()
 

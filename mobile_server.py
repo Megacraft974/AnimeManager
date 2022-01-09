@@ -1,4 +1,5 @@
-import auto_launch
+if __name__ == "__main__":
+    import auto_launch
 
 import threading
 import json
@@ -121,32 +122,28 @@ def GetHandler(dbPath, manager):
                     except BaseException:
                         pass
 
-                if not self.database.exist(id=id, table="tag"):
-                    try:
-                        self.database.set(
-                            {"id": id, "tag": tag}, table="tag", save=False)
-                    except BaseException:
-                        pass
-                    dbTag = tag
-                else:
-                    dbTag = self.database(id=id, table="tag")['tag']
-
-                if not self.database.exist(id=id, table="like"):
-                    try:
-                        self.database.set(
-                            {"id": id, "like": like}, table="like", save=False)
-                    except BaseException:
-                        pass
-                    dbLike = like
-                else:
-                    dbLike = self.database(id=id, table="like")['like']
-
             self.database.save()
 
         def getAnimesToSync(self):
             self.database = self.getDatabase()
             content = self.database.sql(
-                'SELECT anime.id, title, title_synonyms, picture, synopsis, episodes, duration, rating, status, broadcast, trailer,tag.tag,like.like FROM anime LEFT JOIN tag USING(id) LEFT JOIN like USING(id) WHERE tag.tag in ("WATCHLIST","WATCHING","SEEN")')
+                '''SELECT
+                    anime.id,
+                    title,
+                    title_synonyms,
+                    picture,
+                    synopsis,
+                    episodes,
+                    duration,
+                    rating,
+                    status,
+                    broadcast,
+                    trailer,
+                    like,
+                    tag
+                FROM anime
+                WHERE tag in ("WATCHLIST","WATCHING","SEEN")
+            ''')
             rep = []
             keys = (
                 "mal_id",
