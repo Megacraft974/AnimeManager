@@ -67,19 +67,34 @@ from collections import defaultdict, deque
 from classes import SortedDict, Anime, AnimeList, SortedList, RegroupList
 import re, os, threading, queue, multiprocessing, json
 from qbittorrentapi import Client
+import random
+
+from utils import TableFrame
 
 db = Getters.getDatabase()
 
 
-def lol():
-    try:
-        a = 0
-        while True:
-            a += 1
-            if a > 100:
-                print("A")
-                return
-    finally:
-        print("OUT")
 
-lol()
+fen = Tk()
+keys = list("abcdefghi")
+table = TableFrame(fen, dict(zip("abcdefghi".upper(), keys)), print, main_key="title")
+table.configure(
+    bd=0,
+    height=1,
+    relief='solid',
+    font=(
+        "Source Code Pro Medium",
+        13),
+    activebackground="#181915",
+    activeforeground="#FFFFFF",
+    bg="#181915",
+    fg="#FFFFFF"
+)
+table.configure_keys(bg="#383935", activebackground="#181915", border="#FF0000")
+
+data = [{k: random.randint(0, 100) for k in keys} for i in range(20)]
+print(data)
+table.extend(data)
+table.update()
+table.pack(expand=True, fill="both")
+fen.mainloop()

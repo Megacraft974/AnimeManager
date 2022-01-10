@@ -164,7 +164,7 @@ class KitsuIoWrapper(APIUtils):
             if isinstance(a._relationships['mediaRelationships'], relationships.MultiRelationship):
                 rels = []
                 for f in a.mediaRelationships:
-                    rel = {'type': f.destination.type, 'name': f.role, 'rel_id': f.destination.id}
+                    rel = {'type': f.destination.type, 'name': f.role, 'rel_id': f.destination.id, 'anime': {'title': f.role + " - " + data['title']}}
                 self.save_relations(id, rels)
         return data
 

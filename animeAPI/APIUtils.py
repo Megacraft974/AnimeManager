@@ -106,7 +106,7 @@ class APIUtils(Getters, Logger):
         return list(g['id'] for g in data)
 
     def save_relations(self, id, rels):
-        # Rels must be a list of dicts, each containing three fields: 'type', 'name' and 'rel_id'
+        # Rels must be a list of dicts, each containing four fields: 'type', 'name', 'rel_id' and 'anime'
         if len(rels) == 0:
             return
         with self.database.get_lock():
@@ -114,10 +114,15 @@ class APIUtils(Getters, Logger):
             for rel in rels:
                 if rel["type"] == "anime":
                     rel["id"] = id
-                    rel["rel_id"] = self.database.getId(self.apiKey, rel["rel_id"])
-                    if not filter(lambda e: all(e[k] == v for k, v in rel.items()), db_rels):
+                    rel["rel_id"], meta = self.database.getId(self.apiKey, rel["rel_id"], add_meta=True)
+                    anime = rel.pop("anime")
+                    if not list(filter(lambda e: all(e[k] == v for k, v in rel.items()), db_rels)):
                         sql = "INSERT INTO relations (" + ", ".join(rel.keys()) + ") VALUES (" + ", ".join("?" * len(rel)) + ");"
                         self.database.sql(sql, rel.values())
+                    if not meta['exists']:
+                        anime["id"] = rel["rel_id"]
+                        anime["status"] = "UPDATE"
+                        self.database.set(anime, table="anime")
             self.database.save()
 
 

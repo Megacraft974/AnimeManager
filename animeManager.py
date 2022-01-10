@@ -1,5 +1,8 @@
-if __name__ == "__main__":
-    import auto_launch
+# if __name__ == "__main__":
+#     multiprocessing.freeze_support()
+#     import auto_launch
+
+globals()['auto_launch_initialized'] = True
 
 import ctypes
 import io
@@ -68,15 +71,16 @@ except ModuleNotFoundError as e:
 
 
 # TODO - Load new images on downloading error
-# TODO - Table class
+# TODO - Scrollbar thumb is going out of range
+# TODO - Implement the TableFrame class
 # TODO - Add filter for torrent list (seeds / name)
 # TODO - Play button on media player isn't centered
+# TODO - Update the loading... text on media player
 # TODO - Put single files in directories
 # TODO - Add search by studios
+# TODO - Add pictures window
 # TODO - Allow window resizing
 # TODO - Online search raise database is locked error
-# TODO - Avoid accessing to db with the API wrappers
-# TODO - Create a factory method to save anime relations
 # TODO - Use the db.get_lock() with API wrappers
 # TODO - Improve torrent matching algorithm
 # TODO - Auto associate latest torrents?
@@ -84,6 +88,7 @@ except ModuleNotFoundError as e:
 # TODO - Add RSS option
 # TODO - Automatic torrent downloading from RSS?
 # TODO - Compile into an executable
+# TODO - Fix media player problem with executable
 # TODO - Phone version
 
 
@@ -185,7 +190,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
         self.fen.update()
 
     def searchDb(self, terms):
-        def enumerator(terms):
+        def fuzzy_enumerator(terms):  # Unused
             sql = """
                 SELECT value, anime.*
                 FROM title_synonyms
@@ -193,6 +198,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
                 GROUP BY anime.id
                 ORDER BY anime.date_from DESC;
             """
+
             match_threshold = 70
             partial_threshold = 50
             keys = list(self.database.keys(table="anime"))
@@ -211,10 +217,30 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
                 yield True
             for data in match + partial:
                 yield Anime(keys=keys, values=data[0])
+
+        def like_enumerator(terms):
+            sql = """
+                SELECT anime.*
+                FROM anime
+                JOIN title_synonyms using(id)
+                GROUP BY anime.id HAVING value LIKE "%{}%"
+                ORDER BY anime.date_from DESC;
+            """
+
+            keys = list(self.database.keys(table="anime"))
+            matchs = self.database.sql(sql.format(terms))
+            if len(matchs) == 0:
+                yield False
+                return
+            else:
+                yield True
+                for m in matchs:
+                    yield Anime(keys=keys, values=m)
+
         terms = "".join([c for c in terms if c.isalnum()]).lower()
         # return self.searchNgrams(terms)
 
-        enum = enumerator(terms)
+        enum = like_enumerator(terms)
         if next(enum):
             anime_list = AnimeList(enum)
             return anime_list
@@ -646,4 +672,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
 
 if __name__ == '__main__':
     multiprocessing.freeze_support()
-    m = Manager()
+    p = multiprocessing.current_process()
+    if p.name == 'MainProcess':
+        m = Manager()

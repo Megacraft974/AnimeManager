@@ -76,8 +76,8 @@ class MyAnimeListNetWrapper(APIUtils):
                     titles.append(sub)
 
         out['title_synonyms'] = titles
-        out['date_from'] = a['start_date'] if 'start_date' in a.keys() else None
-        out['date_to'] = a['end_date'] if 'end_date' in a.keys() else None
+        out['date_from'] = a['start_date'] if 'start_date' in a.keys() and len(a['start_date'].split('-')) == 3 else None
+        out['date_to'] = a['end_date'] if 'end_date' in a.keys() and len(a['end_date'].split('-')) == 3 else None
         out['picture'] = list(a['main_picture'].items(
         ))[-1][1] if 'main_picture' in a.keys() else None
         out['synopsis'] = a['synopsis'] if 'synopsis' in a.keys() else None
@@ -111,7 +111,8 @@ class MyAnimeListNetWrapper(APIUtils):
             rel = []
             for relation, rel_data_list in a['related'].items():
                 for rel_data in rel_data_list:
-                    rel = {'type': rel_data['type'], 'name': relation, 'rel_id': rel_data['id']}
+                    print("M", rel_data)  # TODO - Fetch rel anime title
+                    rel = {'type': rel_data['type'], 'name': relation, 'rel_id': rel_data['id'], 'anime': {'title': rel_data['type'] + " - " + out['title']}}
                     # saveRelation(id, rel)
             self.save_relations(id, rels)
 
@@ -154,9 +155,11 @@ class MyAnimeListNetWrapper(APIUtils):
         return True
 
     def getNewToken(self):
+        log = self.log
+
         class AuthServer(BaseHTTPRequestHandler):
             def do_GET(self):
-                self.log(
+                log(
                     "SERVER - Received GET request from address {}".format(self.client_address))
                 req = self.path.split("/")[1]
                 args = {}
@@ -247,4 +250,6 @@ class MyAnimeListNetWrapper(APIUtils):
             return token["access_token"]
         else:
             self.log("Error while fetching MAL token!")
+            if os.path.isfile(self.tokenPath):
+                os.remove(self.tokenPath)
             return None

@@ -22,7 +22,7 @@ import qbittorrentapi.exceptions
 from PIL import Image, ImageTk
 
 from dbManager import thread_safe_db
-from classes import Anime, ReturnThread
+from classes import Anime, ReturnThread, RegroupList
 
 if 'database_threads' not in globals().keys():
     globals()['database_threads'] = {}
@@ -438,4 +438,4 @@ class Getters:
 
     def get_relations(self, id, **filters):
         data = self.database.sql("SELECT * FROM relations WHERE id=?", (id,), to_dict=True)
-        return filter(lambda e: all(e[k] == v for k, v in filters.items()), data)
+        return RegroupList("id", ["rel_id"], *(filter(lambda e: all(e[k] == v for k, v in filters.items()), data)))

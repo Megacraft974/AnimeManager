@@ -3,6 +3,7 @@ import json
 import threading
 import re
 import subprocess
+import traceback
 import queue
 import time
 
@@ -143,6 +144,7 @@ class optionsWindow:
 
             def tag(id, tag):
                 with self.database.get_lock():
+                    print(id, tag)
                     self.database.set({'id': id, 'tag': tag}, table='anime')
 
                 for lbl in self.animeList.winfo_children():
@@ -466,7 +468,7 @@ class optionsWindow:
                     activeforeground=self.colors['Green'],
                     bg=self.colors['Gray2'],
                     fg=self.colors[color],
-                    command=lambda id=id: tag(id, tag_filter)
+                    command=lambda id=id, tag_filter=tag_filter: tag(id, tag_filter)
                 ).grid(
                     row=0,
                     column=1 + i,
@@ -648,15 +650,17 @@ class optionsWindow:
         # Relations
         if True:
             relationsFrame = Frame(self.choice, bg=self.colors['Gray2'])
-            relations = self.database.sql(
-                "SELECT * FROM related WHERE id=?", (id,))
+            # relations = self.database.sql(
+            #     "SELECT * FROM related WHERE id=?", (id,))
+            relations = self.get_relations(id, type='anime')
             column = 0
-            relations.sort(key=itemgetter(1))
+            relations.sort(key=itemgetter('name'))
             for relation in relations:
-                rel_ids = json.loads(relation[2])
+                # print(relation)
+                rel_ids = relation['rel_id']
                 sql = "SELECT title,id FROM anime WHERE id IN (" + ",".join("?" * len(rel_ids)) + ");"
                 titles = dict(self.database.sql(sql, rel_ids))
-                text = relation[1].capitalize().replace("_", " ")
+                text = relation['name'].capitalize().replace("_", " ")
                 if len(titles) == 1:
                     Button(relationsFrame,
                            text=text,
@@ -832,7 +836,7 @@ class optionsWindow:
         if 'TIME' in self.logs:
             self.start = time.time()
 
-        thread_files = threading.Thread(target=self.regroupFiles, daemon=True)
+        thread_files = threading.Thread(target=self.regroupFiles, args=(True,), daemon=True)
         thread_files.start()
 
         reloadFen = True
@@ -862,7 +866,7 @@ class optionsWindow:
             try:
                 self.optionsWindow(id)
             except Exception as e:
-                self.log("MAIN_STATE", "[ERROR] - While reloading choice window:", e)
+                self.log("MAIN_STATE", "[ERROR] - While reloading choice window:", traceback.format_exc())
             self.choice.focus_force()
 
             self.log('TIME', "Reloading:".ljust(25),

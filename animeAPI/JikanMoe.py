@@ -14,14 +14,20 @@ class JikanMoeWrapper(APIUtils):
         self.cooldown = 2
         self.last = time.time() - self.cooldown
         self.apiKey = "mal_id"
-        # self.online = True
 
     def anime(self, id):
         mal_id = self.getId(id)
         if mal_id is None:
             return {}
         self.delay()
-        a = self.jikan.anime(mal_id)
+        try:
+            a = self.jikan.anime(mal_id)
+        except jikan_exceptions.APIException as e:
+            if e.status_code == 429:
+                self.last = time.time() + 60
+                return {}
+            else:
+                raise
         data = self._convertAnime(a)
         return data
 
@@ -33,8 +39,12 @@ class JikanMoeWrapper(APIUtils):
         try:
             a = self.jikan.anime(mal_id, extension='characters_staff')[
                 'characters']
-        except requests.exceptions.ReadTimeout:
-            pass
+        except jikan_exceptions.APIException as e:
+            if e.status_code == 429:
+                self.last = time.time() + 60
+                return []
+            else:
+                raise
         for c in a:
             yield self._convertCharacter(c, id)
 
@@ -42,8 +52,12 @@ class JikanMoeWrapper(APIUtils):
         self.delay()
         try:
             a = self.jikan.anime(id, "pictures")
-        except jikan_exceptions.APIException:
-            return []
+        except jikan_exceptions.APIException as e:
+            if e.status_code == 429:
+                self.last = time.time() + 60
+                return []
+            else:
+                raise
         return a['pictures']
 
     def schedule(self, limit=50):
@@ -51,8 +65,12 @@ class JikanMoeWrapper(APIUtils):
         self.delay()
         try:
             rep = self.jikan.schedule()
-        except jikan_exceptions.APIException:
-            return
+        except jikan_exceptions.APIException as e:
+            if e.status_code == 429:
+                self.last = time.time() + 60
+                return
+            else:
+                raise
         for day, data in list(rep.items())[3:12]:
             break
             for anime in data:
@@ -71,12 +89,12 @@ class JikanMoeWrapper(APIUtils):
         self.delay()
         try:
             rep = self.jikan.search('anime', search, parameters={'limit': limit})
-        except requests.exceptions.ReadTimeout:
-            self.log("Jikan.moe timed out!")
-            return
-        except jikan_exceptions.APIException:
-            self.log("Jikan.moe had a parser exception!")
-            return
+        except jikan_exceptions.APIException as e:
+            if e.status_code == 429:
+                self.last = time.time() + 60
+                return []
+            else:
+                raise
         for a in rep['results']:
             data = self._convertAnime(a)
             if len(data) != 0:
@@ -85,7 +103,14 @@ class JikanMoeWrapper(APIUtils):
     def character(self, id):
         mal_id = self.getId(id, table="characters")
         self.delay()
-        c = self.jikan.character(mal_id)
+        try:
+            c = self.jikan.character(mal_id)
+        except jikan_exceptions.APIException as e:
+            if e.status_code == 429:
+                self.last = time.time() + 60
+                return {}
+            else:
+                raise
         return self._convertCharacter(c)
 
     def _convertAnime(self, a):
@@ -167,7 +192,7 @@ class JikanMoeWrapper(APIUtils):
             rels = []
             for relation, rel_data_list in a['related'].items():
                 for rel_data in rel_data_list:
-                    rel = {'type': rel_data['type'], 'name': relation, 'rel_id': int(rel_data["mal_id"])}
+                    rel = {'type': rel_data['type'], 'name': relation, 'rel_id': int(rel_data["mal_id"]), 'anime': {'title': rel_data['name']}}
                     rels.append(rel)
             if len(rels) > 0:
                 self.save_relations(id, rels)

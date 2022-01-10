@@ -84,11 +84,11 @@ class ddlWindow:
                         command=lambda a=data,
                         b=id: self.ddlFileListWindow(
                             a,
-                            b)).grid(
+                            b)
+                    ).grid(
                         row=i,
                         column=0,
                         sticky="nsew")
-
                 try:
                     if empty:
                         self.publisherChooser.titleLbl['text'] = "No files\nfound!"

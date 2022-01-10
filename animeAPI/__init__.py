@@ -19,6 +19,9 @@ class AnimeAPI(Getters):
         self.init_thread.start()
 
     def __getattr__(self, name):
+        if name in ('dbPath',):
+            return super().__getattr__(name)
+
         def f(*args, **kwargs):
             return self.wrapper(name, *args, **kwargs)
         return f
@@ -90,6 +93,7 @@ class AnimeAPI(Getters):
             t.start()
             threads.append(t)
 
+        out = ()
         if name in ('anime', 'character'):
             if name == 'anime':
                 out = Anime()
@@ -103,20 +107,20 @@ class AnimeAPI(Getters):
                     pass
                 else:
                     out += r
-            self.save(out)
-            return out
         else:  # TODO - Save data here
             if name in ('schedule', 'searchAnime', 'season'):
-                return AnimeList((que, threads))
+                out = AnimeList((que, threads))
             elif name in ('animeCharacters',):
-                return CharacterList((que, threads))
+                out = CharacterList((que, threads))
             else:
-                return ItemList((que, threads))
-        return ()
+                out = ItemList((que, threads))
+        self.save(out)
+        return out
 
-    def save(self, data):  # TODO
-        database = self.getDatabase()
-        if isinstance(data, Anime):
+    def save(self, data):
+        if not data:
+            return
+        elif isinstance(data, Anime):
             table = "anime"
         elif isinstance(data, Character):
             table = "characters"
@@ -125,7 +129,10 @@ class AnimeAPI(Getters):
             return
         else:
             raise TypeError("{} is an invalid type!".format(str(type(data))))
-        database.set(data, table=table)
+
+        database = self.getDatabase()
+        with database.get_lock():
+            database.set(data, table=table)
 
 # TODO - Add more APIs:
 # anilist.co

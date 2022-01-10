@@ -77,7 +77,7 @@ class Item(dict):
                 self[k] = v
             elif v is not None:
                 if not isinstance(v, type(self[k])):
-                    raise TypeError("On key {} - types do not match: {}:{} / {}:{}".format(k, v, type(v), self[k], type(self[k])))
+                    raise TypeError("On key {} - types do not match: {}-{} / {}-{}".format(k, v, type(v), self[k], type(self[k])))
                 if hasattr(v, "__len__"):
                     if len(v) > len(self[k]):
                         self[k] = v
@@ -183,7 +183,6 @@ class ItemList():
         while not self.stop:
             try:
                 e = next(iterator)
-                # log("S {},".format(e))
             except StopIteration:
                 self.sources.remove(s)
                 if self.new_elem_event["enabled"]:
@@ -274,8 +273,8 @@ class ItemList():
 
 class AnimeList(ItemList):
     def __init__(self, sources):
-        super().__init__(sources)
         self.identifier = lambda a: a["id"]
+        super().__init__(sources)
 
 
 class TorrentList(ItemList):
@@ -323,7 +322,7 @@ class RegroupList(list):
     def __init__(self, pk, merge_keys=[], *args):
         super().__init__()
         self.pk = pk
-        self.merge_keys = []
+        self.merge_keys = merge_keys
         self.keys = set()
         self.extend(args)
 
@@ -331,20 +330,35 @@ class RegroupList(list):
         if not isinstance(sub, dict):
             raise TypeError("Elements must be dicts, not " + str(type(sub)))
         sub_id = sub[self.pk]
+        append = True
         if sub_id in self.keys:
-            for t in self:
-                if sub_id == t[self.pk]:
-                    for k, v in sub.items():
-                        if k in t:
-                            if v != t[k]:
-                                if isinstance(t[k], list):
-                                    t[k].append(v)
-                                else:
-                                    t[k] = [t[k], v]
-                        else:
-                            t[k] = v
-                    break
-        else:
+            pos = next((
+                i
+                for i, e
+                in enumerate(self)
+                if all(
+                    e[k] == v
+                    for k, v
+                    in sub.items()
+                    if k not in self.merge_keys
+                )),
+                None
+            )
+            if pos is not None:
+                current = self[pos]
+                curset, subset = set(item for item in current.items() if item[0] not in self.merge_keys), set(sub.items())
+                diff = curset ^ subset
+                if all(lambda e: e[0] in self.merge_keys for e in diff):
+                    new_sub = dict(curset & subset)
+                    for k, v in diff:
+                        new_sub[k] = [v] + current[k]
+                    self[pos] = new_sub
+                    append = False
+        if append:
+            for k, v in sub.items():
+                if k in self.merge_keys:
+                    sub[k] = [v]
+
             if index is None:
                 super().append(sub)
             else:

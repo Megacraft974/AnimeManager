@@ -5,8 +5,10 @@ import queue
 import os
 import re
 
-from classes import AnimeList
+from operator import itemgetter
 from datetime import datetime, timedelta
+
+from classes import AnimeList, DefaultDict
 
 from ctypes import windll, Structure, c_long, byref
 from logger import log, Logger
@@ -119,9 +121,9 @@ class RoundTopLevel(Frame):
 
     def getChild(self, w):
         out = []
-        if not type(w) in (Button, Checkbutton, Toplevel, OptionMenu, DropDownMenu):
+        if not isinstance(w, (Button, Checkbutton, Toplevel, OptionMenu, DropDownMenu, ScrollableFrame, CustomScrollbar)):
             out.append(w)
-        if type(w) in [Toplevel, Canvas, Frame, RoundTopLevel, ScrollableFrame, type(self)]:
+        if type(w) in (Toplevel, Canvas, Frame, RoundTopLevel):#, ScrollableFrame):
             try:
                 for w in w.winfo_children():
                     out += self.getChild(w)
@@ -560,36 +562,6 @@ class DropDown(Toplevel):
         return handler
 
 
-class Timer():
-    def __init__(self, name, logger=None):
-        self.startTime = time.time()
-        self.name = name
-
-        self.timer = None
-        self.timeList = []
-
-        if logger is None:
-            self.log = log
-        else:
-            self.log = logger
-
-    def start(self):
-        self.timer = time.time()
-
-    def stop(self):
-        if self.timer is not None:
-            self.timeList.append(time.time() - self.timer)
-            self.timer = None
-
-    def stats(self):
-        nameBracks = "[{}]".format(self.name.center(10))
-        total = time.time() - self.startTime
-        self.log(nameBracks, "Total:", int(total * 1000), "ms")
-        if len(self.timeList) > 0:
-            avg = sum(self.timeList) / len(self.timeList)
-            self.log(nameBracks, "Average:", int(avg * 1000), "ms/loop - Loops:", len(self.timeList))
-
-
 class AnimeListFrame(ScrollableFrame):
     def __init__(self, root, parent, rows_per_page=50, **kwargs):
         self.root = root
@@ -774,6 +746,8 @@ class AnimeListFrame(ScrollableFrame):
                             row=0,
                             pady=50)
                     break
+                # else:
+                    # print("L", data["title"], start, anime_count + start, i)
                 row.append((i, data, que))
 
                 if i % self.animePerRow == 2:
@@ -867,6 +841,139 @@ class AnimeListFrame(ScrollableFrame):
     def load_more(self, start, toDestroy):
         [e.destroy() for e in toDestroy]
         self.createList(start=start)
+
+
+class TableFrame(Frame):
+    def __init__(self, parent, keys, cb, main_key=None, **kwargs):
+        self.keys = keys
+        self.sort_key = list(self.keys.keys())[0]
+        self.invert_sort = True
+        self.cb = cb
+        self.config_ = kwargs
+        self.keys_config = {}
+        self.table = []
+        self.wid_table = DefaultDict([])
+        super().__init__(parent)
+        self.configure(**kwargs)
+
+    def draw_keys(self):
+        for i, key in enumerate(self.keys):
+            self.grid_columnconfigure(i, weight=1)
+            key_frame = Frame(self)
+            key_frame.grid_columnconfigure(0, weight=1)
+
+            b = Button(
+                key_frame,
+                text=key,
+                command=lambda a=key: self.sort_by(a)
+            )
+            b.configure(**parse_args(b, self.config_ | self.keys_config))
+            b.grid(row=0, column=0, sticky="nsew")
+
+            if self.sort_key == key:
+                if self.invert_sort:
+                    sort_txt = "▼"
+                else:
+                    sort_txt = "▲"
+            else:
+                sort_txt = "►"
+
+            c = Button(
+                key_frame,
+                text=sort_txt,
+                command=lambda a=key: self.sort_by(a)
+            )
+            c.configure(**parse_args(c, self.config_ | self.keys_config))
+            c.grid(row=0, column=1, sticky="nse")
+
+            key_frame.grid(
+                row=0,
+                column=i,
+                sticky="nsew",
+                padx=1
+            )
+
+    def extend(self, data_list):
+        self.table.extend(data_list)
+
+    def add_row(self, data):
+        self.table.append(data)
+
+    def pop(self, i):
+        return self.table.pop(i)
+
+    def remove(self, data):
+        self.table.remove(data)
+
+    def clear(self):
+        self.table = []
+
+    def sort_by(self, key):
+        if self.sort_key == key:
+            self.invert_sort = not self.invert_sort
+        else:
+            self.sort_key = key
+            self.invert_sort = True
+        self.update()
+
+    def draw_table(self):
+        for w in self.winfo_children():
+            w.destroy()
+        self.draw_keys()
+        for row, data in enumerate(sorted(self.table, key=itemgetter(self.keys[self.sort_key]), reverse=self.invert_sort)):
+            for i, key in enumerate(self.keys.values()):
+                b = Button(
+                    self,
+                    text=data[key],
+                    command=lambda a=data: self.cb(a)
+                )
+                b.configure(**parse_args(b, self.config_))
+                b.grid(
+                    row=row + 1,
+                    column=i,
+                    sticky="nsew"
+                )
+
+    def update(self):
+        self.draw_table()
+        super().update()
+
+    def configure(self, **kwargs):
+        self.config_ = kwargs
+        super().configure(**parse_args(self, self.config_))
+
+    def configure_keys(self, **kwargs):
+        self.keys_config = kwargs
+
+
+class Timer():
+    def __init__(self, name, logger=None):
+        self.startTime = time.time()
+        self.name = name
+
+        self.timer = None
+        self.timeList = []
+
+        if logger is None:
+            self.log = log
+        else:
+            self.log = logger
+
+    def start(self):
+        self.timer = time.time()
+
+    def stop(self):
+        if self.timer is not None:
+            self.timeList.append(time.time() - self.timer)
+            self.timer = None
+
+    def stats(self):
+        nameBracks = "[{}]".format(self.name.center(10))
+        total = time.time() - self.startTime
+        self.log(nameBracks, "Total:", int(total * 1000), "ms")
+        if len(self.timeList) > 0:
+            avg = sum(self.timeList) / len(self.timeList)
+            self.log(nameBracks, "Average:", int(avg * 1000), "ms/loop - Loops:", len(self.timeList))
 
 
 def parse_args(wid, kwargs):

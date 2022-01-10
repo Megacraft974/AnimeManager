@@ -29,7 +29,7 @@ class db():
         table = "anime"
         self.alltable_keys = {}
         self.log_commands = False
-        self.last_op = ""
+        self.last_op = "None"
 
     def createNewDb(self):
         open(self.path, "w")
@@ -189,7 +189,7 @@ class db():
         else:
             return NoneDict(out)
 
-    def getId(self, apiKey, apiId, table="anime"):
+    def getId(self, apiKey, apiId, table="anime", add_meta=False):
         if table == "anime":
             index = "indexList"
         elif table == "characters":
@@ -197,21 +197,26 @@ class db():
         sql = "SELECT id FROM {} WHERE {}=?;".format(index, apiKey)
         ids = self.sql(sql, (apiId,))
         if len(ids) > 0:
-            return ids[0][0]
+            if add_meta:
+                out = ids[0][0], {"exists": False}
+            else:
+                out = ids[0][0]
+            return out
         else:
-            isql = "INSERT INTO {}({}) VALUES(?)".format(index, apiKey)
             with self.get_lock():
+                isql = "INSERT INTO {}({}) VALUES(?)".format(index, apiKey)
                 try:
                     self.execute(isql, (apiId,))
                 except sqlite3.IntegrityError as e:
-                    sql = "SELECT id FROM {} WHERE {}=?;".format(index, apiKey)
-                    ids = self.sql(sql, (apiId,))
-                    return ids[0][0]
-                else:
-                    ids = self.sql(sql, (apiId,))
-                    return ids[0][0]
+                    log("[ERROR] - On getId:", e)
                 finally:
                     self.save()
+                    ids = self.sql(sql, (apiId,))
+                    if add_meta:
+                        out = ids[0][0], {"exists": True}
+                    else:
+                        out = ids[0][0]
+                    return out
 
     def update(self, key, data, id, table, save=True):
         sql = "UPDATE " + table + " SET {} = ? WHERE id = ?".format(key)
@@ -234,16 +239,16 @@ class db():
                 if self.log_commands:
                     log(sql, *args)
                 self.cur.execute(sql, *args)
-                if "INSERT" in sql or "UPDATE" in sql:
-                    self.last_op = sql
+                self.last_op = sql
         except sqlite3.OperationalError as e:
             if e.args == ('database is locked',):
-                print(self.last_op)
+                print("OP", self.last_op, type(self.last_op), flush=True)
                 log("[ERROR] - Database is locked! - On execute({sql}{comma}{args}) - Last op: {last_op}".format(
                     sql=sql,
                     comma=", " if len(args) > 0 else "",
-                    args=(", ".join(map(str, args))) if len(args) > 0 else ""),
+                    args=(", ".join(map(str, args))) if len(args) > 0 else "",
                     last_op=self.last_op)
+                    )
                 raise
             else:
                 log(e, sql, args)
@@ -412,7 +417,7 @@ class db():
                         keys = (k[0] for k in self.cur.description)
                         out = []
                         for data in self.cur:
-                            out.append(NoneDict(keys=(k[0] for k in self.cur.description), values=data))
+                            out.append(NoneDict(keys=(k[0] for k in self.cur.description), values=data, default=None))
                         return out
                     else:
                         return self.cur.fetchall()

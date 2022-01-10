@@ -43,12 +43,13 @@ class ddlFileListWindow:
                     fg=self.colors['Gray3'])
             else:
                 self.fileChooser.clear()
-                # self.fileChooser.titleLbl.configure(text="Torrents:", bg= self.colors['Gray3'], fg= self.colors['Gray2'], font=("Source Code Pro Medium",18))
 
             table = utils.ScrollableFrame(
                 self.fileChooser, bg=self.colors['Gray2'])
             table.pack(expand=True, fill="both", padx=20)
 
+            # keys = {"Title": "filename", "Seeds": "seeds", "Leechs": "leechs", "Size": "filesize"}
+            # table = TableFrame(scroll_frame, keys, )
             table.grid_columnconfigure(0, weight=1)
 
             self.fileChooser.update()

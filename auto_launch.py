@@ -2,7 +2,7 @@
 
 import sys
 import os
-from multiprocessing import Process, current_process
+from multiprocessing import current_process
 
 if 'auto_launch_initialized' not in globals().keys() and current_process().name == 'MainProcess':
     globals()['auto_launch_initialized'] = True
