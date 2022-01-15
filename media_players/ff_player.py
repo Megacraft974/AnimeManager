@@ -296,7 +296,9 @@ class FfPlayer(BasePlayer):
         self.player.volume = self.volume
         self.soundLbl['text'] = str(self.volume) + "%"
 
-    def togglePause(self):
+    def togglePause(self, playing=None):
+        if playing is not None and not playing == self.paused:
+            return
         self.paused = not self.paused
         self.player.pause = self.paused
         icon = "play" if self.paused else "pause"
@@ -338,12 +340,12 @@ class FfPlayer(BasePlayer):
             try:
                 animate(-50, 0, 1)
                 self.parent.after(3000, lambda: animate(0, -50, 1))
-            except BaseException:
+            except Exception:
                 pass
         try:
             if not self.stopped:
                 self.parent.after(5000, lbl.place_forget)
-        except BaseException:
+        except Exception:
             pass
 
     def OnTime(self, t=0):
@@ -384,7 +386,7 @@ class FfPlayer(BasePlayer):
 
         try:
             self.posLbl['text'] = currentTimeText + " - " + totalTimeText
-        except BaseException:
+        except Exception:
             pass
 
         cursorX, cursorY = self.queryMousePosition()

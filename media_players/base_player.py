@@ -23,6 +23,10 @@ from logger import log
 class BasePlayer:
     def __init__(self, *args, **kwargs):
         self.log = log
+        if "callback" in kwargs:
+            callback = kwargs.pop("callback")
+        else:
+            callback = None
         if not hasattr(self, "method"):
             if "root" in kwargs:
                 self.method = "NONE"
@@ -31,11 +35,14 @@ class BasePlayer:
         if self.method == "PROCESS":
             p = Process(target=self.start, args=args, kwargs=kwargs)
             p.start()
+            threading.Thread(target=self.callback, args=(callback, p)).start()
         elif self.method == "THREAD":
             t = threading.Thread(target=self.start, args=args, kwargs=kwargs)
             t.start()
+            threading.Thread(target=self.callback, args=(callback, t)).start()
         else:
             self.start(*args, **kwargs)
+            callback()
 
     def setup(self, root):
         try:
@@ -52,6 +59,7 @@ class BasePlayer:
             self.settings = json.load(f)
         self.lastMovement = 0
         self.movementCheck = None
+        self.is_iconified = False
         self.hideCursorDelay = 3
         self.root = root
 
@@ -89,7 +97,8 @@ class BasePlayer:
         x = int(self.parent.winfo_screenwidth() / 2 - size[0] / 2)
         y = int(self.parent.winfo_screenheight() / 2 - size[1] / 2)
         self.parent.geometry("{}x{}+{}+{}".format(*size, x, y))
-        self.parent.iconphoto(False, self.image("favicon.png", (128, 128)))
+        self.parent.iconbitmap("icons/app_icon/icon.ico")
+        # self.parent.iconphoto(False, self.image("app_icon/icon.ico", (128, 128)))
 
         self.parent.update()
         self.parent.minsize(width=550, height=300)
@@ -335,7 +344,7 @@ class BasePlayer:
         self.lastMovement = time.time()
         if self.movementCheck is not None:
             self.parent.after_cancel(self.movementCheck)
-        self.movementCheck = self.parent.after(3 * 1000, self.hideCursor)
+        self.movementCheck = self.parent.after(self.hideCursorDelay * 1000, self.hideCursor)
 
     def queryMousePosition(self):
         pt = POINT()
@@ -345,6 +354,10 @@ class BasePlayer:
     def hideCursor(self):
         if time.time() - self.lastMovement >= self.hideCursorDelay:
             self.parent.config(cursor="none")
+        else:
+            if self.movementCheck is not None:
+                self.parent.after_cancel(self.movementCheck)
+            self.movementCheck = self.parent.after((self.hideCursorDelay - (time.time() - self.lastMovement)) * 1000, self.hideCursor)
 
     def updateDb(self):
         # self.log("Updating last_seen db",flush=True)
@@ -369,7 +382,7 @@ class BasePlayer:
                     while t.is_alive():
                         time.sleep(1 / 60)
                         self.parent.update()
-                except BaseException:
+                except Exception:
                     self.parent.after(1, self.OnClose)  # TODO - Really useful?
                     break
             self.playlist = []
@@ -387,7 +400,7 @@ class BasePlayer:
         def getTitle(v, q):
             try:
                 q.put(v.title)
-            except BaseException:
+            except Exception:
                 q.put(None)
         video = YouTube(v)
         title = queue.Queue()
@@ -403,7 +416,7 @@ class BasePlayer:
             return
         except urllib.error.URLError:
             log("No internet connection!")
-        except BaseException as e:
+        except Exception as e:
             log("Error while fetching youtube video for url:", v, "-", e, "- Streams:\n   ", "\n   ".join(video.streams), "\n-", traceback.format_exc())
         else:
             streams.sort(key=lambda s: int(
@@ -411,9 +424,24 @@ class BasePlayer:
             stream = streams[0]
             que.put((i, stream.url, title.get()))
 
+    def toggle_iconify(self):
+        if self.is_iconified:
+            self.parent.deiconify()
+            self.togglePause(playing=True)
+        else:
+            self.parent.iconify()
+            self.togglePause(playing=False)
+        self.is_iconified = not self.is_iconified
+
+    def callback(self, cb, p):
+        p.join()
+        if cb is not None:
+            cb()
+
 
 class POINT(Structure):
     _fields_ = [("x", c_long), ("y", c_long)]
+
 
 if __name__ == "__main__":
     freeze_support()

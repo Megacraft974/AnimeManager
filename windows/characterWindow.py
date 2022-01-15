@@ -13,7 +13,7 @@ class characterWindow:
         if True:
             def like(id, b):
                 d = self.database(id=id, table='characters')
-                liked = self.database.exist(id=id, table='characters') and bool(d['like'])
+                liked = bool(d['like'])
                 self.database.set({'id': id, 'like': not liked}, table="characters")
 
                 if not liked:
@@ -39,22 +39,22 @@ class characterWindow:
             def switchAnime(id):
                 try:
                     self.characterInfo.exit()
-                except BaseException:
+                except Exception:
                     pass
                 try:
                     self.characterList.exit()
-                except BaseException:
+                except Exception:
                     pass
                 try:
                     self.reload(id, False)
-                except BaseException:
+                except Exception:
                     self.optionsWindow(id)
 
             def update(c):
-                c = self.getCharacterData(c['id'])
+                c = self.getCharacterData(c.id)
                 try:
                     self.characterInfo.after(1, self.characterWindow, c, False)
-                except BaseException:
+                except Exception:
                     pass
 
         # Main window - Fancy corners - Events
@@ -111,11 +111,11 @@ class characterWindow:
                 can.grid(row=0, column=0, rowspan=2)
                 can.create_image(0, 0, image=image, anchor='nw')
                 can.image = image
-            except BaseException as e:
+            except Exception as e:
                 self.log("MAIN_STATE", "Error while creating characterInfo window:", e)
                 try:
                     self.characterInfo.exit()
-                except BaseException:
+                except Exception:
                     pass
                 return
 
@@ -134,7 +134,7 @@ class characterWindow:
             self.characterInfo.handles = [titleLbl]
             self.characterInfo.update()
 
-            if self.database.exist(id=character['id'], table='characters') and bool(self.database(id=character['id'], table='characters')['like']):
+            if bool(character.like):
                 im_path = os.path.join(self.iconPath, "heart.png")
             else:
                 im_path = os.path.join(self.iconPath, "heart(1).png")

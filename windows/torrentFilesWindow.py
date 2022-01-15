@@ -15,23 +15,6 @@ class torrentFilesWindow:
         # Functions
         if True:
             def import_torrent(id):
-                def removeOld(self, t_id, t_torrents):
-                    return  # Disabled
-                    self.log('DB_UPDATE', "Removing torrent duplicates")
-                    database = self.getDatabase()
-                    with database.get_lock():
-                        toRemove = []
-                        sql = "SELECT id,value FROM torrents WHERE value IN (" + ",".join("?" * len(t_torrents)) + ") AND id != ?;"
-                        for id, torrent in database.sql(sql, (*t_torrents, t_id,)):
-                            if id != t_id and torrent in t_torrents:
-                                self.log('DB_UPDATE', "Id", id,
-                                         "has torrent", t_id, "removing")
-                                toRemove.append((id, torrent))
-                        if toRemove:
-                            for id, torrent in toRemove:
-                                database.sql("DELETE FROM torrents WHERE id=? AND value=?;", (id, torrent))
-                            database.save()
-                    self.log('DB_UPDATE', "Done!")
 
                 torrents = getTorrents(id)
                 default = '"' + '" "'.join(torrents) + '"'
@@ -46,10 +29,10 @@ class torrentFilesWindow:
                 torrents = []
                 for path in filepaths:
                     torrents.append(path.rsplit("/")[-1])
-                if len(torrents) >= 1:  # Disabled
-                    self.database.save_metadata(id, {"torrents": torrents})
-                    threading.Thread(target=removeOld, args=(
-                        self, id, torrents), daemon=True).start()
+                if len(torrents) >= 1:
+                    with self.database.get_lock():
+                        self.database.save_metadata(id, {"torrents": torrents})
+                        self.database.save()
 
                 self.torrentFilesWindow(id)
 
@@ -78,8 +61,7 @@ class torrentFilesWindow:
                     fentype="TEXT")
 
             def getTorrents(id):
-                torrents = self.database.get_metadata(id, "torrents")
-                return torrents
+                return self.database.get_metadata(id, "torrents")
 
             def getTorrentsState(id):
                 out = {}
@@ -134,19 +116,16 @@ class torrentFilesWindow:
                     t_hash = self.getTorrentHash(path)
                     if self.getQB() == "OK":
                         self.qb.torrents_delete(
-                            delete_files=False,
+                            delete_files=True,
                             torrent_hashes=(t_hash,))
                 else:
                     database = self.getDatabase()
                     torrents = getTorrents(id)
 
-                    if t in torrents and False:  # Disabled
-                        torrents.remove(t)
-                        if len(torrents) >= 1:
-                            data = json.dumps(torrents)
-                        else:
-                            data = None
-                        database.update('torrent', data, id=id, table="anime")
+                    if t in torrents:  # Disabled
+                        with database.get_lock():
+                            database.sql("DELETE FROM torrents WHERE id=? AND value=?", (id, t))
+                            database.save()
 
                     if state != "NOT_FOUND":
                         if os.path.exists(path):
@@ -216,7 +195,6 @@ class torrentFilesWindow:
         if True:
             torrent_list_frame = utils.ScrollableFrame(
                 self.torrentFilesChooser, bg=self.colors['Gray2'], width=900)
-            # torrent_list_frame.pack(fill="both", expand=True)
             torrent_list_frame.grid(row=1, column=0, columnspan=2, sticky="nsew")
             torrent_list_frame.grid_columnconfigure(0, weight=1)
 
@@ -231,7 +209,6 @@ class torrentFilesWindow:
             if len(torrents) > 0:
                 for i, item in enumerate(torrents.items()):
                     torrent, state = item
-                    # state = getTorrentState(torrent)
                     color = self.torrentsStateColors[state]
                     Label(
                         torrent_list_frame,
@@ -300,3 +277,4 @@ class torrentFilesWindow:
                     ipady=8)
 
             torrent_list_frame.update()
+        self.torrentFilesChooser.update()

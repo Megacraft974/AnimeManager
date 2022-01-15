@@ -20,6 +20,7 @@ class KitsuIoWrapper(APIUtils):
                              "mediaRelationships.destination", "mappings")
         rep = self.s.get('anime/' + str(kitsu_id), modifier).resource
         data = self._convertAnime(rep, force=True)
+        print("KITSU", data)
         return data
 
     def animeCharacters(self, id):
@@ -123,7 +124,7 @@ class KitsuIoWrapper(APIUtils):
             data['title'] = a.canonicalTitle
         try:
             data['picture'] = a.posterImage.small
-        except BaseException:
+        except Exception:
             pass
 
         data['title_synonyms'] = list(a.titles.values()) + [data['title']]
@@ -187,7 +188,7 @@ class KitsuIoWrapper(APIUtils):
 
         try:
             self.database.save()
-        except BaseException:
+        except Exception:
             pass
 
         id = self.database.getId("kitsu_id", kitsu_id, table="characters")
@@ -225,6 +226,6 @@ class KitsuIoWrapper(APIUtils):
 
             try:
                 self.database.save()
-            except BaseException:
+            except Exception:
                 pass
         return True

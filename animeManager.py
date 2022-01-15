@@ -1,9 +1,3 @@
-# if __name__ == "__main__":
-#     multiprocessing.freeze_support()
-#     import auto_launch
-
-globals()['auto_launch_initialized'] = True
-
 import ctypes
 import io
 import json
@@ -27,12 +21,13 @@ from tkinter import *
 
 try:
     import bencoding
-    # from bs4 import BeautifulSoup
+    from bs4 import BeautifulSoup
     from lxml import etree
     from PIL import Image, ImageTk
     import qbittorrentapi.exceptions
     import requests
     from thefuzz import fuzz
+    from pypresence import Presence
 
     import sys
     if getattr(sys, 'frozen', None):
@@ -44,11 +39,13 @@ except ModuleNotFoundError as e:
         print("Module missing:", e)
     else:
         print("Installing modules!", e)
-        subprocess.run("pip install qbittorrent-api lxml jikanpy jsonapi_client requests Pillow bencoding bs4 thefuzz python-Levenshtein pytube python-mpv ffpyplayer python-vlc")
+        subprocess.run("pip install qbittorrent-api lxml jikanpy jsonapi_client requests Pillow bencoding bs4 thefuzz python-Levenshtein pytube python-mpv ffpyplayer python-vlc pypresence")
         # os.execv(sys.argv[0], sys.argv)
     time.sleep(20)
 
     sys.exit()
+
+globals()['auto_launch_initialized'] = True
 
 try:
     import utils
@@ -61,6 +58,7 @@ try:
     from update_utils import UpdateUtils
     from getters import Getters
     from media_players import MediaPlayers
+    from discord_presence import DiscordPresence
     from dbManager import db
     from classes import Anime, Character, AnimeList, TorrentList, SortedList, SortedDict
 except ModuleNotFoundError as e:
@@ -70,34 +68,39 @@ except ModuleNotFoundError as e:
     sys.exit()
 
 
+# TODO - Use regex on torrent markers
+# TODO - Tkinter event queue
+# TODO - Fix characters API
+# TODO - Use the db.get_lock() with API wrappers
+# TODO - Factory functions for characters and anime mappings
+# TODO - RPC animes storage size is incorrect
+# TODO - What to do with the MAL API token registration?
 # TODO - Load new images on downloading error
-# TODO - Scrollbar thumb is going out of range
 # TODO - Implement the TableFrame class
 # TODO - Add filter for torrent list (seeds / name)
 # TODO - Play button on media player isn't centered
 # TODO - Update the loading... text on media player
+# TODO - Exception ignored in Var.__del__ on media player
 # TODO - Put single files in directories
 # TODO - Add search by studios
 # TODO - Add pictures window
 # TODO - Allow window resizing
 # TODO - Online search raise database is locked error
-# TODO - Use the db.get_lock() with API wrappers
 # TODO - Improve torrent matching algorithm
 # TODO - Auto associate latest torrents?
 # TODO - Add python-based torrent client
 # TODO - Add RSS option
 # TODO - Automatic torrent downloading from RSS?
-# TODO - Compile into an executable
-# TODO - Fix media player problem with executable
 # TODO - Phone version
 
 
-class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.windows):
+class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPresence, *windows.windows):
     def __init__(self, remote=False):
         self.start = time.time()
         Logger.__init__(self)
         Constants.__init__(self)
         MediaPlayers.__init__(self)
+        DiscordPresence.__init__(self)
 
         self.remote = remote
         self.animeFolder = []
@@ -154,6 +157,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
             self.player = self.media_players[self.player_name]
             self.getQB(use_thread=True)
 
+            self.RPC_menu()
+
             if not self.remote:
                 try:
                     self.initWindow()
@@ -162,6 +167,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
 
                 self.log('MAIN_STATE', "Stopping")
                 self.start = time.time()
+                self.RPC_stop()
                 self.updateAll()
                 self.database.close()
                 self.log('TIME', "Stopping time:".ljust(25),
@@ -180,7 +186,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
             else:
                 self.stopSearch = False
                 self.loading()
-                # self.animeList.set(self.searchAnime(terms))
+                self.log("Searching {} with APIs".format(terms))
                 self.animeList.set(self.api.searchAnime(terms, limit=self.animePerPage))
         else:
             self.animeList.from_filter("DEFAULT")
@@ -223,12 +229,12 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
                 SELECT anime.*
                 FROM anime
                 JOIN title_synonyms using(id)
-                GROUP BY anime.id HAVING value LIKE "%{}%"
+                GROUP BY anime.id HAVING LOWER(value) LIKE "%{}%"
                 ORDER BY anime.date_from DESC;
             """
 
             keys = list(self.database.keys(table="anime"))
-            matchs = self.database.sql(sql.format(terms))
+            matchs = self.database.sql(sql.format(terms.lower()))
             if len(matchs) == 0:
                 yield False
                 return
@@ -300,8 +306,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
             data = database(id=id, table="anime")
             titles = data.title_synonyms
 
-        print("Searching for titles:", titles)
-
         torrents = TorrentList(search_engines.search(titles))
         timer = utils.Timer("Torrent search")
 
@@ -351,7 +355,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
         try:
             subprocess.run(cmd)
             shutil.rmtree(self.cache)
-        except BaseException as e:
+        except Exception as e:
             self.log("MAIN_STATE", "[ERROR] - Cannot delete cache:", e, "-", cmd)
 
     def clearDb(self):
@@ -383,16 +387,16 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
                 pass
             if self.root is not None:
                 self.root.destroy()
-            self.root = None
+            # self.root = None
         except Exception as e:
             self.log("MAIN_STATE", "[ERROR] - Can't destroy root:", e)
 
     # ___Utils___
     def mainloop_error_handler(self, exc, val, tb):
-        # if exc == tkinter.TclError and "application has been destroyed" in val:
-        #     self.log("MAIN_STATE", "[ERROR] - In tkinter mainloop: Application has been destroyed")
-        # else:
-        self.log("MAIN_STATE", "[ERROR] - In tkinter mainloop:\n", ''.join(map(lambda t: t.replace('  ', '    '), traceback.format_exception(exc, val, tb))))
+        if isinstance(exc, TclError) and "application has been destroyed" in val:
+            self.log("MAIN_STATE", "[ERROR] - In tkinter mainloop: Application has been destroyed")
+        else:
+            self.log("MAIN_STATE", "[ERROR] - In tkinter mainloop:\n", ''.join(map(lambda t: t.replace('  ', '    '), traceback.format_exception(exc, val, tb))))
 
     def reloadAll(self):
         self.log('MAIN_STATE', "Reloading")
@@ -400,7 +404,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
         self.closing = True
         try:
             self.fen.destroy()
-        except BaseException:
+        except Exception:
             pass
         self.fen = None
 
@@ -415,7 +419,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
             thread, text = item
             try:
                 self.loadLabel['text'] = text
-            except BaseException:
+            except Exception:
                 if self.closing or not self.loadfen.winfo_exists():
                     break
             loadStop = (i + 1) / lenght * 100
@@ -425,14 +429,14 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
                 try:
                     self.loadProgress['value'] = loadStart
                     self.loadfen.update()
-                except BaseException:
+                except Exception:
                     if self.closing or not self.loadfen.winfo_exists():
                         break
 
         try:
             self.loadfen.destroy()
             self.quit()
-        except BaseException:
+        except Exception:
             pass
         try:
             self.log('TIME', "Reload time:".ljust(25),
@@ -483,8 +487,10 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
                         req = None
                         req = requests.get(url, allow_redirects=True)
                         file = urllib.parse.unquote(
-                            req.headers['content-disposition'].split('"')[-2])
-                    except BaseException:
+                            req.headers['content-disposition'].split('"')[-2]
+                        )
+                        file = re.sub(r"[^a-zA-Z0-9.\\\ \[\]-]", "_", file)
+                    except Exception:
                         self.log(
                             'NETWORK',
                             "[ERROR] - Error downloading file at url",
@@ -494,11 +500,11 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
                         out.put(False)
                         return
                     self.log('NETWORK', "Downloading", file)
-                    filePath = os.path.join(self.torrentPath, file)
+                    filePath = os.path.normpath(os.path.join(self.torrentPath, file))
                     with open(filePath, 'wb') as f:
                         f.write(req.content)
             else:  # File is not None
-                filePath = os.path.join(self.torrentPath, file)
+                filePath = os.path.normpath(os.path.join(self.torrentPath, file))
             if not isMagnet:
                 filePath = os.path.normpath(filePath)
 
@@ -528,13 +534,13 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
 
                     if isMagnet:
                         file = str(torrenthash) + ".torrent"
-                        qb_path = os.path.join(self.qbCache, torrenthash)
                         filePath = os.path.join(self.torrentPath, file)
+                        while not os.path.exists(qb_path):
+                            time.sleep(0.1)
                         shutil.copyfile(qb_path, filePath)
 
                     while not os.path.exists(qb_path):
-                        time.sleep(1)
-                        print("Waiting for torrent:", qb_path)
+                        time.sleep(0.1)
                     self.qb.torrents_set_location(
                         location=path, torrent_hashes=[torrenthash])
             else:
@@ -548,10 +554,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
                 database.save_metadata(id, {"torrents": torrents + [file]})
 
                 if database(id=id, table='anime')['tag'] != 'WATCHING':
-                    database.set({'id': id, 'tag': 'WATCHING'}, table='anime')
+                    database.set({'id': id, 'tag': 'WATCHING'}, table='anime', get_output=False)
                 database.save()
-
-            self.root.after(10, self.optionsWindow(id))
 
         assert url is not None or file is not None, "You need to specify either an url or a file path"
         out = queue.Queue()
@@ -603,7 +607,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
                     time.sleep(1 / 60)
                     try:
                         self.root.update()
-                    except BaseException:
+                    except Exception:
                         break
         # threading.Thread(target=handler, args=(year, season), daemon=True).start()
 
@@ -625,13 +629,10 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
                          "id", character['id'], "name", character['name'])
                 sql = "INSERT INTO characters(" + ",".join(["{}"] * len(character.keys())) + ") VALUES (" + ",".join("?" * len(character.keys())) + ");"
                 sql = sql.format(*character.keys())
-                try:
-                    database.sql(sql, character.values())
-                except Exception as e:
-                    raise e
+                database.sql(sql, character.values(), get_output=False)
             database.save()
 
-        data.add_callback(cb)
+        # data.add_callback(cb)
 
         return data
 
@@ -643,7 +644,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
         character = self.api.character(id)
 
         sql = "SELECT role FROM characters WHERE id = ? AND role IS NOT NULL;"
-        roleData = database.sql(sql, (character['id'],))
+        roleData = database.sql(sql, (character.id,))
         if len(roleData) >= 1:
             character['role'] = roleData[0][0]
 
@@ -651,21 +652,21 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, *windows.wi
             animes = character.pop('animeography')
             self.log("CHARACTER", "Adding character with id", id,
                      "name", character['name'], "to", len(animes), "animes.")
-            # for anime in animes: TODO
-            #     character['anime_id'] = database.getId(api_key,anime['mal_id'])
-            #     sql = "SELECT EXISTS(SELECT 1 FROM characters WHERE id = ? AND anime_id = ?);"
-            #     values = list(character.values())
-            #     if bool(database.sql(sql,(character['id'],character['anime_id']))[0][0]):
-            #         sql = "UPDATE characters SET " + "{} = ?,"*(len(character)-1) + "{} = ? WHERE id = ? AND anime_id = ?;"
-            #         sql = sql.format(*character.keys())
-            #         values += [character['id'],character['anime_id']]
-            #     else:
-            #         sql = "INSERT INTO characters(" + "{},"*(len(character)-1) + "{}) VALUES(" + "?,"*(len(character)-1)+"?);"
-            #         sql = sql.format(*character.keys())
-            #     try:
-            #         database.sql(sql,values,save=True)
-            #     except Exception:
-            #         raise
+            for anime in animes:
+                character['anime_id'] = database.getId(api_key, anime['mal_id'])
+                sql = "SELECT EXISTS(SELECT 1 FROM characters WHERE id = ? AND anime_id = ?);"
+                values = list(character.values())
+
+                if bool(database.sql(sql, (character['id'], character['anime_id']))[0][0]):
+                    sql = "UPDATE characters SET " + "{} = ?," * (len(character) - 1) + "{} = ? WHERE id = ? AND anime_id = ?;"
+                    sql = sql.format(*character.keys())
+                    values += [character['id'], character['anime_id']]
+                else:
+                    sql = "INSERT INTO characters(" + "{}," * (len(character) - 1) + "{}) VALUES(" + "?," * (len(character) - 1) + "?);"
+                    sql = sql.format(*character.keys())
+                database.sql(sql, values, save=True, get_output=False)
+                # with database.get_lock():  # TODO
+                #     database.set()
 
         return character
 

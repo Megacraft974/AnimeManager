@@ -1,18 +1,20 @@
-from logger import log
-from classes import Anime, AnimeList, Character, CharacterList, ItemList
+from logger import log, Logger
+from classes import Anime, AnimeList, Character, CharacterList, ItemList, NoIdFound
 import os
 import threading
 import queue
 import sys
 import traceback
 import requests
+import time
 
 from getters import Getters
-sys.path.append(os.path.abspath("../"))
+# sys.path.append(os.path.abspath("../"))
 
 
-class AnimeAPI(Getters):
+class AnimeAPI(Getters, Logger):
     def __init__(self, apis='all', *args, **kwargs):
+        super().__init__(logs="ALL")
         self.apis = []
         self.init_thread = threading.Thread(
             target=self.load_apis, args=(apis, *args), kwargs=kwargs, daemon=True)
@@ -37,12 +39,12 @@ class AnimeAPI(Getters):
                     try:
                         exec('from {n} import {n}Wrapper'.format(n=name))
                     except ImportError as e:
-                        log(name, e)
+                        self.log(name, e)
                     else:
                         try:
                             f = locals()[name + "Wrapper"](*args, **kwargs)
                         except Exception as e:
-                            log("Error while loading {} API wrapper: {}".format(
+                            self.log("Error while loading {} API wrapper: {}".format(
                                 name, traceback.format_exc()))
                         else:
                             self.apis.append(f)
@@ -51,28 +53,32 @@ class AnimeAPI(Getters):
                 try:
                     exec('from {n} import {n}'.format(n=name))
                     self.apis.append(api(*args, **kwargs))
-                except BaseException:
-                    log("Error while loading {} API class wrapper: {}".format(
+                except Exception:
+                    self.log("Error while loading {} API class wrapper: {}".format(
                         name, traceback.format_exc()))
         if len(self.apis) == 0:
-            log("No apis found!")
+            self.log("No apis found!")
 
     def wrapper(self, name, *args, **kwargs):
         def handler(api, name, que, *args, **kwargs):
             try:
                 f = getattr(api, name)
             except AttributeError as e:
-                log("{} has no attribute {}! - Error: {}".format(api.__name__, name, e))
+                self.log("{} has no attribute {}! - Error: {}".format(api.__name__, name, e))
                 return
 
+            start = time.time()
+            r = None
             try:
                 r = f(*args, **kwargs)
             except requests.exceptions.ConnectionError as e:
-                log("Error on API - handler: No internet connection! -", e)
+                self.log("Error on API - handler: No internet connection! -", e)
             except requests.exceptions.ReadTimeout as e:
-                log("Error on API - handler: Timed out! -", e)
+                self.log("Error on API - handler: Timed out! -", e)
+            except NoIdFound:
+                pass
             except Exception as e:
-                log(
+                self.log(
                     "Error on API - handler:",
                     api.__name__, "-",
                     traceback.format_exc())
@@ -80,11 +86,15 @@ class AnimeAPI(Getters):
                 if r is not None:
                     que.put(r)
                 else:
-                    log("{}.{}() not found!".format(api.__name__, name))
+                    self.log("{}.{}() not found!".format(api.__name__, name))
+            finally:
+                if r:
+                    self.log("{}.{}(): {} ms".format(api.__name__, name, int((time.time() - start) * 1000)))
 
         if self.init_thread is not None:
             self.init_thread.join()
             self.init_thread = None
+
         threads = []
         que = queue.Queue()
         for api in self.apis:
@@ -107,7 +117,7 @@ class AnimeAPI(Getters):
                     pass
                 else:
                     out += r
-        else:  # TODO - Save data here
+        else:
             if name in ('schedule', 'searchAnime', 'season'):
                 out = AnimeList((que, threads))
             elif name in ('animeCharacters',):
@@ -118,10 +128,14 @@ class AnimeAPI(Getters):
         return out
 
     def save(self, data):
+        database = self.getDatabase()
         if not data:
             return
         elif isinstance(data, Anime):
             table = "anime"
+            if data.status == "UPDATE" and bool(database.sql("SELECT EXISTS(SELECT 1 FROM anime WHERE id=?);", (data.id,))[0][0]):
+                # Anime already have data, avoid overwriting
+                return
         elif isinstance(data, Character):
             table = "characters"
         elif isinstance(data, ItemList):
@@ -130,9 +144,9 @@ class AnimeAPI(Getters):
         else:
             raise TypeError("{} is an invalid type!".format(str(type(data))))
 
-        database = self.getDatabase()
         with database.get_lock():
-            database.set(data, table=table)
+            database.set(data, table=table, get_output=False)
+            database.save(get_output=False)
 
 # TODO - Add more APIs:
 # anilist.co

@@ -18,7 +18,7 @@ class db():
 
     def __init__(self, path):
         self.path = path
-        self.remote_lock = LockWrapper(threading.RLock())
+        self.remote_lock = threading.RLock()
         if not os.path.exists(self.path):
             self.createNewDb()
         self.con = sqlite3.connect(path)
@@ -83,11 +83,6 @@ class db():
                         "picture"    TEXT,
                         "desc"    TEXT,
                         "like"    INTEGER
-                    )''',
-                    '''CREATE TABLE "related" (
-                        "id"    INTEGER NOT NULL,
-                        "relation"    TEXT NOT NULL,
-                        "rel_id"    INTEGER NOT NULL
                     )''',
                     '''CREATE TABLE "genres" (
                         "id"    INTEGER NOT NULL,
@@ -161,7 +156,7 @@ class db():
         self.updateKeys(table)
         return [(self.tablekeys[i], v) for i, v in enumerate(self.values())]
 
-    def exist(self, id, table, key='id'):
+    def exists(self, id, table, key='id'):
         with self.get_lock():
             sql = "SELECT EXISTS(SELECT 1 FROM " + table + \
                 " WHERE {}=?);".format(key)
@@ -212,11 +207,15 @@ class db():
                 finally:
                     self.save()
                     ids = self.sql(sql, (apiId,))
-                    if add_meta:
-                        out = ids[0][0], {"exists": True}
+                    # if len(ids) == 0 or len(ids[0]) == 0:  #TODO
+                    if ids:
+                        if add_meta:
+                            out = ids[0][0], {"exists": True}
+                        else:
+                            out = ids[0][0]
+                        return out
                     else:
-                        out = ids[0][0]
-                    return out
+                        return None
 
     def update(self, key, data, id, table, save=True):
         sql = "UPDATE " + table + " SET {} = ? WHERE id = ?".format(key)
@@ -226,6 +225,7 @@ class db():
                 self.save()
 
     def get_lock(self):
+        return self.con
         if 'db_lock' not in globals().keys():
             lock = threading.RLock()
             globals()['db_lock'] = lock
@@ -239,16 +239,30 @@ class db():
                 if self.log_commands:
                     log(sql, *args)
                 self.cur.execute(sql, *args)
-                self.last_op = sql
+                if any(map(lambda e: e in sql, ("INSERT", "UPDATE", "DELETE"))):
+                    values = iter(*args)
+                    out = ""
+                    for l in sql:
+                        if l == "?":
+                            out += str(next(values, ""))
+                        else:
+                            out += l
+                    self.last_op = out
         except sqlite3.OperationalError as e:
             if e.args == ('database is locked',):
-                print("OP", self.last_op, type(self.last_op), flush=True)
-                log("[ERROR] - Database is locked! - On execute({sql}{comma}{args}) - Last op: {last_op}".format(
-                    sql=sql,
-                    comma=", " if len(args) > 0 else "",
-                    args=(", ".join(map(str, args))) if len(args) > 0 else "",
-                    last_op=self.last_op)
+                values = iter(*args)
+                out = ""
+                for l in sql:
+                    if l == "?":
+                        out += str(next(values, ""))
+                    else:
+                        out += l
+                log(
+                    "[ERROR] - Database is locked!\n- On execute('{sql}')\n- Last op: {last_op}".format(
+                        sql=out,
+                        last_op=self.last_op
                     )
+                )
                 raise
             else:
                 log(e, sql, args)
@@ -297,7 +311,7 @@ class db():
                         keys.append(k)
                         values.append(v)
 
-            if self.exist(data["id"], table, "id"):
+            if self.exists(data["id"], table, "id"):
                 sql = "UPDATE " + table + " SET " + \
                     ",".join(["{} = ?"] * len(keys)) + " WHERE {} = ?;"
                 sql = sql.format(*keys, "id")
@@ -388,6 +402,7 @@ class db():
         with self.get_lock():
             self.updateKeys("anime")
             keys = list(self.tablekeys)
+            print(sql)
 
             self.execute(sql)
             data_list = self.cur.fetchall()
@@ -431,7 +446,7 @@ class db():
             except sqlite3.OperationalError as e:
                 if e.args == ('database is locked',):
                     log("[ERROR] - Database is locked! - On save()")
-                    raise
+                    # raise
                 else:
                     raise
 
@@ -494,8 +509,9 @@ class thread_safe_db(Logger):
     def start_db_thread(self, path):
         self.db = db(path)
         self.ready_flag.set()
+        stopped = False
         task = self.tasks.get()
-        while task != "STOP":
+        while task != "STOP" and not stopped:
             output, name, args, kwargs = task
             try:
                 out = getattr(self.db, name)(*args, **kwargs)
@@ -535,8 +551,8 @@ class thread_safe_db(Logger):
 
     def get_lock(self):
         try:
-            return self.db.remote_lock
-        except BaseException:
+            return LockWrapper(self.db.remote_lock, self.save)
+        except Exception:
             self.log("DB_MAIN", "[ERROR] - No lock found!", self.db, dir(self.db))
             raise
 
@@ -545,7 +561,7 @@ class thread_safe_db(Logger):
         self.db_thread.join()
         self.log("DB_MAIN", "Closed database!")
 
-    def task_planner(self, name, *args, **kwargs):
+    def task_planner(self, name, *args, get_output=True, **kwargs):
         with self.get_lock():
             output = queue.Queue()
             if False:  # Used for logging
@@ -564,8 +580,9 @@ class thread_safe_db(Logger):
             if not self.db_thread.is_alive():
                 self.__init__(self.path)
             self.tasks.put((output, name, args, kwargs))
-            out = output.get()
-            if isinstance(out, Exception):
-                raise out
-            else:
-                return out
+            if get_output:
+                out = output.get()
+                if isinstance(out, Exception):
+                    raise out
+                else:
+                    return out

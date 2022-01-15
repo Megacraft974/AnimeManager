@@ -6,7 +6,6 @@ import traceback
 path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib")
 if not os.path.exists(path):
     raise ImportError("mpv lib folder not found!")
-# print("mpv", path, "-", os.listdir(path))
 os.environ['PATH'] = path + ";" + os.environ["PATH"]
 import mpv
 
@@ -240,7 +239,9 @@ class MpvPlayer(BasePlayer):
         self.player.volume = self.volume
         self.soundLbl['text'] = str(self.volume) + "%"
 
-    def togglePause(self):
+    def togglePause(self, playing=None):
+        if playing is not None and not playing == self.paused:
+            return
         self.paused = not self.paused
         self.player.pause = self.paused
         icon = "play" if self.paused else "pause"
@@ -291,12 +292,12 @@ class MpvPlayer(BasePlayer):
             try:
                 animate(-50, 0, 1)
                 self.parent.after(3000, lambda: animate(0, -50, 1))
-            except BaseException:
+            except Exception:
                 pass
         try:
             if not self.stopped:
                 self.parent.after(5000, lbl.place_forget)
-        except BaseException:
+        except Exception:
             pass
 
     def OnTick(self):
@@ -326,13 +327,13 @@ class MpvPlayer(BasePlayer):
 
         try:
             self.posLbl['text'] = currentTimeText + " - " + totalTimeText
-        except BaseException:
+        except Exception:
             pass
 
         # cursor = vlc.libvlc_video_get_cursor(self.player,0)[1]
         try:
             cursorX, cursorY = self.queryMousePosition()
-        except BaseException:
+        except Exception:
             cursorX, cursorY = 0, 0
         cursorX, cursorY = cursorX - self.videopanel.winfo_rootx(), cursorY - \
             self.videopanel.winfo_rooty()

@@ -91,6 +91,7 @@ class JikanMoeWrapper(APIUtils):
             rep = self.jikan.search('anime', search, parameters={'limit': limit})
         except jikan_exceptions.APIException as e:
             if e.status_code == 429:
+                self.log("API_WRAPPER", "[Jikan.moe] - Status code 429, skipping")
                 self.last = time.time() + 60
                 return []
             else:

@@ -35,7 +35,7 @@ class RoundTopLevel(Frame):
         self.fen.overrideredirect(True)
         self.fen.wm_attributes("-transparentcolor", "pink")
         self.fen.geometry(
-            "+{}+{}".format(50 + self.fen.winfo_x(), 50 + self.fen.winfo_y()))
+            "+{}+{}".format(50 + self.parent.winfo_x(), 50 + self.parent.winfo_y()))
         self.fen.minsize(*self.minFensize)
         self.fen.grid_columnconfigure(0, weight=1)
 
@@ -123,11 +123,11 @@ class RoundTopLevel(Frame):
         out = []
         if not isinstance(w, (Button, Checkbutton, Toplevel, OptionMenu, DropDownMenu, ScrollableFrame, CustomScrollbar)):
             out.append(w)
-        if type(w) in (Toplevel, Canvas, Frame, RoundTopLevel):#, ScrollableFrame):
+        if type(w) in (Toplevel, Canvas, Frame, RoundTopLevel):  # , ScrollableFrame):
             try:
                 for w in w.winfo_children():
                     out += self.getChild(w)
-            except BaseException:
+            except Exception:
                 pass
         return out
 
@@ -136,7 +136,7 @@ class RoundTopLevel(Frame):
             for w in self.mainFrame.winfo_children():
                 if not isinstance(w, RoundTopLevel):
                     w.destroy()
-        except BaseException:
+        except Exception:
             pass
 
     def focus_force(self):
@@ -187,8 +187,9 @@ class RoundTopLevel(Frame):
         try:
             self.titleLbl.bind("<ButtonPress-1>", self.start_move)
             self.titleLbl.bind("<B1-Motion>", self.do_move)
-        except BaseException:
+        except Exception:
             pass
+        # print(self.getChild(self.fen), self.handles)
         for wid in self.getChild(self.fen):
             if wid not in self.handles:
                 wid.bind("<Button-1>", self.exit)
@@ -270,7 +271,7 @@ class ScrollableFrame(Frame):
             for w in parent.winfo_children():
                 out.append(w)
                 out += self.getChild(w)
-        except BaseException:
+        except Exception:
             pass
         return out
 
@@ -355,7 +356,7 @@ class CustomScrollbar(Frame):
         self.start, self.stop = float(a), float(b)
         try:
             self.draw_thumb(self.start, self.stop)
-        except BaseException:
+        except Exception:
             pass
 
     def draw_thumb(self, start, stop):
@@ -375,8 +376,6 @@ class CustomScrollbar(Frame):
             image = Image.new('RGB', (img_width, img_width), self.bg)
             draw = ImageDraw.Draw(image)
             draw.ellipse((0, 0, img_width, img_width), fill=self.fg, outline=None)
-
-            # self.thumb = image.resize((max(1, img_width // scale), max(1, img_height // scale)), Image.ANTIALIAS)
         else:
             image = Image.new('RGB', img_size, self.bg)
             draw = ImageDraw.Draw(image)
@@ -389,7 +388,8 @@ class CustomScrollbar(Frame):
             self.thumb = self.thumb.rotate(90, expand=True)
         thumb_img = ImageTk.PhotoImage(self.thumb, master=self.frame)
 
-        pos = start * height + self.padding
+        pos = start * (height - self.padding * 2) + self.padding
+        pos = min(pos, height - self.padding * 2 - img_width // scale)
         if self.orient == "V":
             self.frame.create_image(self.padding, pos, image=thumb_img, anchor="nw")
         else:
@@ -746,8 +746,6 @@ class AnimeListFrame(ScrollableFrame):
                             row=0,
                             pady=50)
                     break
-                # else:
-                    # print("L", data["title"], start, anime_count + start, i)
                 row.append((i, data, que))
 
                 if i % self.animePerRow == 2:
@@ -1071,13 +1069,13 @@ def project_stats(root="./"):
             folders += t_folders + 1
             size += t_size
     if root == "./":
-        print("{} lines in the project, {} files, {} folders, total size: {}".format(lines, files, folders, pp_bytes(size)))
+        log("{} lines in the project, {} files, {} folders, total size: {}".format(lines, files, folders, pp_bytes(size)))
     return lines, files, folders, size
 
 
 if __name__ == "__main__":
     for k, v in project_modules().items():
-        print(k, ":")
+        log(k, ":")
         for p in v:
-            print('   File "{}", line {}'.format(*p))
+            log('   File "{}", line {}'.format(*p))
     project_stats()

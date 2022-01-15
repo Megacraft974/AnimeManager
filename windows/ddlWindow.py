@@ -26,13 +26,13 @@ class ddlWindow:
                 is_empty = True
                 t = threading.Thread(target=handler, args=(fetcher, que), daemon=True)
                 t.start()
+                handler_loop(table, t, que, is_empty)
+
+            def handler_loop(table, t, que, is_empty):
                 while t.is_alive() or not que.empty():
-                    while que.empty():
-                        try:
-                            self.root.update()
-                        except AttributeError:
-                            pass
-                        time.sleep(0.01)
+                    if que.empty():
+                        self.publisherChooser.after(10, handler_loop, table, t, que, is_empty)
+                        return
 
                     titles = que.get()
                     if titles == "STOP":
@@ -46,7 +46,7 @@ class ddlWindow:
                     try:
                         for w in table.winfo_children():
                             w.destroy()
-                    except BaseException:
+                    except Exception:
                         pass
                     draw_table(titles)
 

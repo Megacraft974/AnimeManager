@@ -27,7 +27,7 @@ class initWindow:
                 try:
                     self.fen.lift()
                     self.fen.focus_force()
-                except BaseException:
+                except Exception:
                     pass
                 # self.fen.focus_force()
                 self.root.iconify()
@@ -68,15 +68,21 @@ class initWindow:
 
         if self.root is None:
             self.root = Tk()
-            path = os.path.join(self.iconPath, "favicon.png")
-            self.root.iconphoto(False, self.getImage(path))
+            icon_path = os.path.join(self.iconPath, "app_icon", "icon.ico")
+            self.root.iconbitmap(icon_path)
             self.root.title(self.mainWindowTitle)
-            self.root.attributes('-alpha', 0.0)
+            # self.root.attributes('-alpha', 0.0)
             self.root.attributes('-topmost', 1)
+
+            img_path = os.path.join(self.iconPath, "app_icon", "256x256", "icon_full.png")
+            img = self.getImage(img_path)
+            can = Canvas(self.root, width=256, height=256)
+            can.create_image((0, 0), image=img, anchor="nw")
+            can.pack()
+
             self.root.protocol("WM_DELETE_WINDOW", self.quit)
             self.root.focus_force()
             self.root.update()
-            # root.lower()
             self.root.iconify()
             self.root.bind("<Map>", bringToTop)
 
@@ -90,8 +96,7 @@ class initWindow:
                 "{}x{}+100+100".format(self.mainWindowWidth, self.mainWindowHeight))
             self.fen.overrideredirect(True)
             self.fen.title(self.mainWindowTitle)
-            path = os.path.join(self.iconPath, "favicon.png")
-            self.fen.wm_iconphoto(False, self.getImage(path))
+            self.fen.iconbitmap(icon_path)
             self.fen.bind("<FocusIn>", checkFocus)
 
             self.fen.resizable(False, True)

@@ -1,5 +1,6 @@
 import os
 import threading
+import re
 import queue
 from logger import log
 
@@ -19,12 +20,12 @@ def get_parser_list():
 
 def handle_search(titles, limit, que, parser):
     for title in titles:
+        title = re.sub(r"[\|\-\"\(\)]", "", title)
         try:
             for e in parser.search(title, limit):
                 for key in ('seeds', 'leechs'):
                     if not isinstance(e[key], int):
                         e[key] = int(e[key])
-
                 que.put(e)
         except Exception as e:
             log("Error on torrent search:", e)

@@ -7,7 +7,7 @@ import re
 sys.path.append(os.path.abspath("../"))
 try:
     from dbManager import db
-    from classes import Anime, Character
+    from classes import Anime, Character, NoIdFound
     from logger import Logger
     from getters import Getters
 except ModuleNotFoundError as e:
@@ -68,8 +68,9 @@ class APIUtils(Getters, Logger):
         if api_id == []:
             self.log("Key not found!", "SELECT {} FROM {} WHERE id={}".format(
                 self.apiKey, index, id))
-            return None
+            raise NoIdFound()
             # raise Exception("Wrong api")
+            # return None
         return api_id[0][0]
 
     def getGenres(self, genres):
@@ -99,9 +100,9 @@ class APIUtils(Getters, Logger):
 
         if new or update:
             if new:
-                self.database.executemany("INSERT INTO genresIndex({},name) VALUES(?,?);".format(self.apiKey), ((id, ids[id]) for id in new))
+                self.database.executemany("INSERT INTO genresIndex({},name) VALUES(?,?);".format(self.apiKey), ((id, ids[id]) for id in new), get_output=False)
             if update:
-                self.database.executemany("UPDATE genresIndex SET {}=? WHERE id=?;".format(self.apiKey), update)
+                self.database.executemany("UPDATE genresIndex SET {}=? WHERE id=?;".format(self.apiKey), update, get_output=False)
             data = self.database.sql(sql, ids.keys(), to_dict=True)
         return list(g['id'] for g in data)
 
@@ -118,12 +119,12 @@ class APIUtils(Getters, Logger):
                     anime = rel.pop("anime")
                     if not list(filter(lambda e: all(e[k] == v for k, v in rel.items()), db_rels)):
                         sql = "INSERT INTO relations (" + ", ".join(rel.keys()) + ") VALUES (" + ", ".join("?" * len(rel)) + ");"
-                        self.database.sql(sql, rel.values())
+                        self.database.sql(sql, rel.values(), get_output=False)
                     if not meta['exists']:
                         anime["id"] = rel["rel_id"]
                         anime["status"] = "UPDATE"
-                        self.database.set(anime, table="anime")
-            self.database.save()
+                        self.database.set(anime, table="anime", get_output=False)
+            self.database.save(get_output=False)
 
 
 class EnhancedSession(requests.Session):

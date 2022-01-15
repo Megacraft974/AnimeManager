@@ -18,7 +18,7 @@ class Logger:
         self.logs = ['DB_ERROR', 'DB_UPDATE', 'MAIN_STATE',
                      'NETWORK', 'SERVER', 'SETTINGS', 'TIME']
 
-        if hasattr(self, 'remote') and self.remote:
+        if hasattr(self, 'remote') and self.remote is True:
             self.log_mode = "NONE"
         elif logs in ("DEFAULT", "ALL", "NONE"):
             self.log_mode = logs
@@ -70,14 +70,13 @@ class Logger:
             if category in self.logs:
                 toLog = "[{}]".format(category.center(13)) + " - "
                 toLog += " ".join([str(t) for t in text])
-                print(toLog + end, flush=True, end="")
             else:
                 return
         elif self.log_mode == "ALL":
             toLog = "[     LOG     ] - " + " ".join([str(t) for t in text])
-            print(toLog + end, flush=True, end="")
         else:
             return
+        print(toLog + end, flush=True, end="")
         with open(self.logFile, "a", encoding='utf-8') as f:
             timestamp = "[{}]".format(time.strftime("%H:%M:%S"))
             f.write(timestamp + toLog + "\n")

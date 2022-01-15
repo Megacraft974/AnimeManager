@@ -12,22 +12,21 @@ class ddlFileListWindow:
             for label in labels:
                 try:
                     label.configure(fg=self.colors['Gray4'])
-                except BaseException:
+                except Exception:
                     pass
             table.update()
-            while out.empty():
-                try:
-                    self.fileChooser.update()
-                except:
-                    return
-                else:
-                    time.sleep(0.01)
+            download_cb(out, labels)
+
+        def download_cb(out, labels):
+            if out.empty():
+                self.fileChooser.after(10, download_cb, out, labels)
+                return
             value = out.get()
             color = 'Blue' if value is True else 'Red'
             for label in labels:
                 try:
                     label.configure(fg=self.colors[color])
-                except BaseException:
+                except Exception:
                     pass
 
         # Window init - Fancy corners - Main frame - Events

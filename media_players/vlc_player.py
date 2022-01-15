@@ -219,19 +219,19 @@ class VlcPlayer(BasePlayer):
     def volumeDown(self, value=0):
         self.OnVolume(-value)
 
-    def togglePause(self):
-        self.OnPlay()
+    def togglePause(self, playing=None):
+        self.OnPlay(playing=None)
     # --
 
     def getNewPlayer(self):
         try:
             self.player.stop()
-        except BaseException:
+        except Exception:
             pass
         try:
             self.Instance.release()
             del self.Instance
-        except BaseException:
+        except Exception:
             pass
         self.Instance = vlc.Instance()
         self.Instance.log_unset()
@@ -324,12 +324,12 @@ class VlcPlayer(BasePlayer):
             try:
                 animate(-50, 0, 1)
                 self.parent.after(3000, lambda: animate(0, -50, 1))
-            except BaseException:
+            except Exception:
                 pass
         try:
             if not self.stopped:
                 self.parent.after(5000, lbl.place_forget)
-        except BaseException:
+        except Exception:
             pass
 
     def OnTime(self, t=0):
@@ -352,13 +352,13 @@ class VlcPlayer(BasePlayer):
 
         try:
             self.posLbl['text'] = currentTimeText + " - " + totalTimeText
-        except BaseException:
+        except Exception:
             pass
 
         # cursor = vlc.libvlc_video_get_cursor(self.player,0)[1]
         try:
             cursorX, cursorY = self.queryMousePosition()
-        except BaseException:
+        except Exception:
             cursorX, cursorY = 0, 0
         cursorX, cursorY = cursorX - self.videopanel.winfo_rootx(), cursorY - \
             self.videopanel.winfo_rooty()
@@ -379,7 +379,9 @@ class VlcPlayer(BasePlayer):
         if not self.stopped:
             self.parent.after(100, self.OnTick)
 
-    def OnPlay(self):
+    def OnPlay(self, playing=None):
+        if playing is not None and not playing == self.paused:
+            return
         self.paused = not self.paused
         self.player.pause()
         icon = "play" if self.paused else "pause"
@@ -405,5 +407,5 @@ class VlcPlayer(BasePlayer):
         self.updateDb()
         try:
             self.player.stop()
-        except BaseException:
+        except Exception:
             pass

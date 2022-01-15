@@ -139,8 +139,16 @@ class Torrent(Item):
 
 class Character(Item):
     def __init__(self, *args, **kwargs):
-        self.data_keys = ('id', 'anime_id', 'role', 'name',
-                          'picture', 'desc', 'animeography')
+        self.data_keys = (
+            'id',
+            'anime_id',
+            'role',
+            'name',
+            'picture',
+            'desc',
+            'animeography'
+        )
+        self.metadata_keys = ('animeography', )
         super().__init__(*args, **kwargs)
 
 
@@ -158,6 +166,9 @@ class ItemList():
 
         if not hasattr(self, "identifier"):
             self.identifier = lambda e: e
+
+        if not hasattr(self, "item_type"):
+            self.item_type = dict
 
         for s in sources:
             self.addSource(s)
@@ -190,7 +201,7 @@ class ItemList():
                     self.new_elem_event["enabled"] = False
                 break
             except requests.exceptions.ConnectionError as e:
-                log("Error on ItemList iterator: No internet connection! -", e)
+                log("Error on ItemList iterator: No internet connection! -")
                 self.sources.remove(s)
                 break
             except requests.exceptions.ReadTimeout as e:
@@ -204,6 +215,8 @@ class ItemList():
             else:
                 id = self.identifier(e)
                 if id not in self.ids:
+                    if type(e) != self.item_type:
+                        e = self.item_type(e)
                     self.list.append(e)
                     self.ids.append(id)
                     if self.new_elem_event["enabled"]:
@@ -274,19 +287,22 @@ class ItemList():
 class AnimeList(ItemList):
     def __init__(self, sources):
         self.identifier = lambda a: a["id"]
+        self.item_type = Anime
         super().__init__(sources)
 
 
 class TorrentList(ItemList):
     def __init__(self, sources):
-        super().__init__(sources)
         self.identifier = lambda t: t["torrent_url"]
+        self.item_type = dict
+        super().__init__(sources)
 
 
 class CharacterList(ItemList):
     def __init__(self, sources):
-        super().__init__(sources)
         self.identifier = lambda c: c["id"]
+        self.item_type = Character
+        super().__init__(sources)
 
 
 class DefaultDict(dict):
@@ -558,7 +574,7 @@ class ReturnThread(threading.Thread):
     def run(self):
         try:
             out = self.target(*self.args, **self.kwargs)
-        except BaseException:
+        except Exception:
             self.output.put(None)
         else:
             self.output.put(out)
@@ -574,19 +590,27 @@ class ReturnThread(threading.Thread):
 
 
 class LockWrapper():
-    """A lock wrapper, useful for logging or callbacks"""
-
-    def __init__(self, lock):
+    def __init__(self, lock, cb):
         self.lock = lock
+        self.cb = cb
 
-    def __enter__(self, *args, **kwargs):
-        return self.lock.__enter__(*args, **kwargs)
+    def __getattr__(self, e):
+        return getattr(self.lock, e)
 
-    def __exit__(self, *args, **kwargs):
-        return self.lock.__exit__(*args, **kwargs)
+    def __enter__(self):
+        return self.lock.__enter__()
 
-    def __getattr__(self, *args, **kwargs):
-        return self.lock.__getattr__(*args, **kwargs)
+    def __exit__(self, *args):
+        out = self.lock.__exit__(*args)
+        if not self.lock._is_owned():
+            with self.lock:
+                self.cb()
+        return out
+
+
+class NoIdFound(KeyError):
+    """ An exception raised when there is no id found by the APIs """
+    pass
 
 
 if __name__ == "__main__":

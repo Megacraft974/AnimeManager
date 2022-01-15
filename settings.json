@@ -31,11 +31,11 @@
         },
         "fileMarkers": {
             "Green": [
-                "dual",
-                "dub"
+                ".*\\Wdual.*",
+                ".*\\Wdub\\W.*"
             ],
             "Red": [
-                "unc"
+                ".*\\Wunc.*"
             ]
         },
         "tagcolors": {
@@ -120,6 +120,7 @@
                 "Right": "timeForward - 10",
                 "Up": "volumeUp - 10",
                 "f": "toggleFullscreen",
+                "h": "toggle_iconify",
                 "space": "togglePause"
             },
             "Shift": {

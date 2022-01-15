@@ -41,7 +41,7 @@ class settingsWindow:
                     self.initWindow()
                 try:
                     self.settingsWindow()
-                except BaseException:
+                except Exception:
                     pass
 
             def checkboxHandler(value, var):
@@ -153,7 +153,7 @@ class settingsWindow:
         if True:
             try:
                 exist = not self.closing and self.settings.winfo_exists()
-            except BaseException:
+            except Exception:
                 exist = False
             if self.settings is None or not exist:
                 size = (self.settingsWindowMinWidth,

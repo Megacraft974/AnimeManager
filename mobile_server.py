@@ -79,7 +79,7 @@ def GetHandler(dbPath, manager):
                     try:
                         data = dict(self.database.sql(
                             "SELECT * FROM {}".format(table)))
-                    except BaseException:
+                    except Exception:
                         code = 404
                         content = "text/html; charset=UTF-8"
                         data = "404 - Invalid table"
@@ -112,14 +112,14 @@ def GetHandler(dbPath, manager):
             self.manager = manager
             for anime in rep:
                 id, tag, like = anime.values()
-                if not self.database.exist(id=id, table="anime"):
+                if not self.database.exist(id=id, table="anime"):  # Deprecated
                     try:
                         log("SERVER", "Fetching data for id", id)
                         data = self.manager.getData(id)
                         data['id'] = id  # TODO - Needed?
                         self.database.set(
-                            data, table="anime", save=False)
-                    except BaseException:
+                            data, table="anime", save=False, get_output=False)
+                    except Exception:
                         pass
 
             self.database.save()

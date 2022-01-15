@@ -51,6 +51,8 @@ class Constants:
 
         self.player_name = "mpv_player"  # TODO - Choose different player
 
+        self.RPC_client_id = '930139147803459695'  # TODO - Put somewhere else?
+
         self.allLogs = [
             'ANIME_LIST',
             'CHARACTER',

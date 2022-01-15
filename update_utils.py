@@ -32,7 +32,7 @@ class UpdateUtils:
                 else:
                     self.log("MAIN_STATE", "[ERROR] - On update function:", str(e))
                     raise
-            except BaseException as e:
+            except Exception as e:
                 self.log("MAIN_STATE", "[ERROR] - On update function:", str(e))
                 raise
         reloadFunc = {
@@ -60,7 +60,7 @@ class UpdateUtils:
             if os.path.isfile(os.path.join(self.animePath, file)):
                 files.append(file)
 
-        if self.getQB() == "OK":  # TODO
+        if self.getQB() == "OK":
             try:
                 torrents = self.qb.torrents_info()
             except Exception as e:
@@ -158,13 +158,10 @@ class UpdateUtils:
                 if status not in status_dict:
                     status_dict[status] = []
                 status_dict[status].append(anime.id)
-                # data = {"id": anime.id, "status": status}
-                # database.set(data, table="anime", save=False)
-                # self.log('DB_UPDATE', "Updated status for anime: {}, from {} to {}".format(anime.title, old_status, anime.status))
                 c += 1
 
             for status, ids in status_dict.items():
-                database.sql("UPDATE anime SET status=? WHERE id IN({});".format(",".join(map(str, ids))), [status])
+                database.sql("UPDATE anime SET status=? WHERE id IN({});".format(",".join(map(str, ids))), [status], get_output=False)
 
             database.save()
         if c >= 1:
@@ -213,15 +210,19 @@ class UpdateUtils:
         data = self.api.schedule(limit=self.maxTrendingAnime)
 
         c = 0
-        for anime in data:
-            id = anime['id']
-            # not id in dbKeys:
-            if not database.exist(id=id, table="indexList"):
-                c += 1
-                title = anime['title']
-                database.set(anime, table="anime")
-                self.log('SCHEDULE', "Added anime",
-                         id, title, "from schedule")
+        ids = [anime['id'] for anime in data]
+        sql = "SELECT id FROM anime WHERE id IN (" + ", ".join("?" * len(ids)) + ") AND status IS NOT null and status !='UPDATE';"
+        exists = {e[0] for e in database.sql(sql, ids)}
+        with database.get_lock():
+            for anime in data:
+                id = anime['id']
+                # not id in dbKeys:
+                if id not in ids:
+                    c += 1
+                    title = anime['title']
+                    database.set(anime, table="anime", get_output=False)
+                    self.log('SCHEDULE', "Added anime",
+                             id, title, "from schedule")
 
         if c == 0:
             self.log('DB_UPDATE', "No new animes from schedule")

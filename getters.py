@@ -104,12 +104,23 @@ class Getters:
             img = Image.new('RGB', (10, 10) if size is None else size, self.colors['Gray'])
         return ImageTk.PhotoImage(img, master=self.root)
 
-    def getStatus(self, anime):
+    @staticmethod
+    def getStatus(anime):
+        all_status = {  # TODO - Why is this a dict?
+            'airing': 'AIRING',
+            'Currently Airing': 'AIRING',
+            'completed': 'FINISHED',
+            'complete': 'FINISHED',
+            'Finished Airing': 'FINISHED',
+            'to_be_aired': 'UPCOMING',
+            'tba': 'UPCOMING',
+            'upcoming': 'UPCOMING',
+            'Not yet aired': 'UPCOMING',
+            'NONE': 'UNKNOWN',
+            'UPDATE': 'UNKNOWN'}
         if anime.status is not None:
-            if anime.status in self.status.values():
+            if anime.status in all_status.values():
                 return anime.status
-            if anime.status == 'NONE':
-                self.log('DB_ERROR', "Unknown status for id", id)
             if anime.status == 'UPDATE':
                 return 'UNKNOWN'
             return anime.status
@@ -140,7 +151,8 @@ class Getters:
         else:
             return None
 
-    def getTorrentHash(self, path):
+    @staticmethod
+    def getTorrentHash(path):
         objTorrentFile = open(path, "rb")
 
         decodedDict = bencoding.bdecode(objTorrentFile.read())
@@ -149,7 +161,8 @@ class Getters:
             decodedDict[b"info"])).hexdigest()
         return info_hash
 
-    def getMagnetHash(self, url):
+    @staticmethod
+    def getMagnetHash(url):
         m = re.findall(r'magnet:\?xt=urn:btih:([a-fA-F0-9]*)', url)
         if len(m) > 0:
             return m[0]
@@ -158,12 +171,13 @@ class Getters:
         def fileFormat(f):
             return ''.join(f.rsplit(".torrent", 1)[0].split(" ")).lower()
         timeNow = time.time()
-        if hasattr(self, 'formattedTorrentFiles') and timeNow - \
-                self.formattedTorrentFiles[0] < 10:
+        if hasattr(self, 'formattedTorrentFiles') and timeNow - self.formattedTorrentFiles[0] < 10:
             files = self.formattedTorrentFiles[1]
         else:
             files = [fileFormat(f) for f in os.listdir(self.torrentPath)]
             self.formattedTorrentFiles = (timeNow, files)
+
+        pat_cache = {re.compile(pat, re.I): col for col, pats in self.fileMarkers.items() for pat in pats}
 
         fg = self.colors['White']
         for f in files:
@@ -171,14 +185,15 @@ class Getters:
             if t in f or f in t:
                 fg = self.colors['Blue']
         else:
-            for color, marks in self.fileMarkers.items():
-                for mark in marks:
-                    if mark in title.lower():
-                        fg = self.colors[color]
-                        break
+            for pat, color in pat_cache.items():
+                if re.match(pat, title):
+                    fg = self.colors[color]
+                    break
+
         return fg
 
-    def getFolderFormat(self, title):
+    @staticmethod
+    def getFolderFormat(title):
         chars = []
         spaceLike = list("-")
         if title is None:
@@ -209,7 +224,7 @@ class Getters:
 
             try:
                 f_id = int(f.rsplit(" ", 1)[1])
-            except BaseException:
+            except Exception:
                 pass
             else:
                 if f_id == id:
@@ -322,7 +337,7 @@ class Getters:
                 image = ImageTk.PhotoImage(im)
                 can.create_image(0, 0, image=image, anchor='nw')
                 can.image = image
-            except BaseException:
+            except Exception:
                 pass
 
         if self.root is not None and not self.closing:
@@ -388,7 +403,7 @@ class Getters:
                             anime.picture = repdata[-1]['small']
                             database = self.getDatabase()
                             database.sql("UPDATE anime SET picture = ? WHERE id = ?",
-                                         (repdata[-1]['small'], anime.id), save=True)
+                                         (repdata[-1]['small'], anime.id), save=True, get_output=False)
                             que.put((anime, can))  # TODO - Check if it works
                         else:
                             imQueue.put(usePlaceholder(can))
@@ -409,7 +424,7 @@ class Getters:
                         imQueue.put((im.copy(), can))
                     args = que.get()
                     continue
-                except BaseException:
+                except Exception:
                     self.log(
                         'DISK_ERROR',
                         "[ERROR] Image file is corrupted, deleting file",

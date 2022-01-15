@@ -36,10 +36,10 @@ class characterListWindow:
                 can.create_image(0, 0, image=self.blank_image, anchor='nw')
                 can.image = self.blank_image
 
-                title = character['name']
+                title = character.name
                 if len(title) >= 20:
                     title = title[:15] + "..."
-                if database.exist(id=character['id'], table='characters') and bool(database(id=character['id'], table='characters')['like']):
+                if bool(character.like):
                     title += " ❤"
                 color = 'Blue' if character['role'] == 'main' else 'White'
                 b = Button(
@@ -78,7 +78,7 @@ class characterListWindow:
                     data = database.sql(
                         "SELECT * FROM characters WHERE anime_id=?;", (id,), to_dict=True)
                 # keys = list(self.database.keys(table="characters"))
-                characters = CharacterList(Character(c) for c in data)
+                characters = CharacterList(database.get_all_metadata(Character(c)) for c in data)
                 return characters
 
             def reload(id, c):
@@ -165,7 +165,7 @@ class characterListWindow:
 
                 try:
                     characterCell(character, index, que)
-                except BaseException as e:
+                except Exception as e:
                     self.log("MAIN_STATE", "[ERROR] - Can't create cell for character:", character.name, "-", character.id, "-", e)
 
                 if index % self.animePerRow == 0:
