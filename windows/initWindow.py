@@ -23,6 +23,11 @@ class initWindow:
                 else:
                     self.animeList.from_filter(filter_name)
 
+            def reset_windows(e):
+                for c in self.fen.winfo_children():
+                    if isinstance(c, Toplevel):
+                        c.destroy()
+
             def bringToTop(e):
                 try:
                     self.fen.lift()
@@ -209,7 +214,7 @@ class initWindow:
 
                 closeIcon = self.getImage(os.path.join(
                     self.iconPath, "close.png"), (40, 40))
-                Button(
+                closeButton = Button(
                     head,
                     image=closeIcon,
                     bd=0,
@@ -218,7 +223,9 @@ class initWindow:
                     activebackground=self.colors['Gray2'],
                     bg=self.colors['Gray2'],
                     command=self.quit
-                ).grid(
+                )
+                closeButton.bind("<Button-3>", reset_windows)
+                closeButton.grid(
                     row=0,
                     column=4,
                     padx=10)

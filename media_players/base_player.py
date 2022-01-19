@@ -357,7 +357,7 @@ class BasePlayer:
         else:
             if self.movementCheck is not None:
                 self.parent.after_cancel(self.movementCheck)
-            self.movementCheck = self.parent.after((self.hideCursorDelay - (time.time() - self.lastMovement)) * 1000, self.hideCursor)
+            self.movementCheck = self.parent.after(int((self.hideCursorDelay - (time.time() - self.lastMovement)) * 1000), self.hideCursor)
 
     def updateDb(self):
         # self.log("Updating last_seen db",flush=True)

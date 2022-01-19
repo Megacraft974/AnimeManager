@@ -20,7 +20,7 @@ def get_parser_list():
 
 def handle_search(titles, limit, que, parser):
     for title in titles:
-        title = re.sub(r"[\|\-\"\(\)]", "", title)
+        title = re.sub(r"[\|]", "", title)
         try:
             for e in parser.search(title, limit):
                 for key in ('seeds', 'leechs'):

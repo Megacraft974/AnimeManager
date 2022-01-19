@@ -475,11 +475,21 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
     # ___Networking___
     def downloadFile(self, id, url=None, file=None):
         def handler(id, put, url=None, file=None):
+            database = self.getDatabase()
+            with database.get_lock():
+                torrents = database.get_metadata(id, "torrents")
+                database.save_metadata(id, {"torrents": torrents + [file]})
+
+                if database(id=id, table='anime')['tag'] != 'WATCHING':
+                    database.set({'id': id, 'tag': 'WATCHING'}, table='anime', get_output=False)
+                database.save()
+
             isMagnet = False
             if url is not None:
                 pattern = re.compile(r"^magnet:\?xt=urn:")
                 if pattern.match(url):
                     isMagnet = True
+                    # self.log('NETWORK', 'Added magnet link:', url)
                 else:
                     try:
                         # if url.startswith("https://nyaa.si/"):
@@ -535,6 +545,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
                     if isMagnet:
                         file = str(torrenthash) + ".torrent"
                         filePath = os.path.join(self.torrentPath, file)
+                        # self.log('NETWORK', 'Waiting for file:', qb_path)
                         while not os.path.exists(qb_path):
                             time.sleep(0.1)
                         shutil.copyfile(qb_path, filePath)
@@ -543,19 +554,12 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
                         time.sleep(0.1)
                     self.qb.torrents_set_location(
                         location=path, torrent_hashes=[torrenthash])
+
+                    self.log('NETWORK', 'Successfully downloaded torrent, hash:', torrenthash)
             else:
                 out.put(False)
                 self.log(
                     'NETWORK', "[ERROR] - Couldn't find the torrent client!")
-
-            database = self.getDatabase()
-            with database.get_lock():
-                torrents = database.get_metadata(id, "torrents")
-                database.save_metadata(id, {"torrents": torrents + [file]})
-
-                if database(id=id, table='anime')['tag'] != 'WATCHING':
-                    database.set({'id': id, 'tag': 'WATCHING'}, table='anime', get_output=False)
-                database.save()
 
         assert url is not None or file is not None, "You need to specify either an url or a file path"
         out = queue.Queue()
@@ -652,21 +656,21 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
             animes = character.pop('animeography')
             self.log("CHARACTER", "Adding character with id", id,
                      "name", character['name'], "to", len(animes), "animes.")
-            for anime in animes:
-                character['anime_id'] = database.getId(api_key, anime['mal_id'])
-                sql = "SELECT EXISTS(SELECT 1 FROM characters WHERE id = ? AND anime_id = ?);"
-                values = list(character.values())
+            with database.get_lock():
+                for anime in animes:
+                    character['anime_id'] = database.getId(api_key, anime['mal_id'])
+                    sql = "SELECT EXISTS(SELECT 1 FROM characters WHERE id = ? AND anime_id = ?);"
+                    values = list(character.values())
 
-                if bool(database.sql(sql, (character['id'], character['anime_id']))[0][0]):
-                    sql = "UPDATE characters SET " + "{} = ?," * (len(character) - 1) + "{} = ? WHERE id = ? AND anime_id = ?;"
-                    sql = sql.format(*character.keys())
-                    values += [character['id'], character['anime_id']]
-                else:
-                    sql = "INSERT INTO characters(" + "{}," * (len(character) - 1) + "{}) VALUES(" + "?," * (len(character) - 1) + "?);"
-                    sql = sql.format(*character.keys())
-                database.sql(sql, values, save=True, get_output=False)
-                # with database.get_lock():  # TODO
-                #     database.set()
+                    if bool(database.sql(sql, (character['id'], character['anime_id']))[0][0]):
+                        sql = "UPDATE characters SET " + "{} = ?," * (len(character) - 1) + "{} = ? WHERE id = ? AND anime_id = ?;"
+                        sql = sql.format(*character.keys())
+                        values += [character['id'], character['anime_id']]
+                    else:
+                        sql = "INSERT INTO characters(" + "{}," * (len(character) - 1) + "{}) VALUES(" + "?," * (len(character) - 1) + "?);"
+                        sql = sql.format(*character.keys())
+                    database.sql(sql, values, save=True, get_output=False)
+                database.save()
 
         return character
 

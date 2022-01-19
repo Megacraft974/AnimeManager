@@ -44,13 +44,14 @@ class MpvPlayer(BasePlayer):
         h = self.videopanel.winfo_id()
         self.player = mpv.MPV(wid=str(int(h)), ytdl=url)
 
-        @self.player.property_observer('time-remaining')
-        def auto_loop(_name, time):
-            if time is None:
-                return
-            if time == 0.0:
-                self.log("NEXT FILE")
-                self.playlistNext()
+        # @self.player.property_observer('time-remaining')
+        # def auto_loop(_name, time):
+        #     if time is None:
+        #         print(time, flush=True)
+        #         return
+        #     if time == 0.0:
+        #         self.log("NEXT FILE")
+        #         self.playlistNext()
 
         self.player.play(self.playlist[self.index])
 
@@ -307,10 +308,13 @@ class MpvPlayer(BasePlayer):
         if currentTime is None:
             currentTime = 0
         totalTime = self.player.duration
+
+        leftTime = self.player.time_remaining
+        if leftTime is None:
+            leftTime = 0
+        elif leftTime < 0.5:
+            self.playlistNext()
         if totalTime is None:
-            leftTime = self.player.time_remaining
-            if leftTime is None:
-                leftTime = 0
             totalTime = currentTime + leftTime
 
         sec = int(currentTime)

@@ -5,6 +5,9 @@ import threading
 import os
 import io
 import hashlib
+import base64
+import codecs
+import string
 import time
 import re
 import requests
@@ -163,9 +166,17 @@ class Getters:
 
     @staticmethod
     def getMagnetHash(url):
-        m = re.findall(r'magnet:\?xt=urn:btih:([a-fA-F0-9]*)', url)
+        m = re.findall(r'magnet:\?xt=urn:btih:([a-zA-Z0-9]+)', url)
         if len(m) > 0:
-            return m[0]
+            m_hash = m[0]
+            if not all(c in string.hexdigits for c in m_hash):
+                m_bytes = base64.b32decode(m_hash.encode(), casefold=True)
+                m_hash = codecs.encode(m_bytes, 'hex').decode()
+            return m_hash
+            print(m)
+            # if any(lambda e: e in )
+        else:
+            raise ValueError("Hash not found for magnet link:", url)
 
     def getTorrentColor(self, title):
         def fileFormat(f):
