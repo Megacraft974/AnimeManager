@@ -12,11 +12,20 @@ class Logger:
     def __init__(self, logs="DEFAULT"):
         # Not necessary if used as class slave
 
+        if "logger_instance" in globals().keys():
+            self.log = globals()["logger_instance"].log
+            return
+        else:
+            print("Created new logger", flush=True)
+
+            globals()["logger_instance"] = self
+
         appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
         self.logsPath = os.path.join(appdata, "logs")  # TODO
         self.maxLogsSize = 50000
         self.logs = ['DB_ERROR', 'DB_UPDATE', 'MAIN_STATE',
                      'NETWORK', 'SERVER', 'SETTINGS', 'TIME']
+        self.loggingCb = None
 
         if hasattr(self, 'remote') and self.remote is True:
             self.log_mode = "NONE"
@@ -65,21 +74,21 @@ class Logger:
     def log(self, *text, end="\n"):
         if self.log_mode == "NONE":
             return
-        elif self.log_mode == "DEFAULT":
+        elif text[0].isupper() or ('allLogs' in self.__dict__ and text[0] in self.allLogs):
             category, text = text[0], text[1:]
             if category in self.logs:
                 toLog = "[{}]".format(category.center(13)) + " - "
                 toLog += " ".join([str(t) for t in text])
             else:
                 return
-        elif self.log_mode == "ALL":
-            toLog = "[     LOG     ] - " + " ".join([str(t) for t in text])
         else:
-            return
+            toLog = "[     LOG     ] - " + " ".join([str(t) for t in text])
         print(toLog + end, flush=True, end="")
         with open(self.logFile, "a", encoding='utf-8') as f:
             timestamp = "[{}]".format(time.strftime("%H:%M:%S"))
             f.write(timestamp + toLog + "\n")
+        if self.loggingCb is not None:
+            self.loggingCb(timestamp + toLog)
 
 
 def log(*args, **kwargs):
@@ -88,4 +97,5 @@ def log(*args, **kwargs):
     else:
         logger = Logger(logs="ALL")
         globals()["logger_instance"] = logger
+        logger.log("MAIN_STATE", "Created new logger")
     logger.log(*args, **kwargs)

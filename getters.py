@@ -14,7 +14,8 @@ import requests
 import queue
 import traceback
 
-from datetime import date
+from datetime import date, datetime, timedelta
+import xml.etree.ElementTree as ET
 # from multiprocessing import Pool, Queue
 from multiprocessing.pool import ThreadPool
 
@@ -109,21 +110,7 @@ class Getters:
 
     @staticmethod
     def getStatus(anime):
-        all_status = {  # TODO - Why is this a dict?
-            'airing': 'AIRING',
-            'Currently Airing': 'AIRING',
-            'completed': 'FINISHED',
-            'complete': 'FINISHED',
-            'Finished Airing': 'FINISHED',
-            'to_be_aired': 'UPCOMING',
-            'tba': 'UPCOMING',
-            'upcoming': 'UPCOMING',
-            'Not yet aired': 'UPCOMING',
-            'NONE': 'UNKNOWN',
-            'UPDATE': 'UNKNOWN'}
         if anime.status is not None:
-            if anime.status in all_status.values():
-                return anime.status
             if anime.status == 'UPDATE':
                 return 'UNKNOWN'
             return anime.status
@@ -173,8 +160,6 @@ class Getters:
                 m_bytes = base64.b32decode(m_hash.encode(), casefold=True)
                 m_hash = codecs.encode(m_bytes, 'hex').decode()
             return m_hash
-            print(m)
-            # if any(lambda e: e in )
         else:
             raise ValueError("Hash not found for magnet link:", url)
 
@@ -369,8 +354,8 @@ class Getters:
                 p, filename, can = data
                 if not p.ready():
                     continue
-
-                processes.remove(data)
+                if data in processes:
+                    processes.remove(data)
                 try:
                     req = p.get()
                 except requests.exceptions.ReadTimeout as e:
@@ -465,3 +450,57 @@ class Getters:
     def get_relations(self, id, **filters):
         data = self.database.sql("SELECT * FROM relations WHERE id=?", (id,), to_dict=True)
         return RegroupList("id", ["rel_id"], *(filter(lambda e: all(e[k] == v for k, v in filters.items()), data)))
+
+    def getBroadcast(self, thread=False):
+        if not thread:
+            return ReturnThread(target=self.getBroadcast, args=(True,))
+        path = os.path.join(self.cache, "broadcasts")
+        rss_url = "https://www.livechart.me/feeds/episodes"
+        ignore = ('enclosure', '{http://search.yahoo.com/mrss/}thumbnail')
+
+        # try:
+        if True:
+            if not os.path.exists(path):
+                raise FileNotFoundError()
+            tree = ET.parse(path)
+            root = tree.getroot()[0]
+            entries = []
+            for child in root:
+                if child.tag == "item":
+                    c_dict = {c.tag: c.text for c in child if c.tag not in ignore}
+                    title, num = c_dict['title'].split(" #")
+                    a_id = db.sql("SELECT id FROM title_synonyms WHERE value=?;", (title,))
+                    if a_id:
+                        a_id = a_id[0][0]
+                        date = datetime.strptime(c_dict['pubDate'], "%a, %d %b %Y %H:%M:%S %z").astimezone(datetime.now().astimezone().tzinfo)
+
+                        c_dict['pubDate'] = date
+                        c_dict['id'] = a_id
+                        c_dict['title'] = title
+                        c_dict['eps'] = num
+                        entries.append(c_dict)
+                    else:
+                        continue
+                elif child.tag == "lastBuildDate":
+                    build_date = child.text
+                    print(build_date, type(build_date), flush=True)
+                    fetch_date = datetime.strptime(build_date, "%a, %d %b %Y %H:%M:%S %z").astimezone(datetime.now().astimezone().tzinfo)
+                    print(fetch_date, flush=True)
+            delta = datetime.now(timezone.utc).astimezone() - fetch_date
+        # except Exception as e:
+        #     self.log("MAIN_STATE", "[ERROR] - While fetching broadcasts:", e)
+        #     delta = timedelta.max
+
+        if delta > timedelta(hours=1):
+            try:
+                r = requests.get(rss_url)
+            except Exception:
+                pass
+            else:
+                with open(path, 'wb') as f:
+                    f.write(r.content)
+                print("LOOPING", delta)
+                return self.getBroadcast(thread=True)
+
+        print(entries)
+        return entries

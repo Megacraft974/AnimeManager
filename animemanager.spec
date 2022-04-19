@@ -37,12 +37,12 @@ for name in bin_names:
 
 print("\n-- bins:", '\n--'.join(map(str, binaries)))
 
-modules = ['lxml._elementpath', 'thefuzz', 'bs4', 'mobile_server', 'tkinter.ttk', 'tkinter.filedialog', 'pytube', 'jikanpy', 'jsonapi_client', 'vlc', 'mpv', 'ffpyplayer.player', 'python-Levenshtein', 'pypresence']
+modules = ['lxml._elementpath', 'thefuzz', 'bs4', 'mobile_server', 'tkinter.ttk', 'tkinter.filedialog', 'pytube', 'jikanpy', 'jsonapi_client', 'vlc', 'mpv', 'ffpyplayer.player', 'pypresence']
 
 # excluded = ['_gtkagg', '_tkagg', 'bsddb', 'curses', 'pywin.debugger', 'pywin.debugger.dbgcon', 'pywin.dialogs', 'tcl', 'Tkconstants', 'Tkinter']
 
 a = Analysis(['animemanager.py'],
-             pathex=['D:\\Anime Manager'],
+             pathex=['E:\\Anime Manager'],
              binaries=binaries,
              datas=added_files,
              hiddenimports=modules,

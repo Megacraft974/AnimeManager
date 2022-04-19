@@ -1,7 +1,11 @@
 from .base_player import BasePlayer
 import time
 
-import vlc
+try:
+    import vlc
+except FileNotFoundError:
+    import sys
+    # sys.path.append()
 import urllib
 from multiprocessing import Value, Manager, Process
 

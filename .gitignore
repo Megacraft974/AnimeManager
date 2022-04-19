@@ -5,5 +5,10 @@ venv/
 
 .pem
 **/token.json
-icons/icon.pdn
-icons/full_size
+icons/app_icon/icon.pdn
+icons/app_icon/*/
+lib/upx-3.96-win64/
+*.sublime-project
+*.sublime-workspace
+*.lnk
+*.code-workspace

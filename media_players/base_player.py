@@ -16,7 +16,7 @@ from multiprocessing import Process, freeze_support
 from pytube import YouTube
 import pytube.exceptions
 
-from dbManager import db
+from dbManager import thread_safe_db
 from logger import log
 
 
@@ -364,7 +364,7 @@ class BasePlayer:
         def handler(self):
             if self.id is not None and self.database is not None:
                 filename = self.playlist[self.index]
-                db(self.database).set(
+                thread_safe_db(self.database).set(
                     {'id': self.id, 'last_seen': str(filename)}, table="anime")
         self.thread = threading.Thread(target=handler, args=(self,), daemon=True)
         self.thread.start()
@@ -411,13 +411,16 @@ class BasePlayer:
         except pytube.exceptions.VideoUnavailable:
             log("Video not found for url", v)
             return
+        except pytube.exceptions.RegexMatchError:
+            log("Video not found for url", v)
+            return
         except pytube.exceptions.VideoPrivate:
             log("The video is private!")
             return
         except urllib.error.URLError:
             log("No internet connection!")
         except Exception as e:
-            log("Error while fetching youtube video for url:", v, "-", e, "- Streams:\n   ", "\n   ".join(video.streams), "\n-", traceback.format_exc())
+            log("Error while fetching youtube video for url:", v, "-", e, "-", traceback.format_exc())
         else:
             streams.sort(key=lambda s: int(
                 s.resolution[:-1]) if s.resolution is not None and s.includes_audio_track else 0, reverse=True)

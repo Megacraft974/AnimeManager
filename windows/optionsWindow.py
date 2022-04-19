@@ -174,7 +174,6 @@ class optionsWindow:
                 elif status == 'AIRING':
                     datetext = "Since {} ({} days)".format(
                         datefrom.strftime("%d %b %Y"), delta.days)
-                    # ,'Unknown','Not scheduled once per week'):
                     if broadcast is not None:
                         weekday, hour, minute = map(int, broadcast.split("-"))
 
@@ -212,7 +211,7 @@ class optionsWindow:
                             text = text.format(str(daysSince) + " days ago")
                         else:
                             text = text.format("uhh?")
-                        datetext += "\n{}".format(text)
+                        datetext += "\n" + text
 
                 elif status == 'UPCOMING':
                     datetext = "On {} ({} days left)".format(

@@ -71,9 +71,11 @@ class initWindow:
                 except AttributeError as e:
                     self.log("[ERROR]", "Error while moving main window")
 
+        icon_path = os.path.join(self.iconPath, "app_icon", "icon.ico")
+
         if self.root is None:
             self.root = Tk()
-            icon_path = os.path.join(self.iconPath, "app_icon", "icon.ico")
+            mainloop = True
             self.root.iconbitmap(icon_path)
             self.root.title(self.mainWindowTitle)
             # self.root.attributes('-alpha', 0.0)
@@ -92,8 +94,10 @@ class initWindow:
             self.root.bind("<Map>", bringToTop)
 
             self.root.report_callback_exception = self.mainloop_error_handler
+        else:
+            mainloop = False
 
-        if self.fen is None:
+        if self.fen is None or not self.fen.winfo_exists():
             self.fen = Toplevel(self.root)
             self.fen.focus_force()
             self.fen.configure(bg=self.colors['Gray3'])
@@ -180,6 +184,7 @@ class initWindow:
                     highlightthickness=0,
                     width=56,
                     height=56)
+                self.loadCanvas.giflist = self.giflist
                 self.loadCanvas.grid(row=0, column=2)
 
                 filterIcon = self.getImage(os.path.join(
@@ -224,6 +229,7 @@ class initWindow:
                     bg=self.colors['Gray2'],
                     command=self.quit
                 )
+                closeButton.closeIcon = closeIcon
                 closeButton.bind("<Button-3>", reset_windows)
                 closeButton.grid(
                     row=0,
@@ -269,4 +275,5 @@ class initWindow:
         self.log('TIME', "Ready:".ljust(25), round(
             time.time() - self.start, 2), "sec")
 
-        self.root.mainloop()
+        if mainloop:
+            self.root.mainloop()

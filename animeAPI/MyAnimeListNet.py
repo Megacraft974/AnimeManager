@@ -85,7 +85,7 @@ class MyAnimeListNetWrapper(APIUtils):
         out['duration'] = a['average_episode_duration'] // 60 if 'average_episode_duration' in a.keys() else None
         out['status'] = None  # a['status'] if 'status' in a.keys() else None
         out['rating'] = a['rating'].upper() if 'rating' in a.keys() else None
-        if 'broadcast' in a.keys():
+        if 'broadcast' in a.keys() and 'start_time' in a['broadcast'].keys():
             weekdays = ('monday', 'tuesday', 'wednesday',
                         'thursday', 'friday', 'saturday', 'sunday')
             out['broadcast'] = "{}-{}-{}".format(
@@ -250,6 +250,6 @@ class MyAnimeListNetWrapper(APIUtils):
             return token["access_token"]
         else:
             self.log("Error while fetching MAL token!")
-            if os.path.isfile(self.tokenPath):
-                os.remove(self.tokenPath)
+            # if os.path.isfile(self.tokenPath):
+            #     os.remove(self.tokenPath)
             return None

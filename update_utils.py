@@ -14,13 +14,18 @@ from classes import Anime
 
 class UpdateUtils:
     def updateAll(self, schedule=True):
-        self.updateCache()
-        self.updateDirs()
-        self.updateTag()
-        self.updateStatus()
-        self.regroupFiles()
-        if schedule:
-            self.getSchedule()
+        # self.updateCache()
+        # self.updateDirs()
+        # self.updateTag()
+        # self.updateStatus()
+        # self.regroupFiles()
+        # if schedule:
+        #     self.getSchedule()
+
+        update_iter = self.updateAllProgression(schedule)
+        next(update_iter)
+        for t, txt in update_iter:
+            t.join()
 
     def updateAllProgression(self, schedule=False):
         def wrapper(f):
@@ -42,6 +47,10 @@ class UpdateUtils:
             self.updateStatus: "Updating status",
             self.regroupFiles: "Regrouping files",
         }
+        if schedule:
+            reloadFunc |= {
+                self.getSchedule: "Updating schedule"
+            }
         yield len(reloadFunc)
 
         for f, text in reloadFunc.items():
@@ -113,14 +122,33 @@ class UpdateUtils:
             c if c > 0 else "no", "s" if c >= 2 else ""))
 
     def updateDirs(self):
+        def check_dir_empty(path):
+            if os.path.isfile(path):
+                return False
+            files = os.listdir(path)
+            if len(files) == 0:
+                return True
+            else:
+                return all(check_dir_empty(os.path.join(path, f)) for f in files)
+
+        def remove_dir(path):
+            if os.path.isfile(path):
+                return
+            files = os.listdir(path)
+            if len(files) > 0:
+                for f in files:
+                    remove_dir(os.path.join(path, f))
+
+            os.rmdir(path)
+
         modified = False
         pattern = re.compile(r"^.*? - (\d+)$")
         for f in os.listdir(self.animePath):
             path = os.path.join(self.animePath, f)
             if os.path.isdir(path):
-                if len(os.listdir(path)) == 0:
+                if check_dir_empty(path):
                     self.log("DB_UPDATE", os.path.normpath(path), 'is empty!')
-                    os.rmdir(path)
+                    remove_dir(path)
                     modified = True
                 match = re.findall(pattern, f)
                 if not match or not match[0]:
@@ -190,8 +218,10 @@ class UpdateUtils:
 
             try:
                 if len(toWatch) >= 1:
+                    self.log('DB_UPDATE', f'Updating {len(toSeen)} anime tags to Seen')
                     self.database.sql("UPDATE anime SET tag = 'WATCHING' WHERE id IN(" + ",".join("?" * len(toWatch)) + ");", toWatch)
                 if len(toSeen) >= 1:
+                    self.log('DB_UPDATE', f'Updating {len(toWatch)} anime tags to Watching')
                     self.database.sql("UPDATE anime SET tag = 'SEEN' WHERE id IN(" + ",".join("?" * len(toSeen)) + ");", toSeen)
             except OperationalError:
                 self.log('DB_UPDATE', 'Error while updating tags')

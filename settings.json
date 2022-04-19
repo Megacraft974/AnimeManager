@@ -133,7 +133,7 @@
         "qb_settings": {
             "auto_tmm_enabled": true,
             "incomplete_files_ext": true,
-            "save_path": "D:/Animes/",
+            "save_path": "E:/Animes/",
             "save_path_changed_tmm_enabled": true,
             "start_paused_enabled": false
         }

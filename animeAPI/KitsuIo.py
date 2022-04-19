@@ -5,8 +5,8 @@ import json
 
 class KitsuIoWrapper(APIUtils):
     def __init__(self, dbPath):
-        super().__init__(dbPath)
-        self.s = Session('https://kitsu.io/api/edge/')
+        APIUtils.__init__(self, dbPath)
+        self.s = Session('https://kitsu.io/api/edge/')  # TODO - self.s.close() ??
         self.apiKey = "kitsu_id"
         self.mappedSites = {"myanimelist/anime": "mal_id",
                             "anidb": "anidb_id", "anilist/anime": "anilist_id"}
@@ -18,9 +18,9 @@ class KitsuIoWrapper(APIUtils):
             return {}
         modifier = Inclusion("genres", "mediaRelationships",
                              "mediaRelationships.destination", "mappings")
+        print('https://kitsu.io/api/edge/anime/' + str(kitsu_id) + " - id:" + str(id), self.apiKey)
         rep = self.s.get('anime/' + str(kitsu_id), modifier).resource
         data = self._convertAnime(rep, force=True)
-        print("KITSU", data)
         return data
 
     def animeCharacters(self, id):
@@ -109,7 +109,6 @@ class KitsuIoWrapper(APIUtils):
             return self._convertCharacter(rep[0])
 
     def _convertAnime(self, a, force=False):
-        self.database = self.getDatabase()
         self._mapAnimes(a)
         if not force and a.subtype not in self.subtypes:
             return None
@@ -229,3 +228,8 @@ class KitsuIoWrapper(APIUtils):
             except Exception:
                 pass
         return True
+
+
+if __name__ == "__main__":
+    wrapper = KitsuIoWrapper("C:/Users/willi/AppData/Roaming/Anime Manager/animeData.db")
+    print(wrapper.anime(16571))

@@ -31,7 +31,7 @@ class ddlWindow:
             def handler_loop(table, t, que, is_empty):
                 while t.is_alive() or not que.empty():
                     if que.empty():
-                        self.publisherChooser.after(10, handler_loop, table, t, que, is_empty)
+                        self.publisherChooser.after(100, handler_loop, table, t, que, is_empty)
                         return
 
                     titles = que.get()
@@ -48,7 +48,11 @@ class ddlWindow:
                             w.destroy()
                     except Exception:
                         pass
+
                     draw_table(titles)
+
+                    table.update()
+                    self.publisherChooser.update()
 
             def draw_table(titles):
                 rowHeight = 25
@@ -58,7 +62,6 @@ class ddlWindow:
                     if empty:
                         empty = False
                     publisher, data = data
-                    marked = ('dual', 'dub')
                     for title in [d['filename'] for d in data]:
                         fg = self.getTorrentColor(title)
                         if fg != self.colors['White']:
@@ -94,11 +97,8 @@ class ddlWindow:
                         self.publisherChooser.titleLbl['text'] = "No files\nfound!"
                     else:
                         self.publisherChooser.titleLbl['text'] = "Publisher:"
-                except _tkinter.TclError:
+                except TclError:
                     pass
-
-                table.update()
-                self.publisherChooser.update()
 
         # Window init - Fancy corners - Main frame - Events
         if True:

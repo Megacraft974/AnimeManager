@@ -228,7 +228,7 @@ class ItemList():
     def queueListener(self, que, threads):
         while not que.empty() or any(t.is_alive() for t in threads):
             try:
-                s = que.get(timeout=0.01)
+                s = que.get_nowait()
             except queue.Empty:
                 pass
             else:
@@ -610,7 +610,8 @@ class LockWrapper():
 
 class NoIdFound(KeyError):
     """ An exception raised when there is no id found by the APIs """
-    pass
+    def __init__(self, id):
+        self.args = ("Id not found: " + str(id), )
 
 
 if __name__ == "__main__":

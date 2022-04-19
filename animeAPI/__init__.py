@@ -30,32 +30,30 @@ class AnimeAPI(Getters, Logger):
 
     def load_apis(self, apis='all', *args, **kwargs):
         if apis == 'all':
+            api_names = []
             ignore = ('__init__.py', 'APIUtils.py')
             root = os.path.dirname(__file__)
             sys.path.append(root)  # TODO - Should use relative import
             for f in os.listdir(root):
                 if f not in ignore and f[-3:] == ".py":
                     name = f[:-3]
-                    try:
-                        exec('from {n} import {n}Wrapper'.format(n=name))
-                    except ImportError as e:
-                        self.log(name, e)
-                    else:
-                        try:
-                            f = locals()[name + "Wrapper"](*args, **kwargs)
-                        except Exception as e:
-                            self.log("Error while loading {} API wrapper: {}".format(
-                                name, traceback.format_exc()))
-                        else:
-                            self.apis.append(f)
+                    api_names.append(name)
         else:
-            for name in apis:
+            api_names = apis
+
+        for name in api_names:
+            try:
+                exec('from {n} import {n}Wrapper'.format(n=name))
+            except ImportError as e:
+                self.log(name, e)
+            else:
                 try:
-                    exec('from {n} import {n}'.format(n=name))
-                    self.apis.append(api(*args, **kwargs))
-                except Exception:
-                    self.log("Error while loading {} API class wrapper: {}".format(
+                    f = locals()[name + "Wrapper"](*args, **kwargs)
+                except Exception as e:
+                    self.log("Error while loading {} API wrapper: {}".format(
                         name, traceback.format_exc()))
+                else:
+                    self.apis.append(f)
         if len(self.apis) == 0:
             self.log("No apis found!")
 
@@ -112,11 +110,13 @@ class AnimeAPI(Getters, Logger):
             r = None
             while not que.empty() or any(t.is_alive() for t in threads):
                 try:
-                    r = que.get(timeout=0.01)
+                    r = que.get_nowait()
                 except queue.Empty:
                     pass
                 else:
                     out += r
+            if len(out) == 0:
+                print("No data - id:" + str(name) + " - args:" + ",".join(map(str, args)))
         else:
             if name in ('schedule', 'searchAnime', 'season'):
                 out = AnimeList((que, threads))

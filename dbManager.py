@@ -17,6 +17,8 @@ class db():
     '''Database manager using sqlite3'''
 
     def __init__(self, path):
+        if 'database_main_thread' in globals() and not isinstance(globals()['database_main_thread'], threading.Event):
+            raise Exception("Another db instance already exists!")
         self.path = path
         self.remote_lock = threading.RLock()
         if not os.path.exists(self.path):
@@ -28,7 +30,7 @@ class db():
         self.cur = self.con.cursor()
         table = "anime"
         self.alltable_keys = {}
-        self.log_commands = False
+        self.log_commands = True
         self.last_op = "None"
 
     def createNewDb(self):
@@ -193,7 +195,7 @@ class db():
         ids = self.sql(sql, (apiId,))
         if len(ids) > 0:
             if add_meta:
-                out = ids[0][0], {"exists": False}
+                out = ids[0][0], {"exists": True}
             else:
                 out = ids[0][0]
             return out
@@ -210,7 +212,7 @@ class db():
                     # if len(ids) == 0 or len(ids[0]) == 0:  #TODO
                     if ids:
                         if add_meta:
-                            out = ids[0][0], {"exists": True}
+                            out = ids[0][0], {"exists": False}
                         else:
                             out = ids[0][0]
                         return out
@@ -272,6 +274,8 @@ class db():
             raise
         except sqlite3.ProgrammingError as e:
             log(e, sql, *args)
+            if e.args[0].startswith('SQLite objects created in a thread can only be used in that same thread.'):
+                raise Exception("Wrong thread")
             raise
 
     def executemany(self, sql, *args):
@@ -402,7 +406,6 @@ class db():
         with self.get_lock():
             self.updateKeys("anime")
             keys = list(self.tablekeys)
-            print(sql)
 
             self.execute(sql)
             data_list = self.cur.fetchall()
@@ -488,22 +491,27 @@ class db():
 
 class thread_safe_db(Logger):
     def __init__(self, path):
-        super().__init__()
+        Logger.__init__(self)
         self.path = path
-        if 'database_main_tasks_queue' in globals().keys():
+        if 'database_main_thread' in globals().keys():
             main = globals()['database_main_thread']
+            if isinstance(main, threading.Event):
+                main.wait()
+                main = globals()['database_main_thread']
             self.db = main.db
             self.lock = main.lock
             self.tasks = main.tasks
             self.db_thread = main.db_thread
         else:
-            self.tasks = queue.LifoQueue()
             self.ready_flag = threading.Event()
+            release_flag = threading.Event()
+            globals()['database_main_thread'] = release_flag
+            self.tasks = queue.LifoQueue()
             self.db_thread = threading.Thread(target=self.start_db_thread, args=(path,), daemon=True)
             self.db_thread.start()
             self.ready_flag.wait()
-            del self.ready_flag
             globals()['database_main_thread'] = self
+            release_flag.set()
             self.log("DB_MAIN", "Started db thread")
 
     def start_db_thread(self, path):
@@ -527,7 +535,10 @@ class thread_safe_db(Logger):
         self.log("DB_MAIN", "Stopped db thread")
 
     def __getattr__(self, a):
-        return lambda *args, **kwargs: self.task_planner(a, *args, **kwargs)
+        if a not in self.__dict__:
+            return lambda *args, **kwargs: self.task_planner(a, *args, **kwargs)
+        else:
+            return self.__dict__[a]
 
     def __call__(self, *args, **kwargs):
         # self.__dict__['db'].__call__(*args, **kwargs)
@@ -551,12 +562,14 @@ class thread_safe_db(Logger):
 
     def get_lock(self):
         try:
-            return LockWrapper(self.db.remote_lock, self.save)
+            return LockWrapper(self.db.remote_lock, lambda: self.tasks.put((queue.Queue(), "save", [], {})))
         except Exception:
             self.log("DB_MAIN", "[ERROR] - No lock found!", self.db, dir(self.db))
             raise
 
     def close(self):
+        if not self.db_thread.is_alive():
+            return
         self.tasks.put("STOP")
         self.db_thread.join()
         self.log("DB_MAIN", "Closed database!")

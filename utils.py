@@ -189,7 +189,7 @@ class RoundTopLevel(Frame):
             self.titleLbl.bind("<B1-Motion>", self.do_move)
         except Exception:
             pass
-        # print(self.getChild(self.fen), self.handles)
+        
         for wid in self.getChild(self.fen):
             if wid not in self.handles:
                 wid.bind("<Button-1>", self.exit)
@@ -689,7 +689,6 @@ class AnimeListFrame(ScrollableFrame):
             return new_list, next_list
 
         self.list, self.next_list = get_next(args)
-        # self.next_list = lambda args=args: get_next(args)
 
         self.update()
         self.createList()

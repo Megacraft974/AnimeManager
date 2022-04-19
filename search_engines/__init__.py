@@ -45,3 +45,6 @@ def search(titles, limit=50):
     while any(map(lambda t: t.is_alive(), threads)) or not que.empty():
         if not que.empty():
             yield que.get()
+
+# Add serach engines:
+# https://www.shanaproject.com/

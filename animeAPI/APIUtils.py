@@ -6,18 +6,16 @@ import re
 
 sys.path.append(os.path.abspath("../"))
 try:
-    from dbManager import db
     from classes import Anime, Character, NoIdFound
     from logger import Logger
     from getters import Getters
 except ModuleNotFoundError as e:
     print("Module not found:", e)
-    db = None
 
 
-class APIUtils(Getters, Logger):
+class APIUtils(Logger, Getters):
     def __init__(self, dbPath):
-        super().__init__(logs="ALL")
+        Logger.__init__(self, logs="ALL")
         self.states = {
             'airing': 'AIRING',
             'Currently Airing': 'AIRING',
@@ -68,9 +66,7 @@ class APIUtils(Getters, Logger):
         if api_id == []:
             self.log("Key not found!", "SELECT {} FROM {} WHERE id={}".format(
                 self.apiKey, index, id))
-            raise NoIdFound()
-            # raise Exception("Wrong api")
-            # return None
+            raise NoIdFound(id)
         return api_id[0][0]
 
     def getGenres(self, genres):

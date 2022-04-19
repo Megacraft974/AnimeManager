@@ -1,1 +1,1 @@
-start /min pythonw "./animeManager.py"
+start /min pyw "./animeManager.py"

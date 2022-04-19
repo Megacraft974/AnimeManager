@@ -8,6 +8,7 @@ import re
 import shutil
 import socket
 import subprocess
+import sqlite3
 import threading
 import time
 import traceback
@@ -39,7 +40,7 @@ except ModuleNotFoundError as e:
         print("Module missing:", e)
     else:
         print("Installing modules!", e)
-        subprocess.run("pip install qbittorrent-api lxml jikanpy jsonapi_client requests Pillow bencoding bs4 thefuzz python-Levenshtein pytube python-mpv ffpyplayer python-vlc pypresence")
+        subprocess.run("pip install qbittorrent-api lxml jikanpy jsonapi_client requests Pillow bencoding bs4 thefuzz pytube python-mpv python-vlc pypresence")# ffpyplayer python-Levenshtein
         # os.execv(sys.argv[0], sys.argv)
     time.sleep(20)
 
@@ -68,7 +69,11 @@ except ModuleNotFoundError as e:
     sys.exit()
 
 
-# TODO - Use regex on torrent markers
+# TODO - Relations tree
+# TODO - simkl.com API
+# TODO - Logger panel
+# TODO - Fix multi word search
+# TODO - Interrupt torrent search
 # TODO - Tkinter event queue
 # TODO - Fix characters API
 # TODO - Use the db.get_lock() with API wrappers
@@ -85,13 +90,12 @@ except ModuleNotFoundError as e:
 # TODO - Add search by studios
 # TODO - Add pictures window
 # TODO - Allow window resizing
-# TODO - Online search raise database is locked error
-# TODO - Improve torrent matching algorithm
 # TODO - Auto associate latest torrents?
 # TODO - Add python-based torrent client
 # TODO - Add RSS option
 # TODO - Automatic torrent downloading from RSS?
 # TODO - Phone version
+# TODO - Web version
 
 
 class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPresence, *windows.windows):
@@ -116,6 +120,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
         self.qb = None
         self.root = None
         self.fen = None
+        self.logPanel = None
         self.choice = None
         self.publisherChooser = None
         self.fileChooser = None
@@ -130,6 +135,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
         self.menuOptions = {
             'Liked characters': {'color': 'Green', 'command': lambda: self.characterListWindow("LIKED")},
             'Disk manager': {'color': 'Orange', 'command': self.diskWindow},
+            'Log panel': {'color': 'Blue', 'command': self.logWindow},
             'Clear logs': {'color': 'Green', 'command': self.clearLogs},
             'Clear cache': {'color': 'Blue', 'command': self.clearCache},
             'Clear db': {'color': 'Red', 'command': self.clearDb},
@@ -145,6 +151,9 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
             {'text': 'Delete all files', 'color': 'Red', 'command': self.deleteFiles},
             {'text': 'Remove from db', 'color': 'Red', 'command': self.delete},)
 
+        self.startup()
+
+    def startup(self):
         with self.getDatabase() as self.database:
             if not os.path.exists(self.dbPath):
                 self.checkSettings()
@@ -155,6 +164,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
             self.api = animeAPI.AnimeAPI('all', self.dbPath)
             self.player = self.media_players[self.player_name]
+            self.last_broadcasts = self.getBroadcast()
             self.getQB(use_thread=True)
 
             self.RPC_menu()
@@ -169,9 +179,9 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
                 self.start = time.time()
                 self.RPC_stop()
                 self.updateAll()
-                self.database.close()
                 self.log('TIME', "Stopping time:".ljust(25),
                          round(time.time() - self.start, 2), 'sec')
+                self.database.close()
 
     # ___Search___
     def search(self, *args, force_search=False):
@@ -377,17 +387,10 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
         self.stopSearch = True
         self.closing = True
         try:
-            self.database.close()
-        except Exception as e:
-            self.log("MAIN_STATE", "[ERROR] - While closing db:", e)
-        try:
             self.root.update()
-            if self.fen is not None:
-                # self.fen.destroy()
-                pass
             if self.root is not None:
                 self.root.destroy()
-            # self.root = None
+            self.root = None
         except Exception as e:
             self.log("MAIN_STATE", "[ERROR] - Can't destroy root:", e)
 
@@ -397,6 +400,10 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
             self.log("MAIN_STATE", "[ERROR] - In tkinter mainloop: Application has been destroyed")
         else:
             self.log("MAIN_STATE", "[ERROR] - In tkinter mainloop:\n", ''.join(map(lambda t: t.replace('  ', '    '), traceback.format_exception(exc, val, tb))))
+
+        if isinstance(exc, sqlite3.ProgrammingError) and "SQLite objects created in a thread can only be used in that same thread" in val:
+            self.quit()
+            self.startup()
 
     def reloadAll(self):
         self.log('MAIN_STATE', "Reloading")
@@ -420,7 +427,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
             try:
                 self.loadLabel['text'] = text
             except Exception:
-                if self.closing or not self.loadfen.winfo_exists():
+                if not self.loadfen.winfo_exists():
                     break
             loadStop = (i + 1) / lenght * 100
             while thread.is_alive():
@@ -435,7 +442,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
         try:
             self.loadfen.destroy()
-            self.quit()
+            # self.quit()
         except Exception:
             pass
         try:
@@ -443,7 +450,25 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
                      round(time.time() - self.start, 2), 'sec')
         except AttributeError:
             pass
-        self.__init__()
+        # self.startup()
+        self.closing = False
+
+        if not os.path.exists(self.dbPath):
+            self.checkSettings()
+            self.reloadAll()
+            return
+        else:
+            self.checkSettings()
+
+        self.player = self.media_players[self.player_name]
+        self.last_broadcasts = self.getBroadcast()
+
+        # self.RPC_stop()
+        DiscordPresence.__init__(self)
+        self.RPC_menu()
+
+        if not self.remote:
+            self.initWindow()
 
     def view(self, id):
         index = "indexList"
@@ -455,7 +480,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
             if id is not None and api_key in self.websitesViewUrls.keys():
                 url = self.websitesViewUrls[api_key].format(id)
                 threading.Thread(target=webbrowser.open, args=(url,)).start()
-                # webbrowser.open(url)
 
     def loading(self, n=0, after=False):
         if self.stopSearch:
@@ -475,15 +499,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
     # ___Networking___
     def downloadFile(self, id, url=None, file=None):
         def handler(id, put, url=None, file=None):
-            database = self.getDatabase()
-            with database.get_lock():
-                torrents = database.get_metadata(id, "torrents")
-                database.save_metadata(id, {"torrents": torrents + [file]})
-
-                if database(id=id, table='anime')['tag'] != 'WATCHING':
-                    database.set({'id': id, 'tag': 'WATCHING'}, table='anime', get_output=False)
-                database.save()
-
             isMagnet = False
             if url is not None:
                 pattern = re.compile(r"^magnet:\?xt=urn:")
@@ -515,8 +530,21 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
                         f.write(req.content)
             else:  # File is not None
                 filePath = os.path.normpath(os.path.join(self.torrentPath, file))
+
+
+            database = self.getDatabase()
+            with database.get_lock():
+                torrents = database.get_metadata(id, "torrents")
+                database.save_metadata(id, {"torrents": torrents + [file]})
+
+                if database(id=id, table='anime')['tag'] != 'WATCHING':
+                    database.set({'id': id, 'tag': 'WATCHING'}, table='anime', get_output=False)
+                database.save()
+
             if not isMagnet:
                 filePath = os.path.normpath(filePath)
+                if not os.path.exists(filePath):
+                    return
 
             if self.getQB() == "OK":
                 out.put(True)
@@ -673,7 +701,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
                 database.save()
 
         return character
-
 
 if __name__ == '__main__':
     multiprocessing.freeze_support()
