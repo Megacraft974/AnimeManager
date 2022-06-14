@@ -1,6 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
+import os
 
 block_cipher = None
 
@@ -28,18 +29,19 @@ added_libs = ('certifi', 'jsonschema', 'mpv', 'ffpyplayer')
 for name in added_libs:
     added_files += collect_data_files(name)
 
-print("-- datas:\n", '\n--'.join(sorted(map(str, added_files))))
+print("-- datas:\n", '\nd-'.join(sorted(map(str, added_files))))
 
 binaries = []
 bin_names = ('mpv', 'vlc')
 for name in bin_names:
     binaries += collect_data_files(name)
 
-print("\n-- bins:", '\n--'.join(map(str, binaries)))
+print("\n-- bins:", '\nb-'.join(map(str, binaries)))
 
 modules = ['lxml._elementpath', 'thefuzz', 'bs4', 'mobile_server', 'tkinter.ttk', 'tkinter.filedialog', 'pytube', 'jikanpy', 'jsonapi_client', 'vlc', 'mpv', 'ffpyplayer.player', 'pypresence']
 
 # excluded = ['_gtkagg', '_tkagg', 'bsddb', 'curses', 'pywin.debugger', 'pywin.debugger.dbgcon', 'pywin.dialogs', 'tcl', 'Tkconstants', 'Tkinter']
+# excluded = ['django', 'pyqt5']
 
 a = Analysis(['animemanager.py'],
              pathex=['E:\\Anime Manager'],

@@ -36,7 +36,7 @@ class Getters:
     def getDatabase(self=None):
         if self is None:
             self = type('EmptyObject', (), {})()
-        if threading.main_thread() == threading.current_thread() and hasattr(self, "database"):
+        if threading.main_thread() == threading.current_thread() and hasattr(self, "database") and isinstance(self.database, thread_safe_db):
             return self.database
         else:
             for db_t in list(globals()['database_threads'].keys()):

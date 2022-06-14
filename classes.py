@@ -176,7 +176,7 @@ class ItemList():
     def __contains__(self, e):
         return e in self.list
 
-    def __iter__(self, timeout=None):
+    def __iter__(self, timeout=1):
         while not self.empty():
             e = self.get(timeout)
             if e is not None:
@@ -278,7 +278,8 @@ class ItemList():
             return default  # Timed out
 
     def empty(self):
-        return len(self.sources) == 0 and len(self.list) == 0
+        self.sourceThreads = list(filter(lambda t: t.is_alive(), self.sourceThreads))
+        return len(self.sources) == 0 and len(self.list) == 0 and len(self.sourceThreads) == 0
 
     def is_ready(self):
         return len(self.list) > 0 or len(self.sources) == 0

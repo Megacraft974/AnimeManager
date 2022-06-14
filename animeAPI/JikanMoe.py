@@ -1,16 +1,22 @@
-from APIUtils import APIUtils, EnhancedSession, Anime, Character
-from jikanpy import Jikan, exceptions as jikan_exceptions
+from ast import Import
+
+
+try:
+    from .APIUtils import APIUtils, EnhancedSession, Anime, Character
+except ImportError:
+    # Local testing
+    import sys, os
+    sys.path.append(os.path.abspath('./'))
+    from APIUtils import APIUtils, EnhancedSession, Anime, Character
 from datetime import date
-import json
 import time
-import requests
 
 
 class JikanMoeWrapper(APIUtils):
     def __init__(self, dbPath):
         super().__init__(dbPath)
         self.session = EnhancedSession(timeout=30)
-        self.jikan = Jikan(session=self.session)
+        self.base_url = 'https://api.jikan.moe/v4'
         self.cooldown = 2
         self.last = time.time() - self.cooldown
         self.apiKey = "mal_id"
@@ -20,15 +26,9 @@ class JikanMoeWrapper(APIUtils):
         if mal_id is None:
             return {}
         self.delay()
-        try:
-            a = self.jikan.anime(mal_id)
-        except jikan_exceptions.APIException as e:
-            if e.status_code == 429:
-                self.last = time.time() + 60
-                return {}
-            else:
-                raise
-        data = self._convertAnime(a)
+        a = self.get('/anime/{id}', id=mal_id)
+        
+        data = self._convertAnime(a['data'])
         return data
 
     def animeCharacters(self, id):
@@ -36,67 +36,36 @@ class JikanMoeWrapper(APIUtils):
         if mal_id is None:
             return []
         self.delay()
-        try:
-            a = self.jikan.anime(mal_id, extension='characters_staff')[
-                'characters']
-        except jikan_exceptions.APIException as e:
-            if e.status_code == 429:
-                self.last = time.time() + 60
-                return []
-            else:
-                raise
+        a = self.get('/anime/{id}/characters', id=mal_id)['data']
         for c in a:
             yield self._convertCharacter(c, id)
 
     def animePictures(self, id):
         self.delay()
-        try:
-            a = self.jikan.anime(id, "pictures")
-        except jikan_exceptions.APIException as e:
-            if e.status_code == 429:
-                self.last = time.time() + 60
-                return []
-            else:
-                raise
+        a = self.get("/anime/{id}/pictures", id=id)
         return a['pictures']
 
     def schedule(self, limit=50):
         # TODO - Limit + status
         self.delay()
-        try:
-            rep = self.jikan.schedule()
-        except jikan_exceptions.APIException as e:
-            if e.status_code == 429:
-                self.last = time.time() + 60
-                return
-            else:
-                raise
-        for day, data in list(rep.items())[3:12]:
-            break
-            for anime in data:
-                anime = self._convertAnime(anime)
-                anime['status'] = 'UPDATE'
-                yield anime
+        
+        rep = self.get('/schedules')
 
-        top = self.jikan.top(type="anime", page=1, subtype="airing")
-        for anime in top['top']:
-            break
+        for anime in rep['data']:
             anime = self._convertAnime(anime)
-            anime['status'] = 'UPDATE'
+            # anime['status'] = 'UPDATE'
+            yield anime
+
+        top = self.get('/top/anime')
+        for anime in top['data']:
+            anime = self._convertAnime(anime)
+            # anime['status'] = 'UPDATE'
             yield anime
 
     def searchAnime(self, search, limit=50):
         self.delay()
-        try:
-            rep = self.jikan.search('anime', search, parameters={'limit': limit})
-        except jikan_exceptions.APIException as e:
-            if e.status_code == 429:
-                self.log("API_WRAPPER", "[Jikan.moe] - Status code 429, skipping")
-                self.last = time.time() + 60
-                return []
-            else:
-                raise
-        for a in rep['results']:
+        rep = self.get(f'/anime?q={search}')
+        for a in rep['data']:
             data = self._convertAnime(a)
             if len(data) != 0:
                 yield data
@@ -104,14 +73,7 @@ class JikanMoeWrapper(APIUtils):
     def character(self, id):
         mal_id = self.getId(id, table="characters")
         self.delay()
-        try:
-            c = self.jikan.character(mal_id)
-        except jikan_exceptions.APIException as e:
-            if e.status_code == 429:
-                self.last = time.time() + 60
-                return {}
-            else:
-                raise
+        c = self.get('/characters/{id}', id=mal_id)
         return self._convertCharacter(c)
 
     def _convertAnime(self, a):
@@ -148,7 +110,22 @@ class JikanMoeWrapper(APIUtils):
                 dateto['month'],
                 dateto['day'])) if None not in dateto.values() else None
 
-        out['picture'] = a['image_url']
+        out['picture'] = a['images']['jpg']['image_url']
+
+        sizes = {'image_url': (225, 328), 'small_image_url': (50, 75), 'large_image_url': (350, 525)}
+        out['pictures'] = []
+        for type, imgs in a['images'].items():
+            for size, url in imgs.items():
+                w, h = sizes[size]
+                img = {
+                    'url': url,
+                    'width': w,
+                    'height': h,
+                    'type': type
+                }
+                out['pictures'].append(img)
+        print(a['images'])
+
         out['synopsis'] = a['synopsis'] if 'synopsis' in a.keys() else None
         out['episodes'] = a['episodes'] if 'episodes' in a.keys() else None
         duration = a['duration'].split(" ")[0] if 'duration' in a.keys() else None
@@ -156,16 +133,15 @@ class JikanMoeWrapper(APIUtils):
         out['status'] = None  # a['status'] if 'status' in a.keys() else None
         out['rating'] = a['rating'].split(
             "-")[0].rstrip() if 'rating' in a.keys() else None
-        if 'broadcast' in a.keys() and a['broadcast'] not in (None, 'Unknown'):
+        if 'broadcast' in a.keys() and a['broadcast']['day'] is not None:
             weekdays = ('Mondays', 'Tuesdays', 'Wednesdays',
                         'Thursdays', 'Fridays', 'Saturdays', 'Sundays')
-            a['broadcast'] = a['broadcast'].split(" (")[0].split(' at ')
-            if a['broadcast'][0] not in weekdays:
-                raise ValueError(a['broadcast'][0] + " is not in weekdays!")
+            if a['broadcast']['day'] not in weekdays:
+                raise ValueError(a['broadcast']['day'] + " is not in weekdays!")
             out['broadcast'] = "{}-{}-{}".format(weekdays.index(
-                a['broadcast'][0]), *a['broadcast'][1].split(":"))
+                a['broadcast']['day']), *a['broadcast']['time'].split(":"))
 
-        # out['broadcast'] = a['broadcast'] if 'broadcast' in a.keys() else None
+        # out['broadcast'] = a['broadcast']['day'] + '-' +  if 'broadcast' in a.keys() else None
         out['trailer'] = a['trailer_url'] if 'trailer_url' in a.keys() else None
 
         if out['date_from'] is None:
@@ -214,7 +190,25 @@ class JikanMoeWrapper(APIUtils):
             out.role = out.role.lower()
         return out
 
+    def get(self, endpoint, **kwargs):
+        endpoint = endpoint.format(**kwargs)
+        url = self.base_url + endpoint
+        try:
+            r = self.session.request('GET', url)
+        except Exception as e:
+            print("API_WRAPPER", "[Jikan.moe] - Error: ", e)
+            return {}
+        else:
+            return r.json()
+
     def delay(self):
         if time.time() - self.last < self.cooldown:
             time.sleep(max(self.cooldown - (time.time() - self.last), 0))
         self.last = time.time()
+
+if __name__ == "__main__":
+    import os
+    appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
+    dbPath = os.path.join(appdata, "animeData.db")
+    api = JikanMoeWrapper(dbPath)
+    print(api.anime(5))

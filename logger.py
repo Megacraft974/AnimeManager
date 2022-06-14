@@ -74,7 +74,7 @@ class Logger:
     def log(self, *text, end="\n"):
         if self.log_mode == "NONE":
             return
-        elif text[0].isupper() or ('allLogs' in self.__dict__ and text[0] in self.allLogs):
+        elif (isinstance(text[0], str) and text[0].isupper()) or ('allLogs' in self.__dict__ and text[0] in self.allLogs):
             category, text = text[0], text[1:]
             if category in self.logs:
                 toLog = "[{}]".format(category.center(13)) + " - "

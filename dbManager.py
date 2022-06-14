@@ -370,8 +370,11 @@ class db():
 
     def filter(self, table=None, sort=None, range=(0, 50), order=None, filter=None):
 
-        if table is not None:
+        if table is None:
+            table = 'anime'
+        else:
             table = table
+
 
         if range is not None:
             limit = "\nLIMIT {start},{stop}".format(
@@ -392,11 +395,12 @@ class db():
 
         sql = """
             SELECT *
-            FROM anime
+            FROM {table}
             {filter}
             ORDER BY {order}
             {sort} {limit};
         """.format(
+            table=table,
             filter=filter,
             order=order,
             sort=sort,
@@ -417,6 +421,7 @@ class db():
         def cur_iterator():
             for row in self.cur:
                 yield row
+
         values = list(values)  # dict_keys type raise a ValueError
 
         with self.get_lock():

@@ -1,16 +1,24 @@
-from logger import log, Logger
-from classes import Anime, AnimeList, Character, CharacterList, ItemList, NoIdFound
+
 import os
-import threading
 import queue
 import sys
-import traceback
-import requests
+import threading
 import time
+import traceback
 
-from getters import Getters
-# sys.path.append(os.path.abspath("../"))
-
+import requests
+try:
+    from logger import Logger, log
+    from classes import (Anime, AnimeList, Character, CharacterList, ItemList,
+                        NoIdFound)
+    from getters import Getters
+except ImportError:
+    import sys
+    sys.path.append(os.path.abspath("."))
+    from logger import Logger, log
+    from classes import (Anime, AnimeList, Character, CharacterList, ItemList,
+                        NoIdFound)
+    from getters import Getters
 
 class AnimeAPI(Getters, Logger):
     def __init__(self, apis='all', *args, **kwargs):
@@ -50,7 +58,7 @@ class AnimeAPI(Getters, Logger):
                 try:
                     f = locals()[name + "Wrapper"](*args, **kwargs)
                 except Exception as e:
-                    self.log("Error while loading {} API wrapper: {}".format(
+                    self.log("Error while loading {} API wrapper: \n{}".format(
                         name, traceback.format_exc()))
                 else:
                     self.apis.append(f)
@@ -62,7 +70,7 @@ class AnimeAPI(Getters, Logger):
             try:
                 f = getattr(api, name)
             except AttributeError as e:
-                self.log("{} has no attribute {}! - Error: {}".format(api.__name__, name, e))
+                self.log("{} has no attribute {}! - Error: \n{}".format(api.__name__, name, e))
                 return
 
             start = time.time()
@@ -78,7 +86,7 @@ class AnimeAPI(Getters, Logger):
             except Exception as e:
                 self.log(
                     "Error on API - handler:",
-                    api.__name__, "-",
+                    api.__name__, "-\n",
                     traceback.format_exc())
             else:
                 if r is not None:

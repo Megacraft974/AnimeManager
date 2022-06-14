@@ -1,22 +1,16 @@
-import ctypes
-import io
-import json
 import multiprocessing
 import os
 import queue
 import re
 import shutil
-import socket
 import subprocess
 import sqlite3
 import threading
 import time
 import traceback
-import urllib
+import urllib.parse
 import webbrowser
 from collections import defaultdict
-from contextlib import closing
-from datetime import datetime, timedelta
 from operator import itemgetter
 from tkinter import *
 
@@ -275,7 +269,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
             t_ngrams = set(ngrams(terms))
             matches = defaultdict(lambda: 0)
             for id, value in data:
-                # for ngram in ngrams(value):
+                for ngram in ngrams(value): # Removed comment
                     if ngram in t_ngrams:
                         matches[id] += 1
 

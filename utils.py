@@ -1,16 +1,15 @@
 import threading
-import json
 import time
 import queue
 import os
 import re
 
 from operator import itemgetter
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from classes import AnimeList, DefaultDict
 
-from ctypes import windll, Structure, c_long, byref
+# from ctypes import windll, Structure, c_long, byref
 from logger import log, Logger
 from tkinter import *
 from PIL import Image, ImageTk, ImageDraw
@@ -623,6 +622,7 @@ class AnimeListFrame(ScrollableFrame):
 
     def from_filter(self, criteria, listrange=(0, 50)):
         if criteria == "DEFAULT":
+            table = 'anime'
             filter = "anime.status != 'UPCOMING' AND anime.status != 'UNKNOWN'"
             if self.parent.hideRated:
                 filter += " AND (rating NOT IN('R+','Rx') OR rating IS null)"
@@ -630,6 +630,7 @@ class AnimeListFrame(ScrollableFrame):
             order = "anime.date_from"
         else:
             # \nAND rating NOT IN('R+','Rx')"
+            table = 'anime'
             commonFilter = "\nAND status != 'UPCOMING'"
             order = "date_from"
             sort = "DESC"
@@ -658,21 +659,27 @@ class AnimeListFrame(ScrollableFrame):
             else:
                 if criteria == 'WATCHING':
                     commonFilter = "\nAND status != 'UPCOMING'"
+                    table = 'anime LEFT JOIN broadcasts ON anime.id = broadcasts.id'
                     order = """
-                        CASE WHEN anime.status = "AIRING" AND broadcast IS NOT NULL
-                        THEN (({}-SUBSTR(broadcast,1,1)+6)%7*24*60
-                            +({}-SUBSTR(broadcast,3,2))*60
-                            +({}-SUBSTR(broadcast,6,2))
-                        +86400)%86400 ELSE "9" END ASC,
+                        CASE WHEN anime.status = "AIRING" AND broadcasts.weekday IS NOT NULL
+                            THEN (
+                                ({}-broadcasts.weekday)%7*24*60
+                                +({}-broadcasts.hour)*60
+                                +({}-broadcasts.minute)
+                                +86400
+                            )%86400 
+                            ELSE "9" 
+                        END ASC,
                         date_from
                     """
-                    sort_date = datetime.today() - timedelta(hours=5)
+                    tz = timezone(timedelta(hours=9))
+                    sort_date = datetime.now(tz)
                     order = order.format(
                         sort_date.weekday(), sort_date.hour, sort_date.minute)
                     # Depend on timezone - TODO
                 filter = "tag = '{}'".format(criteria) + commonFilter
 
-        args = {'sort': sort, 'range': listrange, 'order': order, 'filter': filter}
+        args = {'table': table, 'sort': sort, 'range': listrange, 'order': order, 'filter': filter}
 
         # self.list = self.database.filter(**args)
 

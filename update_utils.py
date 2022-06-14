@@ -241,6 +241,9 @@ class UpdateUtils:
 
         c = 0
         ids = [anime['id'] for anime in data]
+        if len(ids) == 0:
+            self.log('DB_UPDATE', 'No animes found from schedule!')
+            return
         sql = "SELECT id FROM anime WHERE id IN (" + ", ".join("?" * len(ids)) + ") AND status IS NOT null and status !='UPDATE';"
         exists = {e[0] for e in database.sql(sql, ids)}
         with database.get_lock():

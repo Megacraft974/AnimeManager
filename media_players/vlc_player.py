@@ -6,7 +6,7 @@ try:
 except FileNotFoundError:
     import sys
     # sys.path.append()
-import urllib
+import urllib.parse
 from multiprocessing import Value, Manager, Process
 
 
