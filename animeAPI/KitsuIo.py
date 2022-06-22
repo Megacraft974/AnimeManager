@@ -25,7 +25,6 @@ class KitsuIoWrapper(APIUtils):
             return {}
         modifier = Inclusion("genres", "mediaRelationships",
                              "mediaRelationships.destination", "mappings")
-        print('https://kitsu.io/api/edge/anime/' + str(kitsu_id) + " - id:" + str(id), self.apiKey)
         rep = self.s.get('anime/' + str(kitsu_id), modifier).resource
         data = self._convertAnime(rep, force=True)
         return data

@@ -5,7 +5,7 @@ import utils
 
 
 class ddlFileListWindow:
-    def ddlFileListWindow(self, data, id):
+    def ddlFileListWindow(self, publisher, id):
         # Function
         def startDownload(labels, url, id):
             out = self.downloadFile(id, url=url)
@@ -55,6 +55,8 @@ class ddlFileListWindow:
 
         # Torrent list
         if True:
+            data = self.publisherChooser.publisherData[publisher]
+
             maxTitleLength = len(
                 sorted(
                     (d['filename'] for d in data),

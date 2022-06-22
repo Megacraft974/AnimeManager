@@ -76,8 +76,8 @@ class MyAnimeListNetWrapper(APIUtils):
                     if count >= limit:
                         return
 
-            if rep.get('pagination', {}).get('next', None):
-                next_url = rep['pagination']['next']
+            if rep.get('paging', {}).get('next', None):
+                next_url = rep['paging']['next']
                 rep = self.get(next_url)
             else:
                 looping = False
@@ -104,8 +104,10 @@ class MyAnimeListNetWrapper(APIUtils):
                     titles.append(sub)
 
         out['title_synonyms'] = titles
-        out['date_from'] = a['start_date'] if 'start_date' in a.keys() and len(a['start_date'].split('-')) == 3 else None
-        out['date_to'] = a['end_date'] if 'end_date' in a.keys() and len(a['end_date'].split('-')) == 3 else None
+        out['date_from'] = a['start_date'] if 'start_date' in a.keys() and len(
+            a['start_date'].split('-')) == 3 else None
+        out['date_to'] = a['end_date'] if 'end_date' in a.keys() and len(
+            a['end_date'].split('-')) == 3 else None
         out['picture'] = list(a['main_picture'].items(
         ))[-1][1] if 'main_picture' in a.keys() else None
         out['synopsis'] = a['synopsis'] if 'synopsis' in a.keys() else None
@@ -116,10 +118,11 @@ class MyAnimeListNetWrapper(APIUtils):
         if 'broadcast' in a.keys() and 'start_time' in a['broadcast'].keys():
             weekdays = ('monday', 'tuesday', 'wednesday',
                         'thursday', 'friday', 'saturday', 'sunday')
-            out['broadcast'] = "{}-{}-{}".format(
-                weekdays.index(
-                    a['broadcast']['day_of_the_week']),
-                *a['broadcast']['start_time'].split(":"))
+            weekday = a['broadcast']['day_of_the_week']
+            if weekday in weekdays: # Can be 'other' -> Not scheduled once per week 
+                out['broadcast'] = "{}-{}-{}".format(
+                    weekdays.index(weekday),
+                    *a['broadcast']['start_time'].split(":"))
 
         # out['trailer'] = a['trailer_url'] if 'trailer_url' in a.keys() else None
 
@@ -140,7 +143,8 @@ class MyAnimeListNetWrapper(APIUtils):
             for relation, rel_data_list in a['related'].items():
                 for rel_data in rel_data_list:
                     print("M", rel_data)  # TODO - Fetch rel anime title
-                    rel = {'type': rel_data['type'], 'name': relation, 'rel_id': rel_data['id'], 'anime': {'title': rel_data['type'] + " - " + out['title']}}
+                    rel = {'type': rel_data['type'], 'name': relation, 'rel_id': rel_data['id'], 'anime': {
+                        'title': rel_data['type'] + " - " + out['title']}}
                     # saveRelation(id, rel)
             self.save_relations(id, rels)
 
@@ -282,14 +286,12 @@ class MyAnimeListNetWrapper(APIUtils):
             #     os.remove(self.tokenPath)
             return None
 
+
 if __name__ == "__main__":
     import os
     appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
     dbPath = os.path.join(appdata, "animeData.db")
     wrapper = MyAnimeListNetWrapper(dbPath)
-
-    token = wrapper.getNewToken()
-    pass
 
     a = wrapper.anime(2)
     pass

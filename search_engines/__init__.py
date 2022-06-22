@@ -1,7 +1,8 @@
 import os
-import threading
-import re
 import queue
+import re
+import threading
+
 from logger import log
 
 IGNORE = ['template.py', '__init__.py']

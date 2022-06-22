@@ -97,7 +97,7 @@ class Item(dict):
                 else:
                     data[key] = value
             else:
-                log(type(self), "Key not in data_keys:", key, value)
+                log(type(self), "Key not in data_keys:", key)#, value)
         return data, meta
 
 
@@ -239,7 +239,7 @@ class ItemList():
             try:
                 s = que.get_nowait()
             except queue.Empty:
-                pass
+                time.sleep(0.05)
             else:
                 self.addSource(s)
 

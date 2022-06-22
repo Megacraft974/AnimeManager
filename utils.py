@@ -279,10 +279,18 @@ class ScrollableFrame(Frame):
 
     def update(self):
         super().update()
+        self.update_scrollzone()
+
+    def update_idletasks(self):
+        super().update_idletasks()
+        self.update_scrollzone()
+    
+    def update_scrollzone(self):
         for w in self.getChild(self.canvas):
             w.bind(
                 "<MouseWheel>",
                 lambda e, a=self, b=self.canvas: self.scroll(e, a, b))
+
 
 
 class CustomScrollbar(Frame):
@@ -1009,7 +1017,7 @@ def peek(iter):
 
 
 def project_modules(root="./"):
-    ignore = ("__pycache__", ".git", "venv")
+    ignore = ("__pycache__", ".git", "venv", "lib", "build", "dist", ".vscode")
     modules = {}
     pattern = re.compile(r"(?:from ([\w_\.]*) import \S*)|(?:import ([\w_\.]*))")
     for f in os.listdir(root):
@@ -1055,7 +1063,7 @@ def project_stats(root="./"):
             size = size // 1000
             i += 1
         return str(size) + " " + units[i]
-    ignore = ("__pycache__", ".git", "venv")
+    ignore = ("__pycache__", ".git", "venv", "lib", "build", "dist", ".vscode")
     lines, files, folders, size = 0, 0, 0, 0
     for f in os.listdir(root):
         if f in ignore:

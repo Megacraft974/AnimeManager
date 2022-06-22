@@ -50,7 +50,7 @@ class torrentFilesWindow:
                         # Magnet url
                         self.downloadFile(id, url=text)
                     else:
-                        fetcher = self.searchTorrents(id, [text])
+                        fetcher = lambda: self.searchTorrents(id, [text])
                         self.ddlWindow(id, fetcher, parent=self.torrentFilesChooser)
 
                 self.textPopupWindow(

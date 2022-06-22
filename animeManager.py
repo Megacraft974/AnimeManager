@@ -66,7 +66,9 @@ except ModuleNotFoundError as e:
 # TODO - Relations tree
 # TODO - simkl.com API
 # TODO - Logger panel
+# TODO - Hardcoded dual audio point boost in searchTorrents()
 # TODO - Fix multi word search
+# TODO - Fix known torrent color match in getTorrentColor() -> compare file length
 # TODO - Interrupt torrent search
 # TODO - Tkinter event queue
 # TODO - Fix characters API
@@ -290,57 +292,82 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
     def searchTorrents(self, id, titles=None):
         def sortkey(k):
             score = 0
+            # Bring best publishers to the top of the list
             if k[0] in self.topPublishers:
                 score = len(self.topPublishers) - \
                     self.topPublishers.index(k[0])
+
+            # Try to guess if torrent has dual audio
             marked = ('dual', 'dub')
-            breakLock = False
             for mark in marked:
                 for title in k[1]:
                     if mark in title['filename'].lower():
                         score += len(self.topPublishers) + 1
-                        breakLock = True
-                        break
-                if breakLock:
-                    break
+                        
+                        return score
+
+            # If we have no marking
             return score
+
+        def filename_hash(f):
+            # Format a filename to increase matchs
+            return f.lower().replace(' ', '')
 
         if titles is None:
             database = self.getDatabase()
             data = database(id=id, table="anime")
             titles = data.title_synonyms
 
-        torrents = TorrentList(search_engines.search(titles))
-        timer = utils.Timer("Torrent search")
+        timer = utils.Timer("Torrent search") # Init timer
+        torrents = TorrentList(search_engines.search(titles)) # Start search
 
-        publisher_pattern = re.compile(r'^\[(.*?)\]+')
+        publisher_pattern = re.compile(r'^\[(.*?)\]+') #'[publisher name]torrent name.torrent'
+        
         keys = (
-            (lambda k: max((t['seeds'] for t in k[1])), True),
-            (sortkey, True)
+            (lambda k: max((t['seeds'] for t in k[1])), True), # Sort by seeds
+            (sortkey, True) # Sort by score -> if torrents have same seeds
         )
+        publishers = SortedDict(keys=keys)
 
-        titles = SortedDict(keys=keys)
         while not torrents.empty():
-            # timer.start()
+            #timer.start()
             torrent = torrents.get()
             if torrent is None:
                 continue
-            title = torrent['filename']
 
-            result = publisher_pattern.findall(torrent['filename'])
+            filename = torrent['filename']
+
+            # Look for publisher name
+            result = publisher_pattern.findall(filename)
             if len(result) >= 1:
                 publisher = result[0]
             else:
                 publisher = None
-            if publisher in titles.keys():
-                if not torrent['filename'].replace(" ", "") in {e['filename'].replace(" ", "") for e in titles[publisher]}:
-                    titles[publisher].append(torrent)
-            else:
-                titles[publisher] = SortedList(keys=((itemgetter('seeds'), True),))
-                titles[publisher].append(torrent)
 
+            if publisher in publishers:
+                # Do not add file if it has already been found with more seeds
+                file_hash = filename_hash(filename)
+
+                add_file = True
+                for i, tmp_torrent in enumerate(publishers[publisher]):
+                    if file_hash == filename_hash(tmp_torrent['filename']):
+                        add_file = False
+                        
+                        # Replace torrent if it has more seeds
+                        if torrent['seeds'] > tmp_torrent['seeds']:
+                            publishers[publisher][i] = torrent
+                        break
+
+                if add_file:
+                    publishers[publisher].append(torrent)
+            else:
+                # Insert new publisher
+                publishers[publisher] = SortedList(keys=((itemgetter('seeds'), True),))
+                publishers[publisher].append(torrent)
+
+            # Yield current torrents if none are available
             if not torrents.is_ready():
-                yield titles.items()
+                yield publishers.items()
             # timer.stop()
 
         timer.stats()

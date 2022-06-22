@@ -165,26 +165,38 @@ class Getters:
 
     def getTorrentColor(self, title):
         def fileFormat(f):
-            return ''.join(f.rsplit(".torrent", 1)[0].split(" ")).lower()
+            # Format filename to increase matches
+            return f.rsplit(".torrent", 1)[0].replace(' ','').lower()
+
         timeNow = time.time()
+
+        # self.formattedTorrentFiles = (lastUpdate, files) -> Avoid parsing the entire torrent 
+        # folder at each call (faster)
         if hasattr(self, 'formattedTorrentFiles') and timeNow - self.formattedTorrentFiles[0] < 10:
             files = self.formattedTorrentFiles[1]
         else:
-            files = [fileFormat(f) for f in os.listdir(self.torrentPath)]
+            files = set()
+            for f in os.listdir(self.torrentPath):
+                formatted = fileFormat(f)
+                if len(formatted) > 5: # Ignore names that are too short
+                    files.add(formatted)
             self.formattedTorrentFiles = (timeNow, files)
 
+        # Precompile all regex patterns for markers (from settings)
         pat_cache = {re.compile(pat, re.I): col for col, pats in self.fileMarkers.items() for pat in pats}
 
+        t = fileFormat(title)
         fg = self.colors['White']
         for f in files:
-            t = fileFormat(title)
-            if t in f or f in t:
+            if t in f or f in t: # TODO
+                # The torrent already exists
                 fg = self.colors['Blue']
-        else:
-            for pat, color in pat_cache.items():
-                if re.match(pat, title):
-                    fg = self.colors[color]
-                    break
+            else:
+                for pat, color in pat_cache.items():
+                    if re.match(pat, title):
+                        # The torrent contain a marker
+                        fg = self.colors[color]
+                        break
 
         return fg
 

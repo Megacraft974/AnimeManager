@@ -3,6 +3,7 @@ import threading
 import time
 
 from tkinter import *
+from turtle import pu
 
 import utils
 
@@ -11,70 +12,84 @@ class ddlWindow:
     def ddlWindow(self, id, fetcher=None, parent=None):
         # Functions
         if True:
-            def updateTable(fetcher, table):
-                def handler(fetcher, que):
-                    while True:
-                        try:
-                            titles = next(fetcher)
-                        except StopIteration:
-                            que.put("STOP")
-                            break
-                        else:
-                            que.put(titles)
+            def fetcher_handler(fetcher, que, id):
+                # Simply transfer the torrents from the iterator 
+                # to the queue without blocking
 
-                que = queue.Queue()
-                is_empty = True
-                t = threading.Thread(
-                    target=handler, args=(fetcher, que), daemon=True)
-                t.start()
-                handler_loop(table, t, que, is_empty)
+                # Starts fetcher
+                if fetcher is None:
+                    self.log("FILE_SEARCH", "Looking for torrents with id:", id)
+                    fetcher = self.searchTorrents(id)
+                else:
+                    fetcher = fetcher()
+
+                for torrent in fetcher:
+                    que.put(torrent)
+                que.put('STOP')
 
             def handler_loop(table, t, que, is_empty):
-                titles = None
+                torrents = None
                 while t.is_alive() or not que.empty():
-                    if que.empty():
+                    if que.empty(): 
+                        # Don't block the mainloop and come back later
                         self.publisherChooser.after(
-                            100, handler_loop, table, t, que, is_empty)
+                            2000, handler_loop, table, t, que, is_empty)
+                        # Don't return yet because we might need to draw the new torrents
                         break
 
-                    titles = que.get()
-                    if titles == "STOP":
+                    torrents = que.get()
+                    if torrents == "STOP":
+                        print('All torrents found')
                         if is_empty:
-                            self.publisherChooser.after(1, draw_table([]))
+                            # Show the 'no torrents found' message
+                            self.publisherChooser.after(1, draw_table, table, [])
                         return
-                    else:
-                        if is_empty:
-                            is_empty = False
+               
+                    # Don't show the 'no torrents found' message
+                    if is_empty:
+                        is_empty = False
 
-                    try:
-                        for w in table.winfo_children():
-                            w.destroy()
-                    except Exception:
-                        pass
+                if torrents is not None: # *Should* always be true
+                    print('Overriding torrents')
+                    self.publisherChooser.after(1, draw_table, table, torrents)
 
-                if titles is not None:
-                    self.publisherChooser.after(1, draw_table(titles))
+            def draw_table(table, torrents):
+                torrent = None
+                start = time.time()
+                print('Updating')
+                
+                # Delete previous torrents
+                # try:
+                #     for w in table.winfo_children():
+                #         w.destroy()
+                # except Exception:
+                #     pass
 
-            def draw_table(titles):
-                rowHeight = 25
-                empty = True
+                for i, torrent in enumerate(torrents):
+                    publisher, data = torrent
 
-                for i, data in enumerate(titles):
-                    if len(data) == 1:
-                        breakpoint()
-                    if empty:
-                        empty = False
-                    publisher, data = data
-                    for title in [d['filename'] for d in data]:
-                        fg = self.getTorrentColor(title)
-                        if fg != self.colors['White']:
+                    self.publisherChooser.publisherData[publisher] = data # Save data
+                    
+                    if publisher in self.publisherChooser.publisherButtons:
+                        continue # No need to create a button
+
+                    # Get color for button - fetch first color from corresponding torrents
+                    for filename in [d['filename'] for d in data]:
+                        fg = self.getTorrentColor(filename)
+                        if fg != self.colors['White']: # White is default color, ignore it
                             break
+                    
+                    # Alternating bg color
                     bg = (self.colors['Gray2'], self.colors['Gray3'])[i % 2]
+                    
                     if publisher is None:
                         publisher = 'None'
+
+                    # Avoid raising an error when the window is closing
                     if self.closing or not self.publisherChooser.winfo_exists():
                         return
-                    Button(
+
+                    b = Button(
                         table,
                         text=publisher,
                         bd=0,
@@ -87,22 +102,24 @@ class ddlWindow:
                         activeforeground=fg,
                         bg=bg,
                         fg=fg,
-                        command=lambda a=data,
-                        b=id: self.ddlFileListWindow(
-                            a,
-                            b)
-                    ).grid(
+                        command=lambda publisher=publisher, id=id: 
+                            self.ddlFileListWindow(publisher, id)
+                    )
+                    b.grid(
                         row=i,
                         column=0,
-                        sticky="nsew")
+                        sticky="nsew"
+                    )
+                    self.publisherChooser.publisherButtons[publisher] = b
                 try:
-                    if empty:
+                    if torrent is None:
                         self.publisherChooser.titleLbl['text'] = "No files\nfound!"
                     else:
                         self.publisherChooser.titleLbl['text'] = "Publisher:"
                 except TclError:
                     pass
-                table.update()
+                # table.update_idletasks()
+                print('Updated', time.time()-start)
 
         # Window init - Fancy corners - Main frame - Events
         if True:
@@ -138,7 +155,11 @@ class ddlWindow:
 
         # Torrent publisher list
         if True:
-            if fetcher is None:
-                self.log("FILE_SEARCH", "Looking files for id:", id)
-                fetcher = self.searchTorrents(id)
-            updateTable(fetcher, table)
+            self.publisherChooser.publisherData = {}
+            self.publisherChooser.publisherButtons = {}
+            que = queue.Queue()
+            is_empty = True
+            t = threading.Thread(
+                target=fetcher_handler, args=(fetcher, que, id), daemon=True)
+            t.start()
+            handler_loop(table, t, que, is_empty)

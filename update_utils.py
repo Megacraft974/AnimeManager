@@ -240,7 +240,7 @@ class UpdateUtils:
         data = self.api.schedule(limit=self.maxTrendingAnime)
 
         c = 0
-        ids = [anime['id'] for anime in data]
+        ids = [anime['id'] for anime in data if anime]
         if len(ids) == 0:
             self.log('DB_UPDATE', 'No animes found from schedule!')
             return
