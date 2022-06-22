@@ -166,6 +166,7 @@ class ItemList():
 
         if not hasattr(self, "identifier"):
             self.identifier = lambda e: e
+        self.identifier = self.identifier_wrapper(self.identifier)
 
         if not hasattr(self, "item_type"):
             self.item_type = dict
@@ -185,6 +186,14 @@ class ItemList():
     def __add__(self, elem, *args, **kwargs):
         self.addSource(elem)
         return self
+
+    def identifier_wrapper(self, func):
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except:
+                return None
+        return wrapper
 
     def sourceListener(self, s):
         try:

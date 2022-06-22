@@ -1,10 +1,14 @@
 """ Torrent web parser for anirena.com """
+import random
+import string
+import time
 import urllib.parse
 import io
 import re
 
 import requests
 from lxml import etree
+from sympy import EX
 
 
 class Parser:
@@ -15,7 +19,7 @@ class Parser:
         tree = None
         url = "https://www.anirena.com/rss.php?s={}".format(searchterms)
         try:
-            r = requests.get(url, timeout=10)
+            r = requests.get(url, timeout=15)
             if r.status_code == 522:
                 print("Timed out!")
                 return
@@ -45,3 +49,12 @@ class Parser:
                             yield out
                 except Exception as e:
                     print("Anirena - error:", e)
+
+
+if __name__ == "__main__":
+    p = Parser()
+
+    r = p.search("meikyu")
+    for m in r:
+        # pass
+        print(m)

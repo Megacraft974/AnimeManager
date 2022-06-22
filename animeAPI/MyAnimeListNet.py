@@ -1,10 +1,19 @@
-from APIUtils import APIUtils, Anime, Character
-import requests
 import json
+import os
 import secrets
 import webbrowser
-import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
+import requests
+
+try:
+    from .APIUtils import APIUtils, Anime, Character
+except ImportError:
+    # Local testing
+    import sys
+    import os
+    sys.path.append(os.path.abspath('./'))
+    from APIUtils import APIUtils, Anime, Character
 
 
 class MyAnimeListNetWrapper(APIUtils):
@@ -48,11 +57,30 @@ class MyAnimeListNetWrapper(APIUtils):
         pass
 
     def searchAnime(self, search, save=True, limit=50):
-        data = self.get("anime", q=search, limit=limit)
-        if 'data' in data.keys():
-            data = data['data']
-            for a in data:
-                yield self._convertAnime(a['node'])
+        rep = self.get("anime", q=search, limit=limit, fields=self.fields)
+
+        count = 0
+        looping = True
+        while looping:
+            if 'data' not in rep:
+                looping = False
+                break
+
+            for a in rep['data']:
+                data = self._convertAnime(a['node'])
+
+                if len(data) != 0:
+                    yield data
+
+                    count += 1
+                    if count >= limit:
+                        return
+
+            if rep.get('pagination', {}).get('next', None):
+                next_url = rep['pagination']['next']
+                rep = self.get(next_url)
+            else:
+                looping = False
 
     def character(self, id):
         pass
@@ -253,3 +281,19 @@ class MyAnimeListNetWrapper(APIUtils):
             # if os.path.isfile(self.tokenPath):
             #     os.remove(self.tokenPath)
             return None
+
+if __name__ == "__main__":
+    import os
+    appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
+    dbPath = os.path.join(appdata, "animeData.db")
+    wrapper = MyAnimeListNetWrapper(dbPath)
+
+    token = wrapper.getNewToken()
+    pass
+
+    a = wrapper.anime(2)
+    pass
+    for a in wrapper.searchAnime('arif'):
+        print(a['id'], a['date_to'], a['title'])
+        pass
+    pass

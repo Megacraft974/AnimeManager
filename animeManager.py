@@ -180,7 +180,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
     # ___Search___
     def search(self, *args, force_search=False):
         terms = None
-        loop = True
         terms = self.searchTerms.get()
         if len(terms) > 2 or force_search:
             if not force_search:
@@ -233,7 +232,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
                 SELECT anime.*
                 FROM anime
                 JOIN title_synonyms using(id)
-                GROUP BY anime.id HAVING LOWER(value) LIKE "%{}%"
+                WHERE LOWER(value) LIKE "%{}%"
+                GROUP BY anime.id
                 ORDER BY anime.date_from DESC;
             """
 

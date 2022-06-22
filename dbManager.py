@@ -30,7 +30,7 @@ class db():
         self.cur = self.con.cursor()
         table = "anime"
         self.alltable_keys = {}
-        self.log_commands = True
+        self.log_commands = False
         self.last_op = "None"
 
     def createNewDb(self):

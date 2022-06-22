@@ -24,20 +24,23 @@ class ddlWindow:
 
                 que = queue.Queue()
                 is_empty = True
-                t = threading.Thread(target=handler, args=(fetcher, que), daemon=True)
+                t = threading.Thread(
+                    target=handler, args=(fetcher, que), daemon=True)
                 t.start()
                 handler_loop(table, t, que, is_empty)
 
             def handler_loop(table, t, que, is_empty):
+                titles = None
                 while t.is_alive() or not que.empty():
                     if que.empty():
-                        self.publisherChooser.after(100, handler_loop, table, t, que, is_empty)
-                        return
+                        self.publisherChooser.after(
+                            100, handler_loop, table, t, que, is_empty)
+                        break
 
                     titles = que.get()
                     if titles == "STOP":
                         if is_empty:
-                            draw_table([])
+                            self.publisherChooser.after(1, draw_table([]))
                         return
                     else:
                         if is_empty:
@@ -49,16 +52,16 @@ class ddlWindow:
                     except Exception:
                         pass
 
-                    draw_table(titles)
-
-                    table.update()
-                    self.publisherChooser.update()
+                if titles is not None:
+                    self.publisherChooser.after(1, draw_table(titles))
 
             def draw_table(titles):
                 rowHeight = 25
                 empty = True
 
                 for i, data in enumerate(titles):
+                    if len(data) == 1:
+                        breakpoint()
                     if empty:
                         empty = False
                     publisher, data = data
@@ -99,6 +102,7 @@ class ddlWindow:
                         self.publisherChooser.titleLbl['text'] = "Publisher:"
                 except TclError:
                     pass
+                table.update()
 
         # Window init - Fancy corners - Main frame - Events
         if True:

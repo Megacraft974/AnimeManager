@@ -1,6 +1,13 @@
-from APIUtils import APIUtils, Anime, Character
-from jsonapi_client import Session, Filter, Modifier, Inclusion, relationships
-import json
+from jsonapi_client import Filter, Inclusion, Modifier, Session, relationships
+
+try:
+    from .APIUtils import Anime, APIUtils, Character
+except ImportError:
+    # Local testing
+    import os
+    import sys
+    sys.path.append(os.path.abspath('./'))
+    from APIUtils import Anime, APIUtils, Character
 
 
 class KitsuIoWrapper(APIUtils):
@@ -86,8 +93,11 @@ class KitsuIoWrapper(APIUtils):
                 break
 
     def searchAnime(self, search, limit=50):
-        modifier = Filter(text=search) + Inclusion("genres",
-                                                   "mediaRelationships", "mediaRelationships.destination")
+        modifier = (
+            Filter(text=search) + 
+            Inclusion("genres","mediaRelationships", "mediaRelationships.destination") +
+            Modifier("sort=-endDate")
+        )
         c = 1
         for a in self.s.iterate('anime', modifier):
             data = self._convertAnime(a)
@@ -231,5 +241,11 @@ class KitsuIoWrapper(APIUtils):
 
 
 if __name__ == "__main__":
-    wrapper = KitsuIoWrapper("C:/Users/willi/AppData/Roaming/Anime Manager/animeData.db")
-    print(wrapper.anime(16571))
+    import os
+    appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
+    dbPath = os.path.join(appdata, "animeData.db")
+    wrapper = KitsuIoWrapper(dbPath)
+    # a = wrapper.anime(2)
+    for a in wrapper.searchAnime('arif'):
+        print(a['id'], a['date_to'], a['title'])
+    pass

@@ -24,7 +24,7 @@ class Parser:
             try:
                 tree = etree.parse(io.BytesIO(r.content))
             except etree.XMLSyntaxError as e:
-                print("Nyaasi -", e, tree)
+                print("Nyaasi - Error:", e, tree)
                 return
             for child in tree.getroot().find('channel'):
                 try:
