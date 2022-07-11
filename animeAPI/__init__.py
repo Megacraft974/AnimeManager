@@ -22,7 +22,7 @@ except ImportError:
 
 class AnimeAPI(Getters, Logger):
     def __init__(self, apis='all', *args, **kwargs):
-        super().__init__(logs="ALL")
+        super().__init__()#logs="ALL")
         self.apis = []
         self.init_thread = threading.Thread(
             target=self.load_apis, args=(apis, *args), kwargs=kwargs, daemon=True)
@@ -53,24 +53,26 @@ class AnimeAPI(Getters, Logger):
             try:
                 exec('from {n} import {n}Wrapper'.format(n=name))
             except ImportError as e:
-                self.log(name, e)
+                self.log("ANIME_SEARCH", name, e)
             else:
                 try:
                     f = locals()[name + "Wrapper"](*args, **kwargs)
                 except Exception as e:
-                    self.log("Error while loading {} API wrapper: \n{}".format(
+                    self.log("ANIME_SEARCH", "Error while loading {} API wrapper: \n{}".format(
                         name, traceback.format_exc()))
                 else:
                     self.apis.append(f)
         if len(self.apis) == 0:
-            self.log("No apis found!")
+            self.log("ANIME_SEARCH", "No apis found!")
+        else:
+            self.log("ANIME_SEARCH", len(self.apis), "apis found")
 
     def wrapper(self, name, *args, **kwargs):
         def handler(api, name, que, *args, **kwargs):
             try:
                 f = getattr(api, name)
             except AttributeError as e:
-                self.log("{} has no attribute {}! - Error: \n{}".format(api.__name__, name, e))
+                self.log("ANIME_SEARCH", "{} has no attribute {}! - Error: \n{}".format(api.__name__, name, e))
                 return
 
             start = time.time()
@@ -78,13 +80,14 @@ class AnimeAPI(Getters, Logger):
             try:
                 r = f(*args, **kwargs)
             except requests.exceptions.ConnectionError as e:
-                self.log("Error on API - handler: No internet connection! -", e)
+                self.log("ANIME_SEARCH", "Error on API - handler: No internet connection! -", e)
             except requests.exceptions.ReadTimeout as e:
-                self.log("Error on API - handler: Timed out! -", e)
+                self.log("ANIME_SEARCH", "Error on API - handler: Timed out! -", e)
             except NoIdFound:
                 pass
             except Exception as e:
                 self.log(
+                    "ANIME_SEARCH", 
                     "Error on API - handler:",
                     api.__name__, "-\n",
                     traceback.format_exc())
@@ -92,10 +95,10 @@ class AnimeAPI(Getters, Logger):
                 if r is not None:
                     que.put(r)
                 else:
-                    self.log("{}.{}() not found!".format(api.__name__, name))
+                    self.log("ANIME_SEARCH", "{}.{}() not found!".format(api.__name__, name))
             finally:
                 if r:
-                    self.log("{}.{}(): {} ms".format(api.__name__, name, int((time.time() - start) * 1000)))
+                    self.log("ANIME_SEARCH", "{}.{}(): {} ms".format(api.__name__, name, int((time.time() - start) * 1000)))
 
         if self.init_thread is not None:
             self.init_thread.join()
@@ -118,13 +121,14 @@ class AnimeAPI(Getters, Logger):
             r = None
             while not que.empty() or any(t.is_alive() for t in threads):
                 try:
-                    r = que.get_nowait()
+                    r = que.get(block=True, timeout=0.01)
                 except queue.Empty:
                     pass
                 else:
                     out += r
+
             if len(out) == 0:
-                print("No data - id:" + str(name) + " - args:" + ",".join(map(str, args)))
+                self.log("ANIME_SEARCH", "No data - id:" + str(name) + " - args:" + ",".join(map(str, args)))
         else:
             if name in ('schedule', 'searchAnime', 'season'):
                 out = AnimeList((que, threads))

@@ -20,8 +20,6 @@ class ddlWindow:
                 if fetcher is None:
                     self.log("FILE_SEARCH", "Looking for torrents with id:", id)
                     fetcher = self.searchTorrents(id)
-                else:
-                    fetcher = fetcher()
 
                 for torrent in fetcher:
                     que.put(torrent)
@@ -39,7 +37,7 @@ class ddlWindow:
 
                     torrents = que.get()
                     if torrents == "STOP":
-                        print('All torrents found')
+                        self.log('FILE_SEARCH', 'All torrents found')
                         if is_empty:
                             # Show the 'no torrents found' message
                             self.publisherChooser.after(1, draw_table, table, [])
@@ -49,14 +47,13 @@ class ddlWindow:
                     if is_empty:
                         is_empty = False
 
-                if torrents is not None: # *Should* always be true
-                    print('Overriding torrents')
+                if torrents is not None:
+                    self.log('FILE_SEARCH', 'Overriding torrents')
                     self.publisherChooser.after(1, draw_table, table, torrents)
 
             def draw_table(table, torrents):
                 torrent = None
                 start = time.time()
-                print('Updating')
                 
                 # Delete previous torrents
                 # try:
@@ -68,22 +65,26 @@ class ddlWindow:
                 for i, torrent in enumerate(torrents):
                     publisher, data = torrent
 
+                    if publisher is None:
+                        publisher = 'None'
+
                     self.publisherChooser.publisherData[publisher] = data # Save data
                     
-                    if publisher in self.publisherChooser.publisherButtons:
-                        continue # No need to create a button
+                    button = self.publisherChooser.publisherButtons.get(i, None)
+                    if button:
+                        if button[0] == publisher:
+                            continue # No need to create a button
+                        else:
+                            button[1].destroy()
 
                     # Get color for button - fetch first color from corresponding torrents
                     for filename in [d['filename'] for d in data]:
                         fg = self.getTorrentColor(filename)
                         if fg != self.colors['White']: # White is default color, ignore it
                             break
-                    
+
                     # Alternating bg color
                     bg = (self.colors['Gray2'], self.colors['Gray3'])[i % 2]
-                    
-                    if publisher is None:
-                        publisher = 'None'
 
                     # Avoid raising an error when the window is closing
                     if self.closing or not self.publisherChooser.winfo_exists():
@@ -110,7 +111,9 @@ class ddlWindow:
                         column=0,
                         sticky="nsew"
                     )
-                    self.publisherChooser.publisherButtons[publisher] = b
+
+                    self.publisherChooser.publisherButtons[i] = (publisher, b)
+
                 try:
                     if torrent is None:
                         self.publisherChooser.titleLbl['text'] = "No files\nfound!"
@@ -118,8 +121,8 @@ class ddlWindow:
                         self.publisherChooser.titleLbl['text'] = "Publisher:"
                 except TclError:
                     pass
-                # table.update_idletasks()
-                print('Updated', time.time()-start)
+                table.update_scrollzone()
+                self.log('FILE_SEARCH', f'Updated torrent table in {round(time.time()-start, 2)}s')
 
         # Window init - Fancy corners - Main frame - Events
         if True:
@@ -128,6 +131,7 @@ class ddlWindow:
             if self.publisherChooser is None or not self.publisherChooser.winfo_exists():
                 if parent is None:
                     parent = self.choice
+                
                 self.publisherChooser = utils.RoundTopLevel(
                     parent,
                     title="Loading...",

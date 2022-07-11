@@ -1,5 +1,6 @@
 import json
 import os
+import queue
 import re
 import threading
 
@@ -50,7 +51,7 @@ class torrentFilesWindow:
                         # Magnet url
                         self.downloadFile(id, url=text)
                     else:
-                        fetcher = lambda: self.searchTorrents(id, [text])
+                        fetcher = self.searchTorrents(id, [text])
                         self.ddlWindow(id, fetcher, parent=self.torrentFilesChooser)
 
                 self.textPopupWindow(
@@ -101,6 +102,100 @@ class torrentFilesWindow:
                         out[t_name] = "DELETED"
 
                 return out
+
+            def updateTorrentsList():
+                def handler(id, que):
+                    try:
+                        out = getTorrentsState(id)
+                    except:
+                        que.put([])
+                    else:
+                        que.put(out)
+
+                if self.torrentFilesChooser.torrent_thread is None:
+                    que = queue.Queue()
+                    t = threading.Thread(target=handler, args=(id, que))
+                    t.start()
+                    self.torrentFilesChooser.torrent_thread = t
+                    self.torrentFilesChooser.torrent_que = que
+                
+                if self.torrentFilesChooser.torrent_que.empty():
+                    self.torrentFilesChooser.after(100, updateTorrentsList)
+                    return
+
+                torrents = self.torrentFilesChooser.torrent_que.get()
+                self.torrentFilesChooser.loading_label.destroy()
+                if len(torrents) > 0:
+                    for i, item in enumerate(torrents.items()):
+                        torrent, state = item
+                        color = self.torrentsStateColors[state]
+                        Label(
+                            torrent_list_frame,
+                            text=torrent,
+                            bd=0,
+                            height=1,
+                            relief='solid',
+                            font=(
+                                "Source Code Pro Medium",
+                                13),
+                            bg=self.colors['Gray3'],
+                            fg=self.colors[color],
+                        ).grid(
+                            row=i,
+                            column=0,
+                            sticky="nsew",
+                            pady=3,
+                            ipady=8)
+                        Button(
+                            torrent_list_frame,
+                            image=downloadIcon,
+                            bd=0,
+                            height=1,
+                            relief='solid',
+                            activebackground=self.colors['Gray2'],
+                            bg=self.colors['Gray3'],
+                            command=lambda id=id, t=torrent: download_torrent(id, t)
+                        ).grid(
+                            row=i,
+                            column=1,
+                            sticky="nsew",
+                            pady=3,
+                            ipadx=5)
+                        Button(
+                            torrent_list_frame,
+                            image=deleteIcon,
+                            bd=0,
+                            height=1,
+                            relief='solid',
+                            activebackground=self.colors['Gray2'],
+                            bg=self.colors['Gray3'],
+                            command=lambda id=id, t=torrent, s=state: delete_torrent(id, t, s)
+                        ).grid(
+                            row=i,
+                            column=2,
+                            sticky="nsew",
+                            pady=3,
+                            ipadx=5)
+                else:
+                    Label(
+                        torrent_list_frame,
+                        text="No torrents yet",
+                        bd=0,
+                        height=1,
+                        relief='solid',
+                        font=(
+                            "Source Code Pro Medium",
+                            15),
+                        bg=self.colors['Gray2'],
+                        fg=self.colors['Gray4'],
+                    ).grid(
+                        row=0,
+                        column=0,
+                        sticky="nsew",
+                        pady=15,
+                        ipady=8)
+                
+                torrent_list_frame.update()
 
             def download_torrent(id, t):
                 # path = os.path.join(self.torrentPath, t)
@@ -205,62 +300,9 @@ class torrentFilesWindow:
                 self.iconPath, "delete.png"), (30, 30))
             torrent_list_frame.deleteIcon = deleteIcon
 
-            torrents = getTorrentsState(id)
-            if len(torrents) > 0:
-                for i, item in enumerate(torrents.items()):
-                    torrent, state = item
-                    color = self.torrentsStateColors[state]
-                    Label(
-                        torrent_list_frame,
-                        text=torrent,
-                        bd=0,
-                        height=1,
-                        relief='solid',
-                        font=(
-                            "Source Code Pro Medium",
-                            13),
-                        bg=self.colors['Gray3'],
-                        fg=self.colors[color],
-                    ).grid(
-                        row=i,
-                        column=0,
-                        sticky="nsew",
-                        pady=3,
-                        ipady=8)
-                    Button(
-                        torrent_list_frame,
-                        image=downloadIcon,
-                        bd=0,
-                        height=1,
-                        relief='solid',
-                        activebackground=self.colors['Gray2'],
-                        bg=self.colors['Gray3'],
-                        command=lambda id=id, t=torrent: download_torrent(id, t)
-                    ).grid(
-                        row=i,
-                        column=1,
-                        sticky="nsew",
-                        pady=3,
-                        ipadx=5)
-                    Button(
-                        torrent_list_frame,
-                        image=deleteIcon,
-                        bd=0,
-                        height=1,
-                        relief='solid',
-                        activebackground=self.colors['Gray2'],
-                        bg=self.colors['Gray3'],
-                        command=lambda id=id, t=torrent, s=state: delete_torrent(id, t, s)
-                    ).grid(
-                        row=i,
-                        column=2,
-                        sticky="nsew",
-                        pady=3,
-                        ipadx=5)
-            else:
-                Label(
+            self.torrentFilesChooser.loading_label = Label(
                     torrent_list_frame,
-                    text="No torrents yet",
+                    text="Looking for torrents...",
                     bd=0,
                     height=1,
                     relief='solid',
@@ -269,12 +311,14 @@ class torrentFilesWindow:
                         15),
                     bg=self.colors['Gray2'],
                     fg=self.colors['Gray4'],
-                ).grid(
+                )
+            self.torrentFilesChooser.loading_label.grid(
                     row=0,
                     column=0,
                     sticky="nsew",
                     pady=15,
                     ipady=8)
 
-            torrent_list_frame.update()
+            self.torrentFilesChooser.torrent_thread = None
+            updateTorrentsList()
         self.torrentFilesChooser.update()

@@ -1,14 +1,23 @@
 """ Torrent web parser for nyaa.si """
 import urllib.parse
-import requests
-import io
 import re
 import traceback
 
 from bs4 import BeautifulSoup
 
+try:
+    from .parserUtils import ParserUtils, exceptions
+except ImportError:
+    # Local testing
+    import os
+    import sys
+    sys.path.append(os.path.abspath('./'))
+    from parserUtils import ParserUtils, exceptions
 
-class Parser():
+
+class Parser(ParserUtils):
+    API_NAME = 'TokyoTosho'
+
     def search(self, terms, limit=50):
         terms = terms.strip()
         searchterms = urllib.parse.quote_plus(terms)
@@ -17,11 +26,11 @@ class Parser():
         url = "https://www.tokyotosho.info/search.php?terms={}&type=1&searchName=true&searchComment=true".format(
             searchterms)
         try:
-            r = requests.get(url, timeout=10)
-        except requests.exceptions.ConnectionError:
-            print("Tokyotosho - No internet connection!")
-        except requests.exceptions.ReadTimeout:
-            print("Tokyotosho - Timed out!")
+            r = self.get(url, timeout=10)
+        except exceptions.ConnectionError:
+            self.log("Tokyotosho - No internet connection!")
+        except exceptions.ReadTimeout:
+            self.log("Tokyotosho - Timed out!")
         else:
             soup = BeautifulSoup(r.content, "html.parser")
             pattern = re.compile(r'\| Size: (\S*?) \|')
@@ -51,7 +60,7 @@ class Parser():
                         'file_size': file_size}
                     yield out
                 except Exception as e:
-                    print("Tokyotosho - error:", traceback.format_exc())
+                    self.log("Tokyotosho - error:", traceback.format_exc())
 
     def table_iter(self, table):
         a, b = None, None

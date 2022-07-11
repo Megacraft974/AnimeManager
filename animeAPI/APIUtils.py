@@ -81,7 +81,8 @@ class APIUtils(Logger, Getters):
             self.log("KeyError while parsing genres:", genres, dir(genres[0]))
             raise
 
-        sql = ("SELECT * FROM genresIndex WHERE name IN(" + ",".join("?" * len(ids)) + ");").format(api_key=self.apiKey)
+        sql = ("SELECT * FROM genresIndex WHERE name IN(" +
+               ",".join("?" * len(ids)) + ");").format(api_key=self.apiKey)
         data = self.database.sql(sql, ids.values(), to_dict=True)
         new = set()
         update = set()
@@ -96,9 +97,11 @@ class APIUtils(Logger, Getters):
 
         if new or update:
             if new:
-                self.database.executemany("INSERT INTO genresIndex({},name) VALUES(?,?);".format(self.apiKey), ((id, ids[id]) for id in new), get_output=False)
+                self.database.executemany("INSERT INTO genresIndex({},name) VALUES(?,?);".format(
+                    self.apiKey), ((id, ids[id]) for id in new), get_output=False)
             if update:
-                self.database.executemany("UPDATE genresIndex SET {}=? WHERE id=?;".format(self.apiKey), update, get_output=False)
+                self.database.executemany("UPDATE genresIndex SET {}=? WHERE id=?;".format(
+                    self.apiKey), update, get_output=False)
             data = self.database.sql(sql, ids.keys(), to_dict=True)
         return list(g['id'] for g in data)
 
@@ -111,15 +114,83 @@ class APIUtils(Logger, Getters):
             for rel in rels:
                 if rel["type"] == "anime":
                     rel["id"] = id
-                    rel["rel_id"], meta = self.database.getId(self.apiKey, rel["rel_id"], add_meta=True)
+                    rel["rel_id"], meta = self.database.getId(
+                        self.apiKey, rel["rel_id"], add_meta=True)
                     anime = rel.pop("anime")
-                    if not list(filter(lambda e: all(e[k] == v for k, v in rel.items()), db_rels)):
-                        sql = "INSERT INTO relations (" + ", ".join(rel.keys()) + ") VALUES (" + ", ".join("?" * len(rel)) + ");"
+
+                    exists = any((
+                        (
+                            all(e[k] == rel[k]
+                                for k in ('id', 'type', 'name'))
+                            and rel['rel_id'] in e['rel_id']
+                        ) for e in db_rels)
+                    )
+                    if not exists:
+                        sql = "INSERT INTO relations (" + ", ".join(
+                            rel.keys()) + ") VALUES (" + ", ".join("?" * len(rel)) + ");"
                         self.database.sql(sql, rel.values(), get_output=False)
                     if not meta['exists']:
                         anime["id"] = rel["rel_id"]
                         anime["status"] = "UPDATE"
-                        self.database.set(anime, table="anime", get_output=False)
+                        self.database.set(
+                            anime, table="anime", get_output=False)
+            self.database.save(get_output=False)
+
+    def save_mapped(self, org_api_key, org_id, mapped):
+        # mapped must be a list of dicts, each containing two fields: 'api_key' and 'api_id'
+        if len(mapped) == 0:
+            return
+        with self.database.get_lock():
+            for m in mapped:  # Iterate over each external anime
+                api_key, api_ip = m['api_key'], m['api_id']
+
+                sql = f"SELECT id, {org_api_key} FROM indexList WHERE {api_key}=?"
+
+                # Get the currently associated org id with the key
+                associated = self.database.sql(sql, (api_ip,))
+                if len(associated) == 0:
+                    associated = [None, None]
+                else:
+                    associated = associated[0]
+
+                # Update or insert the new id
+                if associated[1] != org_id:
+                    if associated[0] is not None and associated[1] is None:
+                        # Remove old key if it exists
+                        self.database.remove(None, id=associated[0],
+                                             get_output=False)
+
+                    # Merge both keys
+                    self.database.sql(
+                        f"UPDATE indexList SET {api_key} = ? WHERE {org_api_key}=?",
+                        (api_ip, org_id),
+                        get_output=False
+                    )
+
+            self.database.save(get_output=False)
+        return
+
+    def save_pictures(self, id, pictures):
+        # pictures must be a list of dicts, each containing three fields: 'url', 'size'
+        valid_sizes = ('small', 'medium', 'large', 'original')
+        with self.database.get_lock():
+            saved_pics = self.getAnimePictures(id)
+            saved_pics = {p['size']: p for p in saved_pics}
+
+            for pic in pictures:
+                if pic['size'] not in valid_sizes or pic['url'] is None:
+                    continue
+
+                elif pic['size'] in saved_pics:
+                    sql = "UPDATE pictures SET url=:url WHERE id=:id AND size=:size"
+
+                else:
+                    sql = "INSERT INTO pictures(id, url, size) VALUES (:id, :url, :size)"
+
+                pic['id'] = id
+
+                self.database.sql(sql, pic, get_output=False)
+
             self.database.save(get_output=False)
 
 

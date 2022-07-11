@@ -28,7 +28,6 @@ class db():
         sqlite3.register_adapter(bool, int)
         sqlite3.register_converter("BOOLEAN", lambda v: bool(int(v)))
         self.cur = self.con.cursor()
-        table = "anime"
         self.alltable_keys = {}
         self.log_commands = False
         self.last_op = "None"
@@ -145,10 +144,10 @@ class db():
     def keys(self, table):
         return self.updateKeys(table)
 
-    def values(self):
+    def values(self, table):
         with self.get_lock():
             self.cur.execute("SELECT * FROM " + table + " WHERE id=?", (str(id),))
-            rows = cur.fetchall()
+            rows = self.cur.fetchall()
         if len(rows) >= 1:
             return rows[0]
         else:
@@ -422,7 +421,8 @@ class db():
             for row in self.cur:
                 yield row
 
-        values = list(values)  # dict_keys type raise a ValueError
+        if not isinstance(values, dict):
+            values = list(values)  # dict_keys type raise a ValueError
 
         with self.get_lock():
             try:
@@ -437,10 +437,10 @@ class db():
                     if iterate:
                         return cur_iterator()
                     elif to_dict:
-                        keys = (k[0] for k in self.cur.description)
+                        keys = tuple(k[0] for k in self.cur.description)
                         out = []
                         for data in self.cur:
-                            out.append(NoneDict(keys=(k[0] for k in self.cur.description), values=data, default=None))
+                            out.append(NoneDict(keys=keys, values=data, default=None))
                         return out
                     else:
                         return self.cur.fetchall()

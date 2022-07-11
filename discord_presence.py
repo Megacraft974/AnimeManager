@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import random
 import shutil
@@ -173,7 +174,6 @@ if __name__ == "__main__":
     import pipes
 
     pipe = get_ipc_path()
-    print(pipe, type(pipe))
 
     act_details = {
         "state": 'aaa',

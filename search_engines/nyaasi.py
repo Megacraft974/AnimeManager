@@ -3,10 +3,18 @@ import urllib.parse
 import io
 
 from lxml import etree
-import requests
+
+try:
+    from .parserUtils import ParserUtils, exceptions
+except ImportError:
+    # Local testing
+    import os
+    import sys
+    sys.path.append(os.path.abspath('./'))
+    from parserUtils import ParserUtils, exceptions
 
 
-class Parser:
+class Parser(ParserUtils):
     def search(self, terms, limit=50):
         terms = terms.strip()
         searchterms = urllib.parse.quote_plus(terms)
@@ -14,17 +22,17 @@ class Parser:
         tree = None
         url = "https://nyaa.si/?page=rss&q={}&c=1_0&f=0".format(searchterms)
         try:
-            print("Nyaasi", terms, url)
-            r = requests.get(url, timeout=10)
-        except requests.exceptions.ConnectionError:
-            print("Nyaasi - No internet connection!")
-        except requests.exceptions.ReadTimeout:
-            print("Nyaasi - Timed out!")
+            self.log("Nyaasi", terms, url)
+            r = self.get(url, timeout=10)
+        except exceptions.ConnectionError:
+            self.log("Nyaasi - No internet connection!")
+        except exceptions.ReadTimeout:
+            self.log("Nyaasi - Timed out!")
         else:
             try:
                 tree = etree.parse(io.BytesIO(r.content))
             except etree.XMLSyntaxError as e:
-                print("Nyaasi - Error:", e, tree)
+                self.log("Nyaasi - Error:", e, tree)
                 return
             for child in tree.getroot().find('channel'):
                 try:
@@ -39,7 +47,7 @@ class Parser:
                             "{https://nyaa.si/xmlns/nyaa}size").text
                         yield {'filename': filename, 'torrent_url': torrent_url, 'seeds': seeds, 'leechs': leechs, 'file_size': file_size}
                 except Exception as e:
-                    print("Nyaasi - error:", e)
+                    self.log("Nyaasi - error:", e)
 
 
 if __name__ == "__main__":

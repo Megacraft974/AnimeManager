@@ -108,8 +108,20 @@ class MyAnimeListNetWrapper(APIUtils):
             a['start_date'].split('-')) == 3 else None
         out['date_to'] = a['end_date'] if 'end_date' in a.keys() and len(
             a['end_date'].split('-')) == 3 else None
-        out['picture'] = list(a['main_picture'].items(
-        ))[-1][1] if 'main_picture' in a.keys() else None
+        out['picture'] = list(
+            a['main_picture'].items()
+            )[-1][1] if 'main_picture' in a.keys() else None
+
+        pictures = []
+        for size, url in a['main_picture'].items():
+            if size in ('small', 'medium', 'large'):
+                pictures.append({
+                    'url': url,
+                    'size': size
+                })
+            
+        self.save_pictures(id, pictures)
+
         out['synopsis'] = a['synopsis'] if 'synopsis' in a.keys() else None
         out['episodes'] = a['num_episodes'] if 'num_episodes' in a.keys() else None
         out['duration'] = a['average_episode_duration'] // 60 if 'average_episode_duration' in a.keys() else None
@@ -138,14 +150,22 @@ class MyAnimeListNetWrapper(APIUtils):
             genres = []
         out['genres'] = genres
 
-        if 'related' in a.keys():
-            rel = []
-            for relation, rel_data_list in a['related'].items():
-                for rel_data in rel_data_list:
-                    print("M", rel_data)  # TODO - Fetch rel anime title
-                    rel = {'type': rel_data['type'], 'name': relation, 'rel_id': rel_data['id'], 'anime': {
-                        'title': rel_data['type'] + " - " + out['title']}}
-                    # saveRelation(id, rel)
+        if 'related_anime' in a.keys():
+            rels = []
+            for relation in a['related_anime']:
+                node = relation['node']
+                if 'main_picture' not in node:
+                    continue
+                rel = {
+                    'type': 'anime', 
+                    'name': relation['relation_type_formatted'], 
+                    'rel_id': node['id'], 
+                    'anime': {
+                        'title': node['title'],
+                        'picture': node['main_picture']['medium']
+                    }
+                }
+                rels.append(rel)
             self.save_relations(id, rels)
 
         return out

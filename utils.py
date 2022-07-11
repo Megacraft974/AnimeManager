@@ -292,7 +292,6 @@ class ScrollableFrame(Frame):
                 lambda e, a=self, b=self.canvas: self.scroll(e, a, b))
 
 
-
 class CustomScrollbar(Frame):
     def __init__(self, parent, orient='V', **kwargs):
         self.root = parent
@@ -739,6 +738,7 @@ class AnimeListFrame(ScrollableFrame):
             # Ensure the Load More button is on the last column
             anime_count = self.animePerPage // self.animePerRow * self.animePerRow - 1
 
+            ids = set()
             row = []
             self.list_timer = Timer("Anime List Timer", lambda *args: self.log("ANIME_LIST", *args))
             for i in range(start, anime_count + start):
@@ -765,10 +765,19 @@ class AnimeListFrame(ScrollableFrame):
                 if i % self.animePerRow == 2:
                     while row:
                         args = row.pop(0)
-                        self.create_elem(*args)
+                        tmp = self.create_elem(*args)
+                        if tmp:
+                            ids.add(tmp)
+                        if args[1]['status'] == 'UPDATE':
+                            self.parent.api.anime(args[1]['id'])
                     self.root.update()
                     if self.interrupt or self.parent.closing:
                         return
+
+            if ids:
+                with self.database.get_lock():
+                    sql = 'UPDATE anime SET status="UPDATE" WHERE id IN (' + ', '.join(str(i) for i in ids) + ')'
+                    self.database.sql(sql, get_output=False)
 
             if not self.list.empty():
                 self.load_more_button(i - len(row) + 1)
@@ -823,9 +832,18 @@ class AnimeListFrame(ScrollableFrame):
         self.update()
 
         filename = os.path.join(self.parent.cache, str(anime.id) + ".jpg")
-        url = anime.picture
-        queue.put((filename, url, img_can))
+        # url = anime.picture
+        pics = self.parent.getAnimePictures(anime.id)
+        if pics: # TODO - Choose best pic
+            url = pics[0]['url']
+            queue.put((filename, url, img_can))
+            out = None
+        else:
+            # with self.database.get_lock():
+            #     self.database.sql('UPDATE anime SET status="UPDATE" WHERE id=?', (anime.id,), get_output=False)
+            out = anime.id
         self.list_timer.stop()
+        return out
 
     def load_more_button(self, index):
         img_can = Canvas(self, width=225, height=310, highlightthickness=0, bg=self.parent.colors['Gray2'])

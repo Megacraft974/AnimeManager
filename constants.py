@@ -55,6 +55,7 @@ class Constants:
 
         self.allLogs = [
             'ANIME_LIST',
+            'ANIME_SEARCH',
             'CHARACTER',
             'CONFIG',
             'DB_MAIN',

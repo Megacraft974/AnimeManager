@@ -13,7 +13,8 @@ except ImportError:
 class KitsuIoWrapper(APIUtils):
     def __init__(self, dbPath):
         APIUtils.__init__(self, dbPath)
-        self.s = Session('https://kitsu.io/api/edge/')  # TODO - self.s.close() ??
+        # TODO - self.s.close() ??
+        self.s = Session('https://kitsu.io/api/edge/')
         self.apiKey = "kitsu_id"
         self.mappedSites = {"myanimelist/anime": "mal_id",
                             "anidb": "anidb_id", "anilist/anime": "anilist_id"}
@@ -93,8 +94,8 @@ class KitsuIoWrapper(APIUtils):
 
     def searchAnime(self, search, limit=50):
         modifier = (
-            Filter(text=search) + 
-            Inclusion("genres","mediaRelationships", "mediaRelationships.destination") +
+            Filter(text=search) +
+            Inclusion("genres", "mediaRelationships", "mediaRelationships.destination") +
             Modifier("sort=-endDate")
         )
         c = 1
@@ -118,9 +119,9 @@ class KitsuIoWrapper(APIUtils):
             return self._convertCharacter(rep[0])
 
     def _convertAnime(self, a, force=False):
-        self._mapAnimes(a)
         if not force and a.subtype not in self.subtypes:
             return None
+
         id = self.database.getId("kitsu_id", int(a.id))
 
         data = Anime()
@@ -134,6 +135,17 @@ class KitsuIoWrapper(APIUtils):
             data['picture'] = a.posterImage.small
         except Exception:
             pass
+        
+        pictures = []
+        for size in ('small', 'medium', 'large'):
+            img_url = a.posterImage.get(size)
+            if img_url:
+                pictures.append({
+                    'url': img_url,
+                    'size': size
+                })
+        
+        self.save_pictures(id, pictures)
 
         data['title_synonyms'] = list(a.titles.values()) + [data['title']]
         data['date_from'] = a.startDate
@@ -144,37 +156,56 @@ class KitsuIoWrapper(APIUtils):
         data['duration'] = int(
             a.episodeLength) if a.episodeLength is not None else None
         data['rating'] = a.ageRating
-        status = {
-            'current': 'AIRING',
-            'finished': 'FINISHED',
-            'tba': 'UPCOMING',
-            'unreleased': 'UNKNOWN',
-            'upcoming': 'UPCOMING'}
+
         data['status'] = self.getStatus(data)
         # data['status'] = 'UPDATE'
         if a.youtubeVideoId is not None and a.youtubeVideoId != "":
             data['trailer'] = "https://www.youtube.com/watch?v=" + a.youtubeVideoId
 
-        with self.database.get_lock():  # TODO - SUPER FUCKING SLOW!!
-            if isinstance(a.relationships.genres, relationships.MultiRelationship):
-                genres = self.getGenres(
-                    [
-                        dict([
-                            ('id', e['id']),
-                            ('name', e['attributes']['name'])
-                        ])
-                        for e in (g.json for g in a.genres)
-                    ]
-                )
-            else:
-                genres = []
-            data['genres'] = genres
+        if isinstance(a.relationships.genres, relationships.MultiRelationship):
+            genres = self.getGenres(
+                [
+                    dict([
+                        ('id', e['id']),
+                        ('name', e['attributes']['name'])
+                    ])
+                    for e in (g.json for g in a.genres)
+                ]
+            )
+        else:
+            genres = []
+        data['genres'] = genres
 
-            if isinstance(a._relationships['mediaRelationships'], relationships.MultiRelationship):
-                rels = []
-                for f in a.mediaRelationships:
-                    rel = {'type': f.destination.type, 'name': f.role, 'rel_id': f.destination.id, 'anime': {'title': f.role + " - " + data['title']}}
-                self.save_relations(id, rels)
+        if isinstance(a._relationships['mediaRelationships'], relationships.MultiRelationship):
+            rels = []
+            for f in a.mediaRelationships:
+                rel = {
+                    'type': f.destination.type, 
+                    'name': f.role, 
+                    'rel_id': f.destination.id, 
+                    'anime': {
+                        'title': f.role + " - " + data['title']
+                    }
+                }
+                rels.append(rel)
+            self.save_relations(id, rels)
+
+        if not isinstance(a.relationships.mappings, relationships.LinkRelationship):
+            mapped = []
+
+            for m in a.mappings:  # Iterate over each external anime
+                api_id = m.externalId
+                site = m.externalSite
+
+                if site in self.mappedSites.keys():  # Only save known websites
+                    api_key = self.mappedSites[site]
+                    mapped.append({
+                        'api_key': api_key,
+                        'api_id': api_id
+                    })
+
+            self.save_mapped('kitsu_id', int(a.id), mapped)
+
         return data
 
     def _convertCharacter(self, c, anime_id=None):
@@ -185,7 +216,8 @@ class KitsuIoWrapper(APIUtils):
         api_exist = bool(self.database.sql(sql, (kitsu_id, mal_id,))[0][0])
         if api_exist:
             temp_id = self.database.getId("mal_id", mal_id, table="characters")
-            self.database.sql("DELETE FROM charactersIndex WHERE id=?", (temp_id,))
+            self.database.sql(
+                "DELETE FROM charactersIndex WHERE id=?", (temp_id,))
             self.database.sql("DELETE FROM characters WHERE id=?", (temp_id,))
 
         id = self.database.getId("kitsu_id", kitsu_id, table="characters")
@@ -211,32 +243,6 @@ class KitsuIoWrapper(APIUtils):
         out['desc'] = c.character.description
 
         return out
-
-    def _mapAnimes(self, a):
-        if isinstance(a.relationships.mappings,
-                      relationships.LinkRelationship):
-            return False
-        kitsu_id = int(a.id)
-        sql = "SELECT EXISTS(SELECT 1 FROM indexList WHERE (kitsu_id != ? or kitsu_id is null) and {}=?)"
-        with self.database.get_lock():
-            for m in a.mappings:
-                api_id = m.externalId
-                site = m.externalSite
-                if site in self.mappedSites.keys():
-                    api_key = self.mappedSites[site]
-                    api_exist = bool(self.database.sql(sql.format(api_key), (kitsu_id, api_id,))[0][0])
-                    id = self.database.getId("kitsu_id", kitsu_id)
-                    if api_exist:
-                        temp_id = self.database.getId(api_key, api_id)
-                        self.database.remove(None, id=temp_id)
-                    self.database.sql("UPDATE indexList SET {} = ? WHERE kitsu_id=?".format(
-                        api_key), (api_id, kitsu_id))
-
-            try:
-                self.database.save()
-            except Exception:
-                pass
-        return True
 
 
 if __name__ == "__main__":

@@ -59,7 +59,8 @@ class optionsWindow:
                 except qbittorrentapi.exceptions.NotFound404Error:
                     value = 100
                 except qbittorrentapi.exceptions.APIConnectionError:
-                    self.log("NETWORK", "[ERROR] - Couldn't find the torrent client!")
+                    self.log(
+                        "NETWORK", "[ERROR] - Couldn't find the torrent client!")
                     value = 100
                 else:
                     value = torrent.pieces_have / torrent.pieces_num * 100
@@ -69,7 +70,8 @@ class optionsWindow:
                 else:
                     try:
                         bar['value'] = value
-                        text.configure(text=str(round(value, 2)) + "%")  # TODO - Fill with zeros
+                        # TODO - Fill with zeros
+                        text.configure(text=str(round(value, 2)) + "%")
                         self.choice.update()
                     except Exception:
                         pass
@@ -88,7 +90,8 @@ class optionsWindow:
 
             def like(id, b):
                 liked = bool(self.database(id=id, table='anime').like)
-                self.database.set({'id': id, 'like': not liked}, table='anime', get_output=False)
+                self.database.set({'id': id, 'like': not liked},
+                                  table='anime', get_output=False)
 
                 if not liked:
                     im_path = os.path.join(self.iconPath, "heart.png")
@@ -120,7 +123,8 @@ class optionsWindow:
                 playlist = [i['path'] for i in eps]
                 self.log('MAIN_STATE', "Watching", e)
                 self.RPC_watching(title, eps=[video + 1, len(eps)])
-                self.player(playlist, video, id, self.dbPath, callback=self.RPC_stop_watching)
+                self.player(playlist, video, id, self.dbPath,
+                            callback=self.RPC_stop_watching)
 
             def openEps(e, eps, var):
                 var.set("Watch")
@@ -145,7 +149,8 @@ class optionsWindow:
 
             def tag(id, tag):
                 with self.database.get_lock():
-                    self.database.set({'id': id, 'tag': tag}, table='anime', get_output=False)
+                    self.database.set({'id': id, 'tag': tag},
+                                      table='anime', get_output=False)
 
                 for lbl in self.animeList.winfo_children():
                     if lbl.winfo_class() == 'Label' and lbl.name == str(id):
@@ -154,7 +159,6 @@ class optionsWindow:
                 self.reload(id, False)
 
             def trailer(id):
-                data = self.database(id=id, table="anime")
                 trailer = anime.trailer
                 if trailer is not None:
                     self.log('MAIN_STATE', "Watching trailer for anime",
@@ -216,6 +220,9 @@ class optionsWindow:
                 elif status == 'UPCOMING':
                     datetext = "On {} ({} days left)".format(
                         datefrom.strftime("%d %b %Y"), -delta.days)
+                else:
+                    datetext = ''
+
                 return datetext
 
             def switch(id, titles=None):
@@ -228,16 +235,17 @@ class optionsWindow:
                 database = self.getDatabase()
                 data = self.api.anime(id)
 
-                # database.set(data, table="anime", get_output=False)
                 if 'status' in data.keys() and data.status != 'UPDATE':
-                    self.choice.after(1, self.reload, id)
+                    self.choice.after(10, self.reload, id)
 
         # Window init - Fancy corners - Main frame
         if True:
             anime = self.database(id=id, table="anime")
 
             if anime.status == 'UPDATE' or len(anime.keys()) == 0:
-                threading.Thread(target=dataUpdate, args=(id,), daemon=True).start()
+                threading.Thread(target=dataUpdate, args=(
+                    id,)).start()
+
             if len(anime.keys()) == 0:
                 anime.title = "Loading..."
 
@@ -250,14 +258,16 @@ class optionsWindow:
                     bg=self.colors['Gray2'],
                     fg=self.colors['Gray3'])
                 self.choice.titleLbl.configure(
-                    fg=self.colors[self.tagcolors[self.database(id=id, table='anime').tag]]
+                    # fg=self.colors[self.tagcolors[self.database(
+                    #     id=id, table='anime').tag]]
+                    fg=self.colors[self.tagcolors[anime.tag]]
                 )
             else:
                 self.choice.clear()
                 self.choice.titleLbl.configure(
                     text=anime.title,
                     bg=self.colors['Gray2'],
-                    fg=self.colors[self.tagcolors[self.database(id=id, table='anime').tag]],
+                    fg=self.colors[self.tagcolors[anime.tag]],
                     font=("Source Code Pro Medium", 18)
                 )
 
@@ -407,12 +417,13 @@ class optionsWindow:
                 colorFileEntries(id, eps, epsList)
                 epsList.bind("<Button-3>", lambda e,
                              var=var: openEps(e, eps, var))
-                epsList.bind("<Button-1>", lambda e, a=id, b=eps, c=epsList: colorFileEntries(a, b, c))
+                epsList.bind("<Button-1>", lambda e, a=id, b=eps,
+                             c=epsList: colorFileEntries(a, b, c))
 
             [titleFrame.grid_columnconfigure(i, weight=1) for i in range(2)]
 
             iconSize = (50, 50) if showFolderButtons else (30, 30)
-            if bool(self.database(id=id, table='anime').like):
+            if bool(anime.like):
                 image = self.getImage(
                     os.path.join(
                         self.iconPath,
@@ -470,7 +481,8 @@ class optionsWindow:
                     activeforeground=self.colors['Green'],
                     bg=self.colors['Gray2'],
                     fg=self.colors[color],
-                    command=lambda id=id, tag_filter=tag_filter: tag(id, tag_filter)
+                    command=lambda id=id, tag_filter=tag_filter: tag(
+                        id, tag_filter)
                 ).grid(
                     row=0,
                     column=1 + i,
@@ -615,11 +627,12 @@ class optionsWindow:
             genresFrame = Frame(self.choice, bg=self.colors['Gray2'])
             genres = anime.genres
 
-            all_genres = dict(self.database.sql("SELECT id, name FROM genresIndex"))
+            all_genres = dict(self.database.sql(
+                "SELECT id, name FROM genresIndex"))
 
             for genre_id in genres:
-                txt = all_genres[genre_id]
-                if txt == "NONE":
+                txt = all_genres.get(genre_id)
+                if txt is None or txt == "NONE":
                     txt = "Unknown"
                 Label(
                     genresFrame,
@@ -657,7 +670,9 @@ class optionsWindow:
             relations.sort(key=itemgetter('name'))
             for relation in relations:
                 rel_ids = relation['rel_id']
-                sql = "SELECT title,id FROM anime WHERE id IN (" + ",".join("?" * len(rel_ids)) + ");"
+                sql = "SELECT title,id FROM anime WHERE id IN (" + ",".join(
+                    "?" * len(rel_ids)) + ");"
+                # TODO - Only do a single call to db
                 titles = dict(self.database.sql(sql, rel_ids))
                 text = relation['name'].capitalize().replace("_", " ")
                 if len(titles) == 1:
@@ -671,7 +686,8 @@ class optionsWindow:
                            activebackground=self.colors['Gray2'],
                            activeforeground=self.colors['Red'],
                            bg=self.colors['Gray2'],
-                           fg=self.colors[self.tagcolors[self.database(id=rel_ids[0], table='anime').tag]],
+                           fg=self.colors[self.tagcolors[self.database(
+                               id=rel_ids[0], table='anime').tag]],
                            command=lambda ids=rel_ids: switch(ids[0])).grid(row=0,
                                                                             column=column)
                 elif len(titles) > 1:
@@ -817,7 +833,8 @@ class optionsWindow:
 
         self.choice.update()
         if 'hash' not in self.choice.__dict__.keys():
-            threading.Thread(target=findTorrent, args=(id,), daemon=True).start()
+            threading.Thread(target=findTorrent, args=(id,),
+                             daemon=True).start()
 
     def copy_title(self, id):
         database = self.getDatabase()
@@ -826,22 +843,20 @@ class optionsWindow:
         self.root.clipboard_append(title)
 
     def reload(self, id, update=True):
-        def handler(id, que):
-            database = self.getDatabase()
-            keys = database(id=id, table="indexList")
+        def handler(id):
             data = self.api.anime(id)
-            que.put(data)
 
         if 'TIME' in self.logs:
             self.start = time.time()
 
-        thread_files = threading.Thread(target=self.regroupFiles, args=(True,), daemon=True)
+        thread_files = threading.Thread(
+            target=self.regroupFiles, args=(True,), daemon=True)
         thread_files.start()
 
         reloadFen = True
         if update:
-            que = queue.Queue()
-            thread_data = threading.Thread(target=handler, args=(id, que), daemon=True)
+            thread_data = threading.Thread(
+                target=handler, args=(id,), daemon=True)
             thread_data.start()
 
             sql = "DELETE FROM characters WHERE anime_id=?"
@@ -852,9 +867,6 @@ class optionsWindow:
                 if self.closing or self.choice is None or not self.choice.winfo_exists():
                     reloadFen = False
                 time.sleep(0.01)
-            data = que.get()
-            # if data is not None:
-            #     self.database.set(data, table="anime")
 
         while thread_files.is_alive():
             time.sleep(0.01)
@@ -884,7 +896,8 @@ class optionsWindow:
                 os.rmdir(path)
                 self.log("DB_UPDATE", "Deleted all files and removed folder")
             else:
-                self.log("DISK_ERROR", "Some files haven't been removed from folder", path)
+                self.log("DISK_ERROR",
+                         "Some files haven't been removed from folder", path)
 
         folder = self.getFolder(id)
         path = os.path.join(
@@ -911,7 +924,8 @@ class optionsWindow:
             self.log("DISK_ERROR", "Folder path doesn't exist:", path)
 
         with self.database.get_lock():
-            self.database.set({'id': id, 'tag': "SEEN"}, table='anime', get_output=False)
+            self.database.set({'id': id, 'tag': "SEEN"},
+                              table='anime', get_output=False)
 
         for lbl in self.animeList.winfo_children():
             if lbl.winfo_class() == 'Label' and lbl.name == str(id):
@@ -920,7 +934,8 @@ class optionsWindow:
         self.reload(id, False)
 
     def delete(self, id):
-        self.log('DB_UPDATE', "Deleted", self.database(id=id, table="anime")['title'])
+        self.log('DB_UPDATE', "Deleted", self.database(
+            id=id, table="anime")['title'])
         self.animeList.remove(id=id)
         self.database.remove(None, id=id, table="anime")
         self.choice.exit()
@@ -977,7 +992,8 @@ class optionsWindow:
                     try:
                         os.system(cmd)
                     except Exception:
-                        self.log('DISK_ERROR', "Error while removing folder", path)
+                        self.log('DISK_ERROR',
+                                 "Error while removing folder", path)
                         raise
                 else:
                     self.log('DB_UPDATE', "No file to delete!")

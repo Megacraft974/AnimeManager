@@ -1,4 +1,5 @@
-from tkinter import *
+# from tkinter import *
+from sympy import true
 from thefuzz import fuzz, process as fuzz_process
 from getters import Getters
 import time
@@ -18,15 +19,22 @@ from animeAPI.JikanMoe import JikanMoeWrapper
 appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
 dbPath = os.path.join(appdata, "animeData.db")
 
-# api = JikanMoeWrapper(dbPath)
-# print(api.anime(5))
-# for a in api.schedule():
-#     print('-', a, type(a))
 
 db = Getters.getDatabase()
 
 qb = Client("http://localhost:8080", REQUESTS_ARGS={'timeout': 2})
 qb.auth_log_in("admin", "1234567")
+
+data = db.sql('SELECT * FROM relations')
+seen = set()
+
+keys = ('id', 'type', 'name', 'rel_id')
+
+for rel in data:
+    if rel in seen:
+        db.sql('DELETE FROM relations WHERE id=? AND type=? AND name=? AND rel_id=?', rel)
+    else:
+        seen.add(rel)
 
 def send_animes():
     for i, anime in enumerate(db.sql("SELECT * FROM anime WHERE tag IS NOT null;", to_dict=True)):
@@ -51,10 +59,7 @@ def send_animes():
         url = "http://animemanager/add_anime.php?" + '&'.join(format_keys(k) + "=" + format_values(v) for k, v in anime.items() if k not in anime.metadata_keys and v is not None)
 
         if anime['tag'] == "WATCHING":
-            print("\n")
-            print(url)
-            print("--", anime["tag"])
-            print("\n")
+            print(f"\n{url} -- {anime['tag']}\n")
 
         a = requests.get(url)
         print(i, anime['title'])

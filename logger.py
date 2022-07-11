@@ -71,22 +71,34 @@ class Logger:
         with open(self.logFile, "w") as f:
             f.write("_" * 10 + date.today().strftime("%d/%m/%y") + "_" * 10 + "\n")
 
-    def log(self, *text, end="\n"):
-        if self.log_mode == "NONE":
-            return
-        elif (isinstance(text[0], str) and text[0].isupper()) or ('allLogs' in self.__dict__ and text[0] in self.allLogs):
+    def log(self, *text, log_mode=None, end="\n"):
+        log_mode = log_mode or self.log_mode
+
+        console_log = True
+        if log_mode == "NONE":
+            # Don't log
+            console_log = False
+
+        if (isinstance(text[0], str) and text[0].isupper()) or ('allLogs' in self.__dict__ and text[0] in self.allLogs):
             category, text = text[0], text[1:]
-            if category in self.logs:
-                toLog = "[{}]".format(category.center(13)) + " - "
-                toLog += " ".join([str(t) for t in text])
-            else:
-                return
+            toLog = "[{}]".format(category.center(13)) + " - "
+            toLog += " ".join([str(t) for t in text])
+            
+            if category not in self.logs:
+                # Ignore this log
+                console_log = False
         else:
             toLog = "[     LOG     ] - " + " ".join([str(t) for t in text])
-        print(toLog + end, flush=True, end="")
+
+        if console_log:
+            # Log to console
+            print(toLog + end, flush=True, end="")
+
+        # Log to file
         with open(self.logFile, "a", encoding='utf-8') as f:
             timestamp = "[{}]".format(time.strftime("%H:%M:%S"))
             f.write(timestamp + toLog + "\n")
+
         if self.loggingCb is not None:
             self.loggingCb(timestamp + toLog)
 

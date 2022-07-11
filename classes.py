@@ -334,13 +334,16 @@ class NoneDict(DefaultDict):
     """A dict, which return "NONE" instead of raising a KeyError and allow to initialize with keys and values as kwargs"""
 
     def __init__(self, *args, **kwargs):
+        if len(args) == 0 and not 'default' in kwargs:
+            kwargs['default'] = 'NONE'
+
+        super().__init__(*args, **kwargs)
+
         if len(args) == 0 and "keys" in kwargs.keys() and "values" in kwargs.keys():
-            keys, values = kwargs["keys"], kwargs["values"]
+            keys, values = kwargs.pop("keys"), kwargs.pop("values")
             for k, v in zip(keys, values):
                 self[k] = v
-        else:
-            super().__init__("NONE", *args, **kwargs)
-
+            
 
 class RegroupList(list):
     """A list of dict, wich regroup values based on a PK, creating a sub-list if values are different"""
@@ -377,7 +380,7 @@ class RegroupList(list):
                 if all(lambda e: e[0] in self.merge_keys for e in diff):
                     new_sub = dict(curset & subset)
                     for k, v in diff:
-                        new_sub[k] = [v] + current[k]
+                        new_sub[k] = list(set([v] + current[k]))
                     self[pos] = new_sub
                     append = False
         if append:
@@ -434,13 +437,14 @@ class SortedList(list):
         for key, reverse in self.keys:
             try:
                 k_a, k_b = key(a), key(b)
+
+                if k_a > k_b:
+                    return not reverse
+                elif k_a < k_b:
+                    return reverse
             except Exception:
                 # Loop
                 continue
-            if k_a > k_b:
-                return not reverse
-            elif k_a < k_b:
-                return reverse
             # Loop if a == b
         return None
 

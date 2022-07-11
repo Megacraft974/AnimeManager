@@ -459,9 +459,16 @@ class Getters:
         self.log("THREAD", "Stopped image thread")
         return
 
+    def getAnimePictures(self, id):
+        data = self.database.sql("SELECT url, size FROM pictures WHERE id=?", (id,), to_dict=True)
+        # url = self.database.sql("SELECT picture FROM anime WHERE id=?", (id,))[0][0]
+        # data = [{'url': url}]
+        return data
+
     def get_relations(self, id, **filters):
         data = self.database.sql("SELECT * FROM relations WHERE id=?", (id,), to_dict=True)
-        return RegroupList("id", ["rel_id"], *(filter(lambda e: all(e[k] == v for k, v in filters.items()), data)))
+        data = [a for a in data if all(a[k] == v for k, v in filters.items())]
+        return RegroupList("id", ["rel_id"], *data) #*list(filter(lambda e: all(e[k] == v for k, v in filters.items()), data)))
 
     def getBroadcast(self, thread=False):
         if not thread:
