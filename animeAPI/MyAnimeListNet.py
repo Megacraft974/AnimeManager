@@ -131,10 +131,14 @@ class MyAnimeListNetWrapper(APIUtils):
             weekdays = ('monday', 'tuesday', 'wednesday',
                         'thursday', 'friday', 'saturday', 'sunday')
             weekday = a['broadcast']['day_of_the_week']
+
             if weekday in weekdays: # Can be 'other' -> Not scheduled once per week 
-                out['broadcast'] = "{}-{}-{}".format(
-                    weekdays.index(weekday),
-                    *a['broadcast']['start_time'].split(":"))
+                w = weekdays.index(weekday)
+                h, m = a['broadcast']['start_time'].split(":")[:2]
+                
+                self.save_broadcast(id, w, h, m)
+
+                out['broadcast'] = "{}-{}-{}".format(w, h, m) # TODO - Should be removed
 
         # out['trailer'] = a['trailer_url'] if 'trailer_url' in a.keys() else None
 

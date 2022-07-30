@@ -141,14 +141,19 @@ class Character(Item):
     def __init__(self, *args, **kwargs):
         self.data_keys = (
             'id',
-            'anime_id',
+            # 'anime_id',
             'role',
             'name',
             'picture',
             'desc',
-            'animeography'
+            'animeography',
+            'like'
         )
-        self.metadata_keys = ('animeography', )
+        self.metadata_keys = ('animeography', 'role')
+        self.default_values = {
+            'role': 'Unknown',
+            'like': 0
+        }
         super().__init__(*args, **kwargs)
 
 
@@ -177,8 +182,14 @@ class ItemList():
     def __contains__(self, e):
         return e in self.list
 
-    def __iter__(self, timeout=1):
-        while not self.empty():
+    def __iter__(self, timeout=None):
+        while (
+            timeout is None and 
+            len(self.list) > 0
+        ) or (
+            timeout is not None and 
+            not self.empty()
+        ):
             e = self.get(timeout)
             if e is not None:
                 yield e
@@ -264,7 +275,7 @@ class ItemList():
         if cb in self.callbacks:
             self.callbacks.remove(cb)
 
-    def get(self, timeout=None, default=None):
+    def get(self, timeout=1, default=None):
         if len(self.list) > 0:
             e = self.list.pop(0)
             return e
@@ -272,7 +283,10 @@ class ItemList():
             if self.empty():
                 return default
             else:
-                return self.get_from_sources(timeout, default)
+                if timeout is None:
+                    return None
+                else:
+                    return self.get_from_sources(timeout, default)
 
     def get_from_sources(self, timeout=None, default=None):
         self.new_elem_event["enabled"] = True
@@ -283,16 +297,71 @@ class ItemList():
             elif len(self.sources) == 0:
                 return default
         else:
-            log("Error on ItemList iterator: Timed out")
+            if timeout is not None:
+                log("ItemList iterator timed out")
             return default  # Timed out
 
+    def _filter_sources(self, start_thread=False):
+        if start_thread:
+            threading.Thread(self._filter_sources, args=(True,)).start()
+            return
+        
+        new_sources = []
+        for t in self.sourceThreads:
+            if t.is_alive():
+                new_sources.append(t)
+        self.sourceThreads = new_sources
+
     def empty(self):
-        self.sourceThreads = list(filter(lambda t: t.is_alive(), self.sourceThreads))
+        self._filter_sources()
         return len(self.sources) == 0 and len(self.list) == 0 and len(self.sourceThreads) == 0
 
     def is_ready(self):
         return len(self.list) > 0 or len(self.sources) == 0
 
+    def map(self, func, delay, cb=None):
+        # 'func' will be called for each element of self.list along with its index when they are available
+        # if 'func' return False, then break loop and skip to 'cb'
+        # 'delay' will be called when there are no new elements available, 
+        # it should behave like this function: lambda func: root.after(100, func)
+        # 'delay' can also be an int or a float, if it's okay to block the thread
+        # 'cb' will be called when all elements have been parsed, with the index of the last element as args
+        # or -1 if there have been no args
+
+        def map_func(func, delay, cb, idx=0):
+            if self.stop:
+                return
+            if not self.empty():
+                index = -1 # In case self.__iter__() returns nothing
+                for index, elem in enumerate(self.__iter__()):
+                    try:
+                        out = func(idx + index, elem)
+                    except Exception as e:
+                        print(f'Error on Itemlist.map: {e}')
+                    else:
+                        if out is False: 
+                            if cb is not None:
+                                cb(idx + index)
+                            return
+
+                idx += index + 1
+                if not self.stop:
+                    delay(lambda func=func, delay=delay, cb=cb, idx=idx: map_func(func, delay, cb, idx))
+                return
+            elif cb is not None:
+                cb(idx-1)
+
+        if isinstance(delay, (int, float)):
+            def delay_func(func, delay=delay):
+                time.sleep(delay)
+                func()
+        else:
+            delay_func = delay
+
+        return map_func(func, delay_func, cb)
+
+    def interrupt(self):
+        self.stop = True
 
 class AnimeList(ItemList):
     def __init__(self, sources):
@@ -337,63 +406,87 @@ class NoneDict(DefaultDict):
         if len(args) == 0 and not 'default' in kwargs:
             kwargs['default'] = 'NONE'
 
-        super().__init__(*args, **kwargs)
+        keys = kwargs.pop('keys', None)
+        values = kwargs.pop('values', None)
 
-        if len(args) == 0 and "keys" in kwargs.keys() and "values" in kwargs.keys():
-            keys, values = kwargs.pop("keys"), kwargs.pop("values")
+        super().__init__(*args, **kwargs)
+        
+        if len(args) == 0 and keys and values:
             for k, v in zip(keys, values):
                 self[k] = v
             
 
-class RegroupList(list):
-    """A list of dict, wich regroup values based on a PK, creating a sub-list if values are different"""
+class RegroupList():
+    """
+    A list of dict, wich regroup values based on a PK, 
+    creating a sub-list if values are different.
+    You must access elements as an iterable, or 
+    convert the instance to a classic Python list()
+    """
 
     def __init__(self, pk, merge_keys=[], *args):
         super().__init__()
         self.pk = pk
         self.merge_keys = merge_keys
-        self.keys = set()
+        self.data = {}
         self.extend(args)
 
-    def add_element(self, sub, index=None):
+    def __iter__(self):
+        for k, v in self.data.items():
+            yield v
+
+    def get_id(self, data):
+        pairs = []
+        # Doing this will sort the items 
+        # to make sure they are always in the same order
+        items = list(set(data.items()))
+
+        for k, v in items:
+            # Doing this would return the same for 
+            # when a value is None or 
+            # when it just doesn't exists 
+            if k not in self.merge_keys:
+                pairs.append(v)
+
+        # We iterated on self.merge_keys, so pairs 
+        # should always have the same keys order
+        return hash(tuple(pairs))
+
+    def add_element(self, sub):
         if not isinstance(sub, dict):
             raise TypeError("Elements must be dicts, not " + str(type(sub)))
-        sub_id = sub[self.pk]
+
+        sub_id = self.get_id(sub)
         append = True
-        if sub_id in self.keys:
-            pos = next((
-                i
-                for i, e
-                in enumerate(self)
-                if all(
-                    e[k] == v
-                    for k, v
-                    in sub.items()
-                    if k not in self.merge_keys
-                )),
-                None
-            )
-            if pos is not None:
-                current = self[pos]
-                curset, subset = set(item for item in current.items() if item[0] not in self.merge_keys), set(sub.items())
-                diff = curset ^ subset
-                if all(lambda e: e[0] in self.merge_keys for e in diff):
-                    new_sub = dict(curset & subset)
-                    for k, v in diff:
-                        new_sub[k] = list(set([v] + current[k]))
-                    self[pos] = new_sub
-                    append = False
-        if append:
+
+        if sub_id in self.data:
+            # An id already exist, merging
+            # All non-mergable values *should* match, 
+            # or we would then have a different id
+
+            current = self.data[sub_id]
+
+            # Get all items (key, value) that aren't supposed to merge
+            curset = set(item for item in current.items() if item[0] not in self.merge_keys)
+            subset = set(sub.items())
+
+
+            # Merge differences into a list
+            # The list(set(...)) allow to make sure 
+            # that we don't have duplicate values
+            for k in self.merge_keys:
+                current[k] = list(set([sub[k]] + current[k]))
+            
+            self.data[sub_id] = current
+        
+        else:
+            # Insert as new entry
             for k, v in sub.items():
                 if k in self.merge_keys:
                     sub[k] = [v]
 
-            if index is None:
-                super().append(sub)
-            else:
-                super().insert(index, sub)
-            self.keys.add(sub_id)
-
+            self.data[sub_id] = sub
+            
     def append(self, sub):
         self.add_element(sub)
 
@@ -431,21 +524,29 @@ class SortedList(list):
             return False
         else:
             return self.binary_search(e, 0, length) is not False
-
+    
     def compare(self, a, b):
         """ Return True if a > b, False if a < b, and None if a == b """
+
         for key, reverse in self.keys:
+            # Check each keys in the right order
             try:
                 k_a, k_b = key(a), key(b)
 
                 if k_a > k_b:
                     return not reverse
+
                 elif k_a < k_b:
                     return reverse
+
             except Exception:
-                # Loop
+                # Loop to the next key
                 continue
-            # Loop if a == b
+            else:
+                # Check next key because a == b
+                pass
+        
+        # a == b for all keys
         return None
 
     def binary_insert(self, e, start, stop):
@@ -464,17 +565,36 @@ class SortedList(list):
                 return self.binary_insert(e, start, middle)
 
     def binary_search(self, e, start, stop):
-        middle = (stop + start) // 2
+        # Binary search utility
+
+        middle = (start + stop) // 2
         comp = self.compare(e, self[middle])
-        if comp is None:  # e == self.middle
+
+        if comp is None:
+            # e == self.middle
+            # We found a matching element
             return middle
+
         elif comp:
+            # e > comp
+            # The element we are searching for should
+            # be to the right of comp
+            
             if middle == start:
+                # No more elements
+                # If this is true then we are looping
                 return False
             else:
                 return self.binary_search(e, middle, stop)
+
         else:
+            # e < comp
+            # The element we are searching for should
+            # be to the left of comp
+
             if middle == stop:
+                # No more elements
+                # If this is true then we are looping
                 return False
             else:
                 return self.binary_search(e, start, middle)
@@ -486,18 +606,19 @@ class SortedDict():
     def __init__(self, keys=None, reverse=False):
         super().__init__()
         if keys is None:  # Keys must be either None or a list of tuples containing the key and a "reverse" bool
-            self._keys = ((lambda e: e[0], False),)
+            self._keys = ()
         else:
             self._keys = keys
+        self._keys = (*self._keys, (lambda e: e[0] or 'None', False)) # Sort alphabetically the keys as a last key -> Avoid most unwanted matchs
         self.data_list = SortedList(keys=self._keys)
         self.reverse = reverse
         # self.data_list.compare = self.compare
 
     def __contains__(self, key):
-        return key in self.keys()
+        return self.search_key(key) is not False
 
     def __repr__(self):
-        return "{" + ", ".join(":".join(map(str, item)) for item in self.data_list) + "}"
+        return "SortedDict{" + ", ".join(":".join(map(str, item)) for item in self.data_list) + "}"
 
     def __getitem__(self, key):
         i = self.search_key(key)
@@ -506,19 +627,29 @@ class SortedDict():
         raise KeyError(key)
 
     def __setitem__(self, key, value):
-        i = self.search_key(key)
-        if i is not False:
-            self.data_list[i] = (key, value)
-            return
-        self.data_list.append((key, value))
+        e = (key, value)
+        found, i = self.binary_search(e, 0, len(self.data_list))
+
+        if found:
+            # Overwrite data
+            self.data_list[i] = e
+        else:
+            # Insert data
+            self.data_list.insert(i, e)
+
+    def __len__(self):
+        return len(self.data_list)
 
     def keys(self):
+        self.quick_sort()
         return tuple(e[0] for e in self.data_list)
 
     def values(self):
+        self.quick_sort()
         return tuple(e[1] for e in self.data_list)
 
     def items(self):
+        self.quick_sort()
         return self.data_list
 
     def get(self, key, default=None):
@@ -527,53 +658,124 @@ class SortedDict():
         except KeyError:
             return default
 
-    def search_key(self, key):
-        length = len(self.data_list)
-        if length == 0:
-            return False
-        else:
-            match = self.binary_search(key, 0, length)
-            if key == match:
-                return match
-            else:
-                for i, e in enumerate(self.data_list):
-                    if e[0] == key:
-                        return i
-                return False
+    def search_key(self, search_key):
+        for i, (key, value) in enumerate(self.data_list):
+            if key == search_key:
+                return i
+        return False
 
     def compare(self, a, b):
         """ Return True if a > b, False if a < b, and None if a == b """
-        a = (a, None)
         for key, reverse in self._keys:
             try:
                 k_a, k_b = key(a), key(b)
             except Exception:
-                # Loop
-                pass
+                # Problematic -> Can't just skip
+                # because looping would be as if it was
+                # a match found
+                raise
             else:
                 if k_a > k_b:
                     return not reverse
                 elif k_a < k_b:
                     return reverse
+                else:
+                    match = True
                 # Loop if a == b
+
         return None
 
     def binary_search(self, e, start, stop):
-        middle = (stop + start) // 2
-        comp = self.compare(e, self.data_list[middle])
-        if comp is None:  # e == self.middle
-            return middle
-        elif comp:  # Hacky - see reverse truth table
+        # Binary search utility
+        # Return a tuple (bool, int), 
+        # where bool is whether the element 'e' 
+        # was found, and int the index of the element,
+        # or at least where it should be  
+
+        if start == stop:
+            # There's no data yet
+            return False, 0
+
+        middle = (start + stop) // 2
+        found = self.data_list[middle]
+        comp = self.compare(e, found)
+
+        if comp is None:
+            # e == self.middle
+            # We found a matching element
+            return True, middle
+
+        elif comp:
+            # e > comp
+            # The element we are searching for should
+            # be to the right of comp
+            
             if middle == start:
-                return False
+                # No more elements
+                # If this is true then we are looping
+                return False, middle
             else:
                 return self.binary_search(e, middle, stop)
+
         else:
+            # e < comp
+            # The element we are searching for should
+            # be to the left of comp
+
             if middle == stop:
-                return False
+                # No more elements
+                # If this is true then we are looping
+                return False, middle
             else:
                 return self.binary_search(e, start, middle)
 
+    def quick_sort(self, start=None, stop=None, reversed=False):
+        # Sorting function
+        
+        def iterator(start, stop, reversed):
+            # Iterative implementation of the quick sort algorithm
+            # on self.data_list
+
+            if start == stop:
+                # No data to sort
+                # Shouldn't happen
+                return
+
+            if stop-start == 1:
+                # There's only one item to sort
+                yield self.data_list[start]
+                return
+
+            middle = (start + stop) // 2
+            left, right = iterator(start, middle, reversed), iterator(middle, stop, reversed)
+            # There should be at least one item 
+            # for each iterator
+            item_left, item_right = next(left), next(right) 
+
+            while item_left is not None or item_right is not None:
+                if item_left is None:
+                    yield item_right
+                    item_right = next(right, None)
+
+                elif item_right is None:
+                    yield item_left
+                    item_left = next(left, None)
+
+                else:
+                    comp = self.compare(item_left, item_right)
+                    if comp != reversed:
+                        yield item_right
+                        item_right = next(right, None)
+
+                    else:
+                        yield item_left
+                        item_left = next(left, None)
+
+        if start is None and stop is None:
+            self.data_list = list(iterator(0, len(self.data_list), reversed))
+            return self.data_list
+        else:
+            return iterator(start, stop, reversed)
 
 class ReturnThread(threading.Thread):
     def __init__(self, target=None, args=(), kwargs={}, daemon=True):

@@ -5,7 +5,7 @@ import threading
 
 from logger import log
 
-IGNORE = ['template.py', '__init__.py']
+IGNORE = ['template.py', '__init__.py', 'parserUtils.py']
 PARSERS = []
 
 
@@ -31,6 +31,9 @@ def handle_search(titles, limit, que, parser):
         title = re.sub(r"[\|]", "", title)
         try:
             for e in parser.search(title, limit):
+                if e is False: # Fatal error - Stop search
+                    return
+
                 for key in ('seeds', 'leechs'):
                     if not isinstance(e[key], int):
                         e[key] = int(e[key])
@@ -52,9 +55,11 @@ def search(titles, limit=50):
         t.start()
 
     while any(map(lambda t: t.is_alive(), threads)) or not que.empty():
-        if not que.empty():
-            data = que.get()
+        try:
+            data = que.get(block=True, timeout=1)
             yield data
+        except queue.Empty:
+            pass
 
 # Add serach engines:
-# https://www.shanaproject.com/
+# https://www.shanaproject.com/ -> Require login and following stuff: wayyyy too complicated for now

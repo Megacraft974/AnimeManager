@@ -144,7 +144,7 @@ class Constants:
                         try:
                             os.mkdir(value)
                         except FileNotFoundError:
-                            log('CONFIG', 'Settings file corrupted: path does not exists!')
+                            self.log('CONFIG', 'Settings file corrupted: path does not exists!')
                 setattr(self, var, value)
                 self.log('CONFIG', " ", var.ljust(30), '-', value)
         if update:

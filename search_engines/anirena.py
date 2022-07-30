@@ -29,8 +29,10 @@ class Parser(ParserUtils):
                 return
         except exceptions.ConnectionError:
             self.log("Anirena - No internet connection!")
+            yield False
         except exceptions.ReadTimeout:
             self.log("Anirena - Timed out!")
+            yield False
         else:
             tree = etree.parse(io.BytesIO(r.content))
             pattern = re.compile(

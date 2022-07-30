@@ -16,8 +16,6 @@ class characterListWindow:
         # Functions
         if True:
             def characterCell(character, index, queue):
-                database = self.getDatabase()
-
                 size = (225, 310)
                 cell = Frame(self.characterListTable, bg=self.colors['Gray3'])
                 cell.grid_rowconfigure(0, weight=1)
@@ -66,17 +64,21 @@ class characterListWindow:
                 url = character.picture
                 queue.put((filename, url, can))
 
+                return cell
+
             def getCharacters(id):
                 database = self.getDatabase()
                 if id == "LIKED":
                     data = database.sql("""
-                        SELECT * FROM characters
+                        SELECT * FROM characters AS c 
+                        LEFT JOIN characterRelations AS r 
+                        ON c.id=r.id 
                         WHERE like = 1
                         GROUP BY id
                         ORDER BY anime_id;""", to_dict=True)
                 else:
                     data = database.sql(
-                        "SELECT * FROM characters WHERE anime_id=?;", (id,), to_dict=True)
+                        "SELECT * FROM characters AS c LEFT JOIN characterRelations AS r ON c.id=r.id WHERE r.anime_id=?;", (id,), to_dict=True)
                 # keys = list(self.database.keys(table="characters"))
                 characters = CharacterList(database.get_all_metadata(Character(c)) for c in data)
                 return characters
@@ -86,8 +88,108 @@ class characterListWindow:
                     self.characterList.after(1, self.characterListWindow, id, False)
 
             def update(id):
-                self.getCharactersData(id)
-                parent.after(1, self.characterListWindow, id)
+                parent.after(10, self.characterListWindow, id)
+
+            def loop_handler(id, t):
+                self.log('CHARACTERS', 'Updating characters table')
+                draw_table()
+
+                if t.is_alive():
+                    self.characterList.after(500, loop_handler, id, t)
+
+            def draw_table():
+                start = time.time()
+
+                characters = getCharacters(id)
+
+                que = queue.Queue()
+                self.getElemImages(que)
+
+                for x in range(self.animePerRow):
+                    self.characterListTable.grid_columnconfigure(x, weight=1)
+
+                # index = None
+                # for index, character in enumerate(characters):
+                def func(index, character):
+                    if self.closing or self.characterList is None or not self.characterList.winfo_exists():
+                        return
+
+                    cellData = self.characterList.characterCells.get(index, None)
+                    if cellData:
+                        if cellData[0] == character.id:
+                            return # No need to create a new cell, skip
+                        else:
+                            cellData[1].destroy()
+
+                    try:
+                        cell = characterCell(character, index, que)
+                    except Exception as e:
+                        self.log("CHARACTER", "[ERROR] - Can't create cell for character:", character.name, "-", character.id, "-", e)
+                        return
+
+                    self.characterList.characterCells[index] = (character.id, cell)
+
+                    if index % self.animePerRow == 0:
+                        self.characterListTable.update()
+
+                def cb(index):
+                    que.put("STOP")
+
+                    if self.closing or self.characterListTable.winfo_exists():
+                        if index is None:
+                            Label(
+                                self.characterListTable,
+                                text="No characters",
+                                font=(
+                                    "Source Code Pro Medium",
+                                    13),
+                                bg=self.colors['Gray3'],
+                                fg=self.colors['Red'],
+                            ).grid(
+                                row=0,
+                                column=0,
+                                sticky="nsew",
+                                pady=2,
+                                padx=2)
+                
+                
+                    self.characterListTable.update_scrollzone()
+                    self.log('CHARACTER', f'Updated characters grid in {round(time.time()-start, 2)}s')
+                
+                characters.map(func, lambda func: self.characterList.after(500, func), cb)
+
+            def saveCharacters(id):
+                # TODO - Move this directly in API
+                database = self.getDatabase()
+                characters = self.api.animeCharacters(id)
+                # for character in characters:
+                def func(index, character):
+                    with database.get_lock():
+                        # Check if character exists
+                        sql = "SELECT EXISTS(SELECT 1 FROM characters WHERE id = ?);"
+                        exists = bool(
+                            database.sql(sql, (
+                                character['id'],)
+                            )[0][0]
+                        )
+                        if not exists:
+                            # Save new character
+                            self.log("CHARACTER", "New character, anime id", id,
+                                    "id", character['id'], "name", character['name'])
+                            sql = (
+                                "INSERT INTO characters(" + 
+                                    ",".join(character.keys()) + 
+                                ") VALUES (" + 
+                                    ",".join("?" * len(character.keys())) + 
+                                ");"
+                            )
+                            database.sql(sql, character.values(), get_output=False)
+                            database.save()
+                        else:
+                            # TODO - Update character data
+                            pass
+                
+                characters.map(func, 0.5)
 
         # Main window - Fancy corners - Events
         if True:
@@ -109,6 +211,8 @@ class characterListWindow:
                 self.characterList.clear()
             # self.characterList.titleLbl.configure(text="Characters", bg= self.colors['Gray3'], fg= self.colors['Gray2'], font=("Source Code Pro Medium",18))
 
+            self.characterList.characterCells = {}
+
             self.characterListTable = utils.ScrollableFrame(
                 self.characterList, bg=self.colors['Gray3'])
             self.characterListTable.pack(expand=True, fill="both")
@@ -119,76 +223,18 @@ class characterListWindow:
 
         # Data check
         if True:
-            sql = "SELECT EXISTS(SELECT 1 FROM characters WHERE anime_id = ?);"
-            empty = not bool(self.database.sql(sql, (id,))[0][0])
-            if id != "LIKED" and empty:
-                loadLbl = Label(
-                    self.characterListTable,
-                    text="Loading data...",
-                    bg=self.colors['Gray3'],
-                    fg=self.colors['Gray2'],
-                    font=(
-                        "Source Code Pro Medium",
-                        18))
-                loadLbl.pack(fill="both", expand=True, pady=10, side=BOTTOM)
-                self.characterListTable.update()
-                characters = self.getCharactersData(id)
-                while not characters.is_ready() and not characters.empty():
-                    if self.root is not None:
-                        self.root.update()
-                        time.sleep(0.01)
-                    else:
-                        self.characterList.exit()
-                        return
-                loadLbl.destroy()
-            else:
-                characters = getCharacters(id)
+            loadLbl = Label(
+                self.characterListTable,
+                text="Loading data...",
+                bg=self.colors['Gray3'],
+                fg=self.colors['Gray2'],
+                font=(
+                    "Source Code Pro Medium",
+                    18))
+            loadLbl.grid(row=0, column=0, columnspan=self.animePerRow)
 
-        # Characters list
-        if True:
-
-            for x in range(self.animePerRow):
-                self.characterListTable.grid_columnconfigure(x, weight=1)
-
-            keys = ('id', 'anime_id', 'name', 'role', 'picture', 'desc')
-
-            # que = queue.Queue()
-            # thread = threading.Thread(target=getImages, args=(que,), daemon=True)
-            # thread.start()
-            que = queue.Queue()
-            self.getElemImages(que)
-
-            index = None
-            for index, character in enumerate(characters):
-                if self.closing or self.characterList is None or not self.characterList.winfo_exists():
-                    return
-
-                try:
-                    characterCell(character, index, que)
-                except Exception as e:
-                    self.log("MAIN_STATE", "[ERROR] - Can't create cell for character:", character.name, "-", character.id, "-", e)
-
-                if index % self.animePerRow == 0:
-                    self.characterListTable.grid_rowconfigure(index, weight=1)
-                    self.characterListTable.update()
-
-            que.put("STOP")
-
-            if self.closing or self.characterListTable.winfo_exists():
-                if index is None:
-                    Label(
-                        self.characterListTable,
-                        text="No characters",
-                        font=(
-                            "Source Code Pro Medium",
-                            13),
-                        bg=self.colors['Gray3'],
-                        fg=self.colors['Red'],
-                    ).grid(
-                        row=0,
-                        column=0,
-                        sticky="nsew",
-                        pady=2,
-                        padx=2)
-
-            self.characterListTable.update()
+        self.characterListTable.update()
+        t = threading.Thread(
+            target=saveCharacters, args=(id,), daemon=True)
+        t.start()
+        loop_handler(id, t)

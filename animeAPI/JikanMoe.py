@@ -43,9 +43,9 @@ class JikanMoeWrapper(APIUtils):
 		if mal_id is None:
 			return []
 		self.delay()
-		a = self.get('/anime/{id}/characters', id=mal_id)['data']
-		for c in a:
-			yield self._convertCharacter(c, id)
+		rep = self.get('/anime/{id}/characters', id=mal_id)['data']
+		for data in rep:
+			yield self._convertCharacter(data['character'], data['role'], id)
 
 	def animePictures(self, id):
 		self.delay()
@@ -73,7 +73,7 @@ class JikanMoeWrapper(APIUtils):
 		self.delay()
 		rep = self.get(f'/anime?q={search}&order_by=end_date&sort=desc')
 		count = 0
-		for a in rep['data']:
+		for a in rep.get('data', []):
 			data = self._convertAnime(a)
 			if len(data) != 0:
 				yield data
@@ -110,7 +110,7 @@ class JikanMoeWrapper(APIUtils):
 		mal_id = self.getId(id, table="characters")
 		self.delay()
 		c = self.get('/characters/{id}', id=mal_id)
-		return self._convertCharacter(c)
+		return self._convertCharacter(c['data'])
 
 	def _convertAnime(self, a):
 		id = self.database.getId("mal_id", int(a["mal_id"]))
@@ -154,7 +154,7 @@ class JikanMoeWrapper(APIUtils):
 				 'large_image_url': 'large'}
 		pictures = []
 		# for type, imgs in a['images'].items():
-		for size, url in a['images']['jpg'].items(): # Ignoring webp images
+		for size, url in a['images']['jpg'].items():  # Ignoring webp images
 			size_lbl = sizes[size]
 			img = {
 				'url': url,
@@ -178,11 +178,18 @@ class JikanMoeWrapper(APIUtils):
 		if 'broadcast' in a.keys() and a['broadcast']['day'] is not None:
 			weekdays = ('Mondays', 'Tuesdays', 'Wednesdays',
 						'Thursdays', 'Fridays', 'Saturdays', 'Sundays')
+
 			if a['broadcast']['day'] not in weekdays:
-				raise ValueError(a['broadcast']['day'] +
-								 " is not in weekdays!")
-			out['broadcast'] = "{}-{}-{}".format(weekdays.index(
-				a['broadcast']['day']), *a['broadcast']['time'].split(":"))
+				raise ValueError(
+					f"{a['broadcast']['day']} is not in weekdays!"
+				)
+
+			w = weekdays.index(a['broadcast']['day']) 
+			h, m = a['broadcast']['time'].split(":")[:2]
+			
+			self.save_broadcast(id, w, h, m)
+
+			out['broadcast'] = "{}-{}-{}".format(w, h, m) # TODO - Should be removed
 
 		# out['broadcast'] = a['broadcast']['day'] + '-' +  if 'broadcast' in a.keys() else None
 		out['trailer'] = a['trailer_url'] if 'trailer_url' in a.keys() else None
@@ -197,10 +204,10 @@ class JikanMoeWrapper(APIUtils):
 		if 'genres' in a.keys():
 			genres = self.getGenres(
 				[
-					dict([
-						('id', g['mal_id']),
-						('name', g['name'])
-					])
+					{
+						'id': g['mal_id'],
+						'name': g['name']
+					}
 					for g in a['genres']
 				]
 			)
@@ -235,25 +242,30 @@ class JikanMoeWrapper(APIUtils):
 							'api_key': ext_data['api_key'],
 							'api_id': match.group(1)
 						})
-			
-			self.save_mapped('mal_id', int(a["mal_id"]), mapped)
+
+			self.save_mapped(int(a["mal_id"]), mapped)
 
 		return out
 
-	def _convertCharacter(self, c, anime_id=None):
+	def _convertCharacter(self, c, role=None, anime_id=None):
 		c_id = self.database.getId(
 			"mal_id", int(c["mal_id"]), table="characters")
-		keys = {'name': 'name', 'role': 'role', 'picture': 'image_url',
-				'desc': 'about', 'animeography': 'animeography'}
+
 		out = Character()
 		out.id = c_id
+
+		out.name = c['name']
+		# out.role = data['role'].lower()
+		out.picture = c['images']['jpg']['image_url'] # TODO - Use multiple images?
+		
+		out.desc = c.get('about')
+
+		# TODO - c.get('nicknames') / c.get('kanji')?
+
 		if anime_id is not None:
-			out.anime_id = anime_id
-		for db_key, data_key in keys.items():
-			if data_key in c.keys() and c[data_key] is not None:
-				out[db_key] = c[data_key]
-		if 'role' in out.keys():
-			out.role = out.role.lower()
+			animes_data = {anime_id: role.lower()}
+			self.save_animeography(c_id, animes_data)
+		
 		return out
 
 	def get(self, endpoint, **kwargs):

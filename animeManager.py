@@ -3,28 +3,27 @@ import os
 import queue
 import re
 import shutil
-import subprocess
 import sqlite3
+import subprocess
 import threading
 import time
 import traceback
 import urllib.parse
 import webbrowser
 from collections import defaultdict
-from operator import itemgetter
 from tkinter import *
 
 try:
+	import sys
+
 	import bencoding
+	import qbittorrentapi.exceptions
+	import requests
 	from bs4 import BeautifulSoup
 	from lxml import etree
 	from PIL import Image, ImageTk
-	import qbittorrentapi.exceptions
-	import requests
-	from thefuzz import fuzz
 	from pypresence import Presence
-
-	import sys
+	from thefuzz import fuzz
 	if getattr(sys, 'frozen', None):
 		basedir = sys._MEIPASS
 		os.environ['REQUESTS_CA_BUNDLE'] = os.path.join(basedir, 'certifi', 'cacert.pem')  # Required for requests and certifi
@@ -61,19 +60,19 @@ except ModuleNotFoundError as e:
 globals()['auto_launch_initialized'] = True
 
 try:
-	import utils
-	import search_engines
 	import animeAPI
+	import search_engines
+	import utils
 	import windows
-
+	from classes import (Anime, AnimeList, Character, SortedDict, SortedList,
+	                     TorrentList)
 	from constants import Constants
-	from logger import Logger
-	from update_utils import UpdateUtils
-	from getters import Getters
-	from media_players import MediaPlayers
-	from discord_presence import DiscordPresence
 	from dbManager import db
-	from classes import Anime, Character, AnimeList, TorrentList, SortedList, SortedDict
+	from discord_presence import DiscordPresence
+	from getters import Getters
+	from logger import Logger
+	from media_players import MediaPlayers
+	from update_utils import UpdateUtils
 except ModuleNotFoundError as e:
 	print(e)
 	print(f"{e} - Please verify your app installation!")
@@ -84,17 +83,17 @@ except ModuleNotFoundError as e:
 # TODO - Relations tree
 # TODO - simkl.com API
 # TODO - Logger panel
-# TODO - Hardcoded 'dual audio' score booster in searchTorrents()
-# TODO - Fix multi word search
-# TODO - Fix known torrent color match in getTorrentColor() -> compare file length
-# TODO - Interrupt torrent search
+# TODO - characterWindow - fix 'Go to anime' button
+# TODO - Hardcoded 'dual audio' in torrents search keys
+# TODO - Fix multi word search -> just search
+# TODO - Fix known torrent color match in getTorrentColor() -> compare file length?
 # TODO - Tkinter event queue
 # TODO - Recently finished anime should appear on top of the watching filter 
 # TODO - Fix characters API
 # TODO - Use the db.get_lock() with API wrappers
 # TODO - Factory functions for characters and anime mappings
 # TODO - RPC animes storage size is incorrect
-# TODO - What to do with the MAL API token registration?
+# TODO - What to do with the MAL API token registration? - Idk?
 # TODO - Load new images on downloading error
 # TODO - Implement the TableFrame class
 # TODO - Add filter for torrent list (seeds / name)
@@ -102,18 +101,18 @@ except ModuleNotFoundError as e:
 # TODO - Update the loading... text on media player
 # TODO - Exception ignored in Var.__del__ on media player
 # TODO - Put single files in directories
-# TODO - Add search by studios
+# TODO - Add search by studios ?
 # TODO - Add pictures window
-# TODO - Allow window resizing
-# TODO - Auto associate latest torrents?
-# TODO - Add python-based torrent client
+# TODO - Allow window resizing ?
+# TODO - Auto associate latest torrents ?
+# TODO - Add python-based torrent client -> uh oh complicated
 # TODO - Add RSS option
 # TODO - Automatic torrent downloading from RSS?
-# TODO - Phone version
+# TODO - Phone version -> Yup maybe not (Apple dev licence is too expensive)
 # TODO - Web version
 
 
-class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPresence, *windows.windows):
+class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPresence, *windows.windows()):
 	def __init__(self, remote=False):
 		self.start = time.time()
 		Logger.__init__(self)
@@ -126,6 +125,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		self.searchQueue = []
 		self.relationIds = []
 		self.characterIds = []
+		self.animeHashes = {}
 		self.timer_id = None
 		self.stopSearch = False
 		self.closing = False
@@ -179,7 +179,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 			self.api = animeAPI.AnimeAPI('all', self.dbPath)
 			self.player = self.media_players[self.player_name]
-			self.last_broadcasts = self.getBroadcast()
+			# self.last_broadcasts = self.getBroadcast()
 			self.getQB(use_thread=True)
 
 			self.RPC_menu()
@@ -199,8 +199,15 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				self.database.close()
 
 	# ___Search___
-	def search(self, *args, force_search=False):
-		terms = None
+	def search(self, event=None, force_search=False):
+		if event:
+			# if not event.char:
+			# 	# Probably a modifier key - ignore
+			# 	return
+
+			if event.state & 0x4 != 0:
+				# Control modifier
+				force_search=True
 		terms = self.searchTerms.get()
 		if len(terms) > 2 or force_search:
 			if not force_search:
@@ -277,18 +284,25 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				ORDER BY anime.date_from DESC;
 			"""
 
+			start = time.time()
+
 			keys = list(self.database.keys(table="anime"))
 			date_key_idx = keys.index('date_from')
 			match = SortedList(keys=[(lambda e: e[1], True), (lambda e: e[0][date_key_idx] or '0', True)])
+
 			threshold = 0.5 # Min fraction of the terms must match
+			max_matchs = 50 # Maximum amount of animes to return
 
 			terms = set(term for term in terms.lower().split(' '))
 			terms_count = len(terms)
 
 			marked = False
+			count = 0
 
 			threshold_count = int(threshold * terms_count)
-			for data in self.database.sql(sql):
+			entries = self.database.sql(sql)
+			print(f'Anime search: {time.time()-start}s')
+			for data in entries:
 				title = data[0].lower()
 
 				matchs = 0
@@ -300,7 +314,13 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 					if not marked:
 						yield True
 						marked = True
+
 					yield Anime(keys=keys, values=data[1:])
+
+					count += 1
+					if count >= max_matchs:
+						return
+
 					# match.append((data[1:], matchs))
 
 			if not marked and len(match) == 0:
@@ -351,89 +371,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 					)
 				)
 			)
-
-	def searchTorrents(self, id, titles=None):
-		def sortkey(k):
-			score = 0
-			# Bring best publishers to the top of the list
-			if k[0] in self.topPublishers:
-				score = len(self.topPublishers) - \
-					self.topPublishers.index(k[0])
-
-			# Try to guess if torrent has dual audio
-			marked = ('dual', 'dub')
-			for mark in marked:
-				for title in k[1]:
-					if mark in title['filename'].lower():
-						score += len(self.topPublishers) + 1
-						
-						return score
-
-			# If we have no marking
-			return score
-
-		def filename_hash(f):
-			# Format a filename to increase matchs
-			return f.lower().replace(' ', '')
-
-		if titles is None:
-			database = self.getDatabase()
-			data = database(id=id, table="anime")
-			titles = data.title_synonyms
-
-		timer = utils.Timer("Torrent search") # Init timer
-		torrents = TorrentList(search_engines.search(titles)) # Start search
-
-		publisher_pattern = re.compile(r'^\[(.*?)\]+') #'[publisher name]torrent name.torrent'
-		
-		keys = (
-			(lambda k: max((t['seeds'] for t in k[1])), True), # Sort by seeds
-			(sortkey, True) # Sort by score -> if torrents have same seeds
-		)
-		publishers = SortedDict(keys=keys)
-
-		while not torrents.empty():
-			#timer.start()
-			torrent = torrents.get()
-			if torrent is None:
-				continue
-
-			filename = torrent['filename']
-
-			# Look for publisher name
-			result = publisher_pattern.findall(filename)
-			if len(result) >= 1:
-				publisher = result[0]
-			else:
-				publisher = None
-
-			if publisher in publishers:
-				# Do not add file if it has already been found with more seeds
-				file_hash = filename_hash(filename)
-
-				add_file = True
-				for i, tmp_torrent in enumerate(publishers[publisher]):
-					if file_hash == filename_hash(tmp_torrent['filename']):
-						add_file = False
-						
-						# Replace torrent if it has more seeds
-						if torrent['seeds'] > tmp_torrent['seeds']:
-							publishers[publisher][i] = torrent
-						break
-
-				if add_file:
-					publishers[publisher].append(torrent)
-			else:
-				# Insert new publisher
-				publishers[publisher] = SortedList(keys=((itemgetter('seeds'), True),))
-				publishers[publisher].append(torrent)
-
-			# Yield current torrents if none are available
-			if not torrents.is_ready():
-				yield publishers.items()
-			# timer.stop()
-
-		timer.stats()
 
 	# ___Clean up___
 	def clearLogs(self):
@@ -545,7 +482,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			self.checkSettings()
 
 		self.player = self.media_players[self.player_name]
-		self.last_broadcasts = self.getBroadcast()
+		# self.last_broadcasts = self.getBroadcast()
 
 		# self.RPC_stop()
 		DiscordPresence.__init__(self)
@@ -728,63 +665,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		# threading.Thread(target=handler, args=(year, season), daemon=True).start()
 
 		self.animeList.set(self.api.season(year, season))
-
-	def getCharactersData(self, id):
-		database = self.getDatabase()
-
-		self.log('NETWORK_DATA', "Requesting characters data for id", id)
-
-		data = self.api.animeCharacters(id)
-
-		def cb(character):
-			sql = "SELECT EXISTS(SELECT 1 FROM characters WHERE id = ? AND anime_id = ?);"
-			exists = bool(database.sql(
-				sql, (character['id'], character['anime_id']))[0][0])
-			if not exists:
-				self.log("CHARACTER", "New character, anime id", id,
-						 "id", character['id'], "name", character['name'])
-				sql = "INSERT INTO characters(" + ",".join(["{}"] * len(character.keys())) + ") VALUES (" + ",".join("?" * len(character.keys())) + ");"
-				sql = sql.format(*character.keys())
-				database.sql(sql, character.values(), get_output=False)
-			database.save()
-
-		# data.add_callback(cb)
-
-		return data
-
-	def getCharacterData(self, id):
-		database = self.getDatabase()
-
-		self.log("NETWORK", "Requesting data for character id", id)
-
-		character = self.api.character(id)
-
-		sql = "SELECT role FROM characters WHERE id = ? AND role IS NOT NULL;"
-		roleData = database.sql(sql, (character.id,))
-		if len(roleData) >= 1:
-			character['role'] = roleData[0][0]
-
-		if 'animeography' in character.keys():
-			animes = character.pop('animeography')
-			self.log("CHARACTER", "Adding character with id", id,
-					 "name", character['name'], "to", len(animes), "animes.")
-			with database.get_lock():
-				for anime in animes:
-					character['anime_id'] = database.getId('mal_id', anime['mal_id'])
-					sql = "SELECT EXISTS(SELECT 1 FROM characters WHERE id = ? AND anime_id = ?);"
-					values = list(character.values())
-
-					if bool(database.sql(sql, (character['id'], character['anime_id']))[0][0]):
-						sql = "UPDATE characters SET " + "{} = ?," * (len(character) - 1) + "{} = ? WHERE id = ? AND anime_id = ?;"
-						sql = sql.format(*character.keys())
-						values += [character['id'], character['anime_id']]
-					else:
-						sql = "INSERT INTO characters(" + "{}," * (len(character) - 1) + "{}) VALUES(" + "?," * (len(character) - 1) + "?);"
-						sql = sql.format(*character.keys())
-					database.sql(sql, values, save=True, get_output=False)
-				database.save()
-
-		return character
 
 if __name__ == '__main__':
 	multiprocessing.freeze_support()

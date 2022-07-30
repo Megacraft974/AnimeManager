@@ -12,3 +12,4 @@ lib/upx-3.96-win64/
 *.sublime-workspace
 *.lnk
 *.code-workspace
+test.py

@@ -169,7 +169,7 @@ class initWindow:
                 # self.searchTerms.trace_add("write", self.search)
                 searchBar.bind("<KeyRelease>", self.search)
                 searchBar.bind("<Return>", self.search)
-                searchBar.bind("<Control-Return>", lambda e: self.search(force_search=True))
+                # searchBar.bind("<Control-Return>", lambda e: self.search(force_search=True))
 
                 self.giflist = [
                     PhotoImage(

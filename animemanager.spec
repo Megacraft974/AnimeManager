@@ -1,7 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 import os
+import sys
+
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
+
+sys.setrecursionlimit(sys.getrecursionlimit() * 5)
 
 block_cipher = None
 
@@ -38,10 +42,11 @@ for name in bin_names:
 
 print("\n-- bins:", '\nb-'.join(map(str, binaries)))
 
-modules = ['lxml._elementpath', 'thefuzz', 'bs4', 'mobile_server', 'tkinter.ttk', 'tkinter.filedialog', 'pytube', 'jikanpy', 'jsonapi_client', 'vlc', 'mpv', 'ffpyplayer.player', 'pypresence']
+modules = ['lxml._elementpath', 'thefuzz', 'bs4', 'mobile_server', 'tkinter.ttk', 'tkinter.filedialog',
+           'pytube', 'jikanpy', 'jsonapi_client', 'vlc', 'mpv', 'ffpyplayer.player', 'pypresence']
 
 # excluded = ['_gtkagg', '_tkagg', 'bsddb', 'curses', 'pywin.debugger', 'pywin.debugger.dbgcon', 'pywin.dialogs', 'tcl', 'Tkconstants', 'Tkinter']
-# excluded = ['django', 'pyqt5']
+# excluded = ['django', 'pyqt5', 'scipy']
 
 a = Analysis(['animemanager.py'],
              pathex=['E:\\Anime Manager'],

@@ -7,6 +7,7 @@ import threading
 from operator import itemgetter
 from tkinter.filedialog import askopenfilenames
 from tkinter import *
+import search_engines
 
 import utils
 
@@ -51,7 +52,7 @@ class torrentFilesWindow:
                         # Magnet url
                         self.downloadFile(id, url=text)
                     else:
-                        fetcher = self.searchTorrents(id, [text])
+                        fetcher = search_engines.search([text])
                         self.ddlWindow(id, fetcher, parent=self.torrentFilesChooser)
 
                 self.textPopupWindow(

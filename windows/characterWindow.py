@@ -1,14 +1,17 @@
+import io
 import threading
 import re
 import os
-from PIL import Image, ImageTk
 from tkinter import *
+from PIL import Image, ImageTk
+
+import requests
 
 import utils
 
 
 class characterWindow:
-    def characterWindow(self, character, update=True):
+    def characterWindow(self, character, can_update=True):
         # Functions
         if True:
             def like(id, b):
@@ -50,10 +53,11 @@ class characterWindow:
                 except Exception:
                     self.optionsWindow(id)
 
-            def update(c):
-                c = self.getCharacterData(c.id)
+            def update(id):
+                c = self.api.character(id)
+
                 try:
-                    self.characterInfo.after(1, self.characterWindow, c, False)
+                    self.characterInfo.after(10, self.characterWindow, c, False)
                 except Exception:
                     pass
 
@@ -75,18 +79,9 @@ class characterWindow:
 
         # Data check
         if True:
-            if 'desc' not in character.keys() or character['desc'] is None:
-                if update:
-                    thread = threading.Thread(target=update, args=(character,), daemon=True)
+            if can_update and not character.get('desc'):
+                    thread = threading.Thread(target=update, args=(character.id,), daemon=True)
                     thread.start()
-
-                # TODO - Import only necessary data
-                data = self.database.sql(
-                    "SELECT * FROM characters WHERE anime_id=? AND id=?;",
-                    (character['anime_id'],
-                     character['id']))[0]
-                keys = ('id', 'anime_id', 'name', 'role', 'picture', 'desc')
-                character['desc'] = data[5]
 
         # Picture
         if True:
@@ -121,15 +116,15 @@ class characterWindow:
 
         # Title panel
         if True:
-            self.log("MAIN_STATE", character)
             self.characterInfo.titleFrame.destroy()
             titleFrame = Frame(self.characterInfo, bg=self.colors['Gray2'])
             titleFrame.grid_columnconfigure(0, weight=1)
             self.characterInfo.titleFrame = titleFrame
 
             titleLbl = Label(titleFrame, text=character['name'], wraplength=500, bg=self.colors['Gray2'], font=(
-                "Source Code Pro Medium", 18), fg=self.colors['Blue' if character['role'] == "Main" else 'White'])
+                "Source Code Pro Medium", 18), fg=self.colors['Blue' if character.get('role') == "Main" else 'White'])
             titleLbl.grid(row=0, column=0, sticky="nsew", columnspan=2)
+
             self.characterInfo.titleLbl = titleLbl
             self.characterInfo.handles = [titleLbl]
             self.characterInfo.update()
@@ -141,6 +136,7 @@ class characterWindow:
             iconSize = (30, 30)
             image = self.getImage(im_path, iconSize)
 
+            # TODO - Handle multiple animes
             if 'anime_id' in character.keys():
                 Button(
                     titleFrame,
@@ -185,6 +181,7 @@ class characterWindow:
             infoFrame = Frame(self.characterInfo, bg=self.colors['Gray2'])
 
             if 'desc' in character.keys() and character['desc'] is not None:
+                # Cut desc every 40 chars
                 desc = "\n".join(re.findall(
                     r'([^\n]{1,40}\S+)|[\n]+', character['desc'], re.M))
                 lines = len(desc.split("\n"))
@@ -232,7 +229,7 @@ class characterWindow:
                         row=0,
                         column=0)
             else:
-                if update:
+                if can_update:
                     Label(
                         infoFrame,
                         text="Loading...",

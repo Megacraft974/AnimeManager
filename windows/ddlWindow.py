@@ -1,9 +1,13 @@
+from operator import itemgetter
 import queue
+import re
 import threading
 import time
 
 from tkinter import *
 from turtle import pu
+from classes import SortedDict, SortedList, TorrentList
+import search_engines
 
 import utils
 
@@ -12,75 +16,174 @@ class ddlWindow:
     def ddlWindow(self, id, fetcher=None, parent=None):
         # Functions
         if True:
-            def fetcher_handler(fetcher, que, id):
-                # Simply transfer the torrents from the iterator 
-                # to the queue without blocking
+            def filename_slug(f):
+                # Format a filename to increase matchs
+                return f.lower().replace(' ', '')
 
-                # Starts fetcher
+            def get_publisher(filename):
+                # Try to get a publisher name from a filename
+
+                # '[publisher name]torrent name.torrent'
+                publisher_pattern = r'^\[(.*?)\]+'
+
+                result = re.findall(publisher_pattern, filename)
+                if len(result) >= 1:
+                    return result[0]
+                else:
+                    return None
+
+            def search_handler(table, fetcher):
+                # Handle torrent search and sorting
+                timer = utils.Timer("Torrent search", logger=lambda *args, **kwargs: self.log('FILE_SEARCH', *args, **kwargs)) # Init timer
+
+                # Start torrent search
                 if fetcher is None:
                     self.log("FILE_SEARCH", "Looking for torrents with id:", id)
-                    fetcher = self.searchTorrents(id)
 
-                for torrent in fetcher:
-                    que.put(torrent)
-                que.put('STOP')
+                    # Get titles from database
+                    database = self.getDatabase()
+                    data = database(id=id, table="anime")
+                    titles = data.title_synonyms
+                        
+                    fetcher = search_engines.search(titles) 
 
-            def handler_loop(table, t, que, is_empty):
-                torrents = None
-                while t.is_alive() or not que.empty():
-                    if que.empty(): 
-                        # Don't block the mainloop and come back later
-                        self.publisherChooser.after(
-                            2000, handler_loop, table, t, que, is_empty)
-                        # Don't return yet because we might need to draw the new torrents
-                        break
+                # Start search
+                torrents = TorrentList(fetcher)
 
-                    torrents = que.get()
-                    if torrents == "STOP":
-                        self.log('FILE_SEARCH', 'All torrents found')
-                        if is_empty:
-                            # Show the 'no torrents found' message
-                            self.publisherChooser.after(1, draw_table, table, [])
-                        return
-               
-                    # Don't show the 'no torrents found' message
-                    if is_empty:
-                        is_empty = False
-
-                if torrents is not None:
-                    self.log('FILE_SEARCH', 'Overriding torrents')
-                    self.publisherChooser.after(1, draw_table, table, torrents)
-
-            def draw_table(table, torrents):
-                torrent = None
-                start = time.time()
+                # Init publishers dict
                 
-                # Delete previous torrents
-                # try:
-                #     for w in table.winfo_children():
-                #         w.destroy()
-                # except Exception:
-                #     pass
+                def key_topPublishers(k):
+                    # Bring best publishers to the top of the list
+                    if k[0] in self.topPublishers:
+                        return len(self.topPublishers) - self.topPublishers.index(k[0])
+                    else:
+                        return 0
 
-                for i, torrent in enumerate(torrents):
+                def key_dualAudio(k):
+                    # Try to guess if torrent has dual audio
+                    marked = ('dual', 'dub') # TODO - Shouldn't be hardcoded
+                    for mark in marked:
+                        for title in k[1]:
+                            if mark in title['filename'].lower():
+                                return 1
+
+                    return 0
+                
+                def key_seeds(k):
+                    # Sort publishers by the highest amount of 
+                    # seeds in their torrents
+                    
+                    key, values = k
+                    if not values: # None or empty
+                        return -1 # Should be inferior to 0
+                    
+                    else:
+                        max_seeds = max(map(itemgetter('seeds'), values))
+                        return max_seeds
+                
+                keys = (
+                    (key_topPublishers, True), # Prioritize 'famous' / 'well-known' publishers
+                    (key_dualAudio, True), # Bring torrents with dual audio to the top
+                    (key_seeds, True), # Sort by seeds
+                )
+                publishers = SortedDict(keys=keys)
+
+                def cache_handler(torrent):
+                    # Compute some cache data for 
+                    # each torrent in a thread, it's better to 
+                    # avoid doing it in main thread
+
+                    filename = torrent['filename']
+                    self.getTorrentColor(filename)
+
+                def func(index, torrent):
+                    # Add a torrent to the publishers dict
+                    # Returns True if something changed
+
+                    if torrent is None:
+                        return
+                    
+                    # Avoid raising an error when the window is closing
+                    if self.closing or not self.publisherChooser.winfo_exists():
+                        torrents.interrupt()
+                        print('Interrupted')
+                        return
+
+                    filename = torrent['filename']
+                    # Look for publisher name
+                    publisher = get_publisher(filename)
+
+                    if publisher in publishers:
+                        # Do not add file if it has already been found with more seeds
+                        file_hash = filename_slug(filename)
+
+                        for i, tmp_torrent in enumerate(publishers[publisher]):
+                            if file_hash == filename_slug(tmp_torrent['filename']):
+
+                                # Replace torrent if it has more seeds
+                                if torrent['seeds'] > tmp_torrent['seeds']:
+                                    publishers[publisher][i] = torrent
+
+                                return
+                        else:
+                            # Should run if the loop wasn't broken
+                            # Add torrent to list
+                            publishers[publisher].append(torrent)
+                            return
+                    else:
+                        # Insert new publisher
+                        publishers[publisher] = SortedList(
+                            keys=((itemgetter('seeds'), True),))
+                        publishers[publisher].append(torrent)
+                        return
+
+                def delay(func):
+                    self.log('FILE_SEARCH', 'Overriding torrents')
+                    if publishers:
+                        draw_table(table, publishers)
+
+                    self.publisherChooser.after(500, func)
+
+                def cb(index):
+                    self.log('FILE_SEARCH', 'All torrents found')
+                    if index == -1:
+                        # No torrents found
+                        draw_table(table, {})
+                    else:
+                        self.log('FILE_SEARCH', 'Overriding final torrents')
+                        draw_table(table, publishers)
+                    timer.stats()
+                
+                torrents.map(func, delay, cb)
+                torrents.add_callback(cache_handler)
+
+            def draw_table(table, publishers):
+                timer = utils.Timer('Draw torrent table', logger=lambda *args, **kwargs: self.log('FILE_SEARCH', *args, **kwargs))
+                i = None
+
+                for i, torrent in enumerate(publishers.items()):
+                    timer.start()
                     publisher, data = torrent
 
                     if publisher is None:
                         publisher = 'None'
 
-                    self.publisherChooser.publisherData[publisher] = data # Save data
-                    
-                    button = self.publisherChooser.publisherButtons.get(i, None)
+                    # Save data
+                    self.publisherChooser.publisherData[publisher] = data
+
+                    button = self.publisherChooser.publisherButtons.get(
+                        i, None)
                     if button:
                         if button[0] == publisher:
-                            continue # No need to create a button
+                            continue  # No need to create a new button, skip
                         else:
                             button[1].destroy()
 
                     # Get color for button - fetch first color from corresponding torrents
                     for filename in [d['filename'] for d in data]:
                         fg = self.getTorrentColor(filename)
-                        if fg != self.colors['White']: # White is default color, ignore it
+                        # White is default color, ignore it
+                        if fg != self.colors['White']:
                             break
 
                     # Alternating bg color
@@ -103,7 +206,7 @@ class ddlWindow:
                         activeforeground=fg,
                         bg=bg,
                         fg=fg,
-                        command=lambda publisher=publisher, id=id: 
+                        command=lambda publisher=publisher, id=id:
                             self.ddlFileListWindow(publisher, id)
                     )
                     b.grid(
@@ -115,14 +218,17 @@ class ddlWindow:
                     self.publisherChooser.publisherButtons[i] = (publisher, b)
 
                 try:
-                    if torrent is None:
+                    if i is None:
                         self.publisherChooser.titleLbl['text'] = "No files\nfound!"
                     else:
                         self.publisherChooser.titleLbl['text'] = "Publisher:"
                 except TclError:
                     pass
                 table.update_scrollzone()
-                self.log('FILE_SEARCH', f'Updated torrent table in {round(time.time()-start, 2)}s')
+                # self.log(
+                #     'FILE_SEARCH', f'Updated torrent table in {round(time.time()-start, 2)}s')
+                timer.stats()
+
 
         # Window init - Fancy corners - Main frame - Events
         if True:
@@ -131,7 +237,7 @@ class ddlWindow:
             if self.publisherChooser is None or not self.publisherChooser.winfo_exists():
                 if parent is None:
                     parent = self.choice
-                
+
                 self.publisherChooser = utils.RoundTopLevel(
                     parent,
                     title="Loading...",
@@ -161,9 +267,11 @@ class ddlWindow:
         if True:
             self.publisherChooser.publisherData = {}
             self.publisherChooser.publisherButtons = {}
-            que = queue.Queue()
-            is_empty = True
-            t = threading.Thread(
-                target=fetcher_handler, args=(fetcher, que, id), daemon=True)
-            t.start()
-            handler_loop(table, t, que, is_empty)
+            # que = queue.Queue()
+            # is_empty = True
+            # t = threading.Thread(
+            #     target=fetcher_handler, args=(fetcher, que, id), daemon=True)
+            # t.start()
+            # handler_loop(table, t, que, is_empty)
+            search_handler(table, fetcher)
+            # draw_table(table, fetcher)

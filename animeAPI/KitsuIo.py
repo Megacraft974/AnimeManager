@@ -204,13 +204,15 @@ class KitsuIoWrapper(APIUtils):
                         'api_id': api_id
                     })
 
-            self.save_mapped('kitsu_id', int(a.id), mapped)
+            self.save_mapped(int(a.id), mapped)
 
         return data
 
     def _convertCharacter(self, c, anime_id=None):
         mal_id = int(c.character.malId)
         kitsu_id = int(c.character.id)
+
+        # TODO - merge function
 
         sql = "SELECT EXISTS(SELECT 1 FROM charactersIndex WHERE (kitsu_id != ? or kitsu_id is null) and mal_id=?)"
         api_exist = bool(self.database.sql(sql, (kitsu_id, mal_id,))[0][0])
@@ -234,23 +236,29 @@ class KitsuIoWrapper(APIUtils):
         id = self.database.getId("kitsu_id", kitsu_id, table="characters")
         out = Character()
         out['id'] = id
-        if anime_id is not None:
-            out['anime_id'] = anime_id
-        out['role'] = c.role.lower()
+        # out['role'] = c.role.lower()
         out['name'] = c.character.name
+
         if c.character.image is not None:
             out['picture'] = c.character.image['original']
+
         out['desc'] = c.character.description
+
+        if anime_id is not None:
+            anime_data = {anime_id: c.role.lower()}
+            self.save_animeography(id, anime_data)
 
         return out
 
 
 if __name__ == "__main__":
-    import os
-    appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
-    dbPath = os.path.join(appdata, "animeData.db")
-    wrapper = KitsuIoWrapper(dbPath)
-    # a = wrapper.anime(2)
-    for a in wrapper.searchAnime('arif'):
-        print(a['id'], a['date_to'], a['title'])
-    pass
+    from APIUtils import ApiTester
+    # appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
+    # dbPath = os.path.join(appdata, "animeData.db")
+    # wrapper = KitsuIoWrapper(dbPath)
+    # # a = wrapper.anime(2)
+    # for a in wrapper.searchAnime('arif'):
+    #     print(a['id'], a['date_to'], a['title'])
+    # pass
+
+    ApiTester(KitsuIoWrapper)

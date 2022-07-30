@@ -29,8 +29,10 @@ class Parser(ParserUtils):
             r = self.get(url, timeout=10)
         except exceptions.ConnectionError:
             self.log("Tokyotosho - No internet connection!")
+            yield False
         except exceptions.ReadTimeout:
             self.log("Tokyotosho - Timed out!")
+            yield False
         else:
             soup = BeautifulSoup(r.content, "html.parser")
             pattern = re.compile(r'\| Size: (\S*?) \|')

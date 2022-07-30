@@ -22,12 +22,13 @@ class Parser(ParserUtils):
         tree = None
         url = "https://nyaa.si/?page=rss&q={}&c=1_0&f=0".format(searchterms)
         try:
-            self.log("Nyaasi", terms, url)
             r = self.get(url, timeout=10)
         except exceptions.ConnectionError:
             self.log("Nyaasi - No internet connection!")
+            yield False
         except exceptions.ReadTimeout:
             self.log("Nyaasi - Timed out!")
+            yield False
         else:
             try:
                 tree = etree.parse(io.BytesIO(r.content))

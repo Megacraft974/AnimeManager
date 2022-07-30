@@ -1,32 +1,29 @@
 if __name__ == "__main__":
     import auto_launch
 
-import threading
-import os
-import io
-import hashlib
 import base64
 import codecs
-import string
-import time
-import re
-import requests
+import hashlib
+import io
+import os
 import queue
-import traceback
-
-from datetime import date, datetime, timedelta
+import re
+import string
+import threading
+import time
 import xml.etree.ElementTree as ET
-# from multiprocessing import Pool, Queue
-from multiprocessing.pool import ThreadPool
+from datetime import date, datetime, timedelta, timezone
 
 import bencoding
-
-from qbittorrentapi import Client
 import qbittorrentapi.exceptions
+import requests
 from PIL import Image, ImageTk
+from qbittorrentapi import Client
 
+from constants import Constants
+from classes import Anime, RegroupList, ReturnThread
 from dbManager import thread_safe_db
-from classes import Anime, ReturnThread, RegroupList
+from utils import Timer
 
 if 'database_threads' not in globals().keys():
     globals()['database_threads'] = {}
@@ -169,10 +166,25 @@ class Getters:
             return f.rsplit(".torrent", 1)[0].replace(' ','').lower()
 
         timeNow = time.time()
+        folderUpdateDelay = 30 # Parse the torrent folder at most every x seconds
+
+        # Cached data
+
+        # Check if title has already been matched before
+        if hasattr(Constants, 'getTorrentColor_title_cache'):
+            # If title is in cache, skips everything and immediately return the result
+            title_cache = Constants.getTorrentColor_title_cache
+            fg = title_cache.get(title)
+            if fg:
+                return fg
+        else:
+            # Create empty cache
+            title_cache = {}
+            Constants.getTorrentColor_title_cache = title_cache
 
         # self.formattedTorrentFiles = (lastUpdate, files) -> Avoid parsing the entire torrent 
         # folder at each call (faster)
-        if hasattr(self, 'formattedTorrentFiles') and timeNow - self.formattedTorrentFiles[0] < 10:
+        if hasattr(self, 'formattedTorrentFiles') and timeNow - self.formattedTorrentFiles[0] < folderUpdateDelay:
             files = self.formattedTorrentFiles[1]
         else:
             files = set()
@@ -183,20 +195,50 @@ class Getters:
             self.formattedTorrentFiles = (timeNow, files)
 
         # Precompile all regex patterns for markers (from settings)
-        pat_cache = {re.compile(pat, re.I): col for col, pats in self.fileMarkers.items() for pat in pats}
+        if hasattr(Constants, 'getTorrentColor_pat_cache'):
+            # A bit hacky, but it's useless to compile the patterns every time
+            pat_cache = Constants.getTorrentColor_pat_cache
+        else:
+            pat_cache = {re.compile(pat, re.I): col for col, pats in self.fileMarkers.items() for pat in pats}
+            Constants.getTorrentColor_pat_cache = pat_cache
+        
+        # Try to get previous match results
+        if hasattr(Constants, 'getTorrentColor_matchs_cache'):
+            # A bit hacky, but it's useless to compile the patterns every time
+            matchs_cache = Constants.getTorrentColor_matchs_cache
+        else:
+            matchs_cache = {}
+            Constants.getTorrentColor_matchs_cache = matchs_cache
 
         t = fileFormat(title)
-        fg = self.colors['White']
+        fg = None
         for f in files:
             if t in f or f in t: # TODO
                 # The torrent already exists
                 fg = self.colors['Blue']
             else:
                 for pat, color in pat_cache.items():
-                    if re.match(pat, title):
+                    match_id = pat.pattern + '-' + t # Should be unique for each pair
+                    match = matchs_cache.get(match_id)
+
+                    if match is None:
+                        # First time on this title, check if 
+                        # there's a match and save it to cache
+                        match = re.match(pat, title) is not None
+                        matchs_cache[match_id] = match
+
+                    if match:
                         # The torrent contain a marker
                         fg = self.colors[color]
                         break
+                
+            if fg is not None:
+                break
+        
+        if fg is None:
+            fg = self.colors['White']
+        
+        title_cache[title] = fg
 
         return fg
 
@@ -291,7 +333,6 @@ class Getters:
                 if os.path.isfile(file) and file.split(
                         ".")[-1] in videoSuffixes:
                     filename = os.path.basename(file)
-                    self.log('FILE_SEARCH', filename, end=" - ")
 
                     result = re.findall(publisherPattern, file)  # [...]
                     if len(result) >= 1:
@@ -466,13 +507,14 @@ class Getters:
         return data
 
     def get_relations(self, id, **filters):
-        data = self.database.sql("SELECT * FROM relations WHERE id=?", (id,), to_dict=True)
+        data = self.database.sql("SELECT * FROM animeRelations WHERE id=?", (id,), to_dict=True)
         data = [a for a in data if all(a[k] == v for k, v in filters.items())]
         return RegroupList("id", ["rel_id"], *data) #*list(filter(lambda e: all(e[k] == v for k, v in filters.items()), data)))
 
     def getBroadcast(self, thread=False):
         if not thread:
             return ReturnThread(target=self.getBroadcast, args=(True,))
+
         path = os.path.join(self.cache, "broadcasts")
         rss_url = "https://www.livechart.me/feeds/episodes"
         ignore = ('enclosure', '{http://search.yahoo.com/mrss/}thumbnail')
@@ -488,7 +530,7 @@ class Getters:
                 if child.tag == "item":
                     c_dict = {c.tag: c.text for c in child if c.tag not in ignore}
                     title, num = c_dict['title'].split(" #")
-                    a_id = db.sql("SELECT id FROM title_synonyms WHERE value=?;", (title,))
+                    a_id = self.database.sql("SELECT id FROM title_synonyms WHERE value=?;", (title,))
                     if a_id:
                         a_id = a_id[0][0]
                         date = datetime.strptime(c_dict['pubDate'], "%a, %d %b %Y %H:%M:%S %z").astimezone(datetime.now().astimezone().tzinfo)

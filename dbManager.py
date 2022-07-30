@@ -190,6 +190,9 @@ class db():
             index = "indexList"
         elif table == "characters":
             index = "charactersIndex"
+
+        apiId = int(apiId)
+
         sql = "SELECT id FROM {} WHERE {}=?;".format(index, apiKey)
         ids = self.sql(sql, (apiId,))
         if len(ids) > 0:
@@ -512,14 +515,14 @@ class thread_safe_db(Logger):
             release_flag = threading.Event()
             globals()['database_main_thread'] = release_flag
             self.tasks = queue.LifoQueue()
-            self.db_thread = threading.Thread(target=self.start_db_thread, args=(path,), daemon=True)
+            self.db_thread = threading.Thread(target=self.db_thread, args=(path,), daemon=True)
             self.db_thread.start()
             self.ready_flag.wait()
             globals()['database_main_thread'] = self
             release_flag.set()
             self.log("DB_MAIN", "Started db thread")
 
-    def start_db_thread(self, path):
+    def db_thread(self, path):
         self.db = db(path)
         self.ready_flag.set()
         stopped = False
