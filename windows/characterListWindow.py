@@ -12,7 +12,7 @@ from classes import CharacterList, Character
 
 
 class characterListWindow:
-    def characterListWindow(self, id, update=True):
+    def drawCharacterListWindow(self, id, update=True):
         # Functions
         if True:
             def characterCell(character, index, queue):
@@ -85,17 +85,17 @@ class characterListWindow:
 
             def reload(id, c):
                 if getCharacters(id) != c:
-                    self.characterList.after(1, self.characterListWindow, id, False)
+                    self.characterListWindow.after(1, self.drawCharacterListWindow, id, False)
 
             def update(id):
-                parent.after(10, self.characterListWindow, id)
+                parent.after(10, self.drawCharacterListWindow, id)
 
             def loop_handler(id, t):
                 self.log('CHARACTERS', 'Updating characters table')
                 draw_table()
 
                 if t.is_alive():
-                    self.characterList.after(500, loop_handler, id, t)
+                    self.characterListWindow.after(500, loop_handler, id, t)
 
             def draw_table():
                 start = time.time()
@@ -111,10 +111,10 @@ class characterListWindow:
                 # index = None
                 # for index, character in enumerate(characters):
                 def func(index, character):
-                    if self.closing or self.characterList is None or not self.characterList.winfo_exists():
+                    if self.closing or self.characterListWindow is None or not self.characterListWindow.winfo_exists():
                         return
 
-                    cellData = self.characterList.characterCells.get(index, None)
+                    cellData = self.characterListWindow.characterCells.get(index, None)
                     if cellData:
                         if cellData[0] == character.id:
                             return # No need to create a new cell, skip
@@ -127,10 +127,10 @@ class characterListWindow:
                         self.log("CHARACTER", "[ERROR] - Can't create cell for character:", character.name, "-", character.id, "-", e)
                         return
 
-                    self.characterList.characterCells[index] = (character.id, cell)
+                    self.characterListWindow.characterCells[index] = (character.id, cell)
 
                     if index % self.animePerRow == 0:
-                        self.characterListTable.update()
+                        self.characterListTable.update_scrollzone()
 
                 def cb(index):
                     que.put("STOP")
@@ -156,7 +156,7 @@ class characterListWindow:
                     self.characterListTable.update_scrollzone()
                     self.log('CHARACTER', f'Updated characters grid in {round(time.time()-start, 2)}s')
                 
-                characters.map(func, lambda func: self.characterList.after(500, func), cb)
+                characters.map(func, lambda func: self.characterListWindow.after(500, func), cb)
 
             def saveCharacters(id):
                 # TODO - Move this directly in API
@@ -195,31 +195,29 @@ class characterListWindow:
         if True:
             size = (self.characterListWindowMinWidth,
                     self.characterListWindowMinHeight)
-            if self.choice is not None and self.choice.winfo_exists():
-                parent = self.choice
+            if self.optionsWindow is not None and self.optionsWindow.winfo_exists():
+                parent = self.optionsWindow
             else:
                 parent = self.fen
 
-            if self.characterList is None or not self.characterList.winfo_exists():
-                self.characterList = utils.RoundTopLevel(
+            if self.characterListWindow is None or not self.characterListWindow.winfo_exists():
+                self.characterListWindow = utils.RoundTopLevel(
                     parent,
                     title="Characters",
                     minsize=size,
                     bg=self.colors['Gray3'],
                     fg=self.colors['Gray2'])
             else:
-                self.characterList.clear()
-            # self.characterList.titleLbl.configure(text="Characters", bg= self.colors['Gray3'], fg= self.colors['Gray2'], font=("Source Code Pro Medium",18))
+                self.characterListWindow.clear()
+            # self.characterListWindow.titleLbl.configure(text="Characters", bg= self.colors['Gray3'], fg= self.colors['Gray2'], font=("Source Code Pro Medium",18))
 
-            self.characterList.characterCells = {}
+            self.characterListWindow.characterCells = {}
 
             self.characterListTable = utils.ScrollableFrame(
-                self.characterList, bg=self.colors['Gray3'])
+                self.characterListWindow, bg=self.colors['Gray3'])
             self.characterListTable.pack(expand=True, fill="both")
 
             self.characterListTable.grid_columnconfigure(0, weight=1)
-
-            self.characterList.update()
 
         # Data check
         if True:
@@ -233,7 +231,6 @@ class characterListWindow:
                     18))
             loadLbl.grid(row=0, column=0, columnspan=self.animePerRow)
 
-        self.characterListTable.update()
         t = threading.Thread(
             target=saveCharacters, args=(id,), daemon=True)
         t.start()
