@@ -79,7 +79,8 @@ except ModuleNotFoundError as e:
 	import sys
 	sys.exit()
 
-
+# TodoList - Yeah I know there are better tools for that but I'm lazy
+# TODO - App Installer
 # TODO - Relations tree
 # TODO - simkl.com API
 # TODO - Logger panel
@@ -136,19 +137,20 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		self.root = None
 		self.fen = None
 		self.logPanel = None
-		self.choice = None
-		self.publisherChooser = None
+		self.optionsWindow = None
+		self.ddlWindow = None
 		self.fileChooser = None
 		self.torrentFilesChooser = None
 		self.loadfen = None
-		self.characterList = None
+		self.characterListWindow = None
 		self.characterInfo = None
 		self.settings = None
 		self.diskfen = None
 		self.popupWindow = None
+		self.searchTermsManager = None
 
 		self.menuOptions = {
-			'Liked characters': {'color': 'Green', 'command': lambda: self.characterListWindow("LIKED")},
+			'Liked characters': {'color': 'Green', 'command': lambda: self.drawCharacterListWindow("LIKED")},
 			'Disk manager': {'color': 'Orange', 'command': self.diskWindow},
 			'Log panel': {'color': 'Blue', 'command': self.logWindow},
 			'Clear logs': {'color': 'Green', 'command': self.clearLogs},
@@ -161,7 +163,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			{'text': 'Copy title', 'color': 'Green', 'command': self.copy_title},
 			{'text': 'Reload', 'color': 'Blue', 'command': self.reload},
 			{'text': 'Redownload files', 'color': 'Green', 'command': self.redownload},
-			{'text': 'Characters', 'color': 'Green', 'command': self.characterListWindow},
+			{'text': 'Characters', 'color': 'Green', 'command': self.drawCharacterListWindow},
 			{'text': 'Delete seen episodes', 'color': 'Blue', 'command': self.deleteSeenEpisodes},
 			{'text': 'Delete all files', 'color': 'Red', 'command': self.deleteFiles},
 			{'text': 'Remove from db', 'color': 'Red', 'command': self.delete},)
@@ -224,7 +226,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 		if self.root is None:
 			return
-		self.fen.update()
 
 	def searchDb(self, terms):
 		def fuzzy_enumerator(terms):  # Unused
@@ -281,7 +282,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				FROM title_synonyms
 				JOIN anime using(id)
 				GROUP BY anime.id
-				ORDER BY anime.date_from DESC;
+				ORDER BY anime.date_from DESC
+				LIMIT 0, 1000;
 			"""
 
 			start = time.time()
@@ -301,39 +303,42 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 			threshold_count = int(threshold * terms_count)
 			entries = self.database.sql(sql)
+			# Make sure that there are no other calls to db while iterating
 			print(f'Anime search: {time.time()-start}s')
 			for data in entries:
 				title = data[0].lower()
 
 				matchs = 0
 				for term in terms:
+					# Count how many words actually match
 					if term in title:
 						matchs += 1
 
 				if matchs > threshold_count:
 					if not marked:
+						# There is at least one entry
 						yield True
 						marked = True
 
-					yield Anime(keys=keys, values=data[1:])
+					anime = Anime(keys=keys, values=data[1:])
+					yield anime
 
 					count += 1
 					if count >= max_matchs:
+						# Break if we have enough matchs
 						return
 
 					# match.append((data[1:], matchs))
 
 			if not marked and len(match) == 0:
+				# No data found
 				yield False
 				return
-			# else:
-			#     yield True
-			# for data in match:
-			#     yield Anime(keys=keys, values=data[0])
 
 		terms = "".join([c for c in terms if c.isalnum()]).lower()
 		# return self.searchNgrams(terms)
 
+		# enum = fuzzy_enumerator(terms)
 		# enum = like_enumerator(terms)
 		enum = match_enumerator(terms)
 		if next(enum):
@@ -407,13 +412,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 	def quit(self):
 		self.stopSearch = True
 		self.closing = True
-		try:
-			self.root.update()
-			if self.root is not None:
-				self.root.destroy()
-			self.root = None
-		except Exception as e:
-			self.log("MAIN_STATE", "[ERROR] - Can't destroy root:", e)
+		self.root.destroy()
+		self.root = None
 
 	# ___Utils___
 	def mainloop_error_handler(self, exc, val, tb):
@@ -456,7 +456,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				loadStart += (loadStop - loadStart) / max(100 - loadStop, 2)
 				try:
 					self.loadProgress['value'] = loadStart
-					self.loadfen.update()
 				except Exception:
 					if self.closing or not self.loadfen.winfo_exists():
 						break
@@ -643,27 +642,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 	# ___Data update___
 	def getSeason(self, year, season):
-		def handler(year, season):
-			for i, a in enumerate():
-				self.season_ids.append(a)
-			self.season_ids.append("STOP")
-
-		def iter():
-			data = None
-			while True:
-				if len(self.season_ids) > 0:
-					data = self.season_ids.pop()
-					if data == "STOP":
-						break
-					yield data
-				else:
-					time.sleep(1 / 60)
-					try:
-						self.root.update()
-					except Exception:
-						break
-		# threading.Thread(target=handler, args=(year, season), daemon=True).start()
-
 		self.animeList.set(self.api.season(year, season))
 
 if __name__ == '__main__':

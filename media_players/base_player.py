@@ -3,7 +3,6 @@ import threading
 import time
 import json
 import queue
-import re
 import sys
 import traceback
 import urllib.error
@@ -23,26 +22,38 @@ from logger import log
 class BasePlayer:
     def __init__(self, *args, **kwargs):
         self.log = log
+
         if "callback" in kwargs:
             callback = kwargs.pop("callback")
         else:
             callback = None
+
         if not hasattr(self, "method"):
             if "root" in kwargs:
+                # If player must inherit from a parent, stay in same thread,
+                # as Tk windows must all be running in the same thread
                 self.method = "NONE"
             else:
                 self.method = "PROCESS"
+
         if self.method == "PROCESS":
+            # Start player in new process
             p = Process(target=self.start, args=args, kwargs=kwargs)
             p.start()
-            threading.Thread(target=self.callback, args=(callback, p)).start()
+            threading.Thread(target=self.callback_handler, args=(callback, p)).start()
+
         elif self.method == "THREAD":
+            # Start player in new thread
             t = threading.Thread(target=self.start, args=args, kwargs=kwargs)
             t.start()
-            threading.Thread(target=self.callback, args=(callback, t)).start()
+            threading.Thread(target=self.callback_handler, args=(callback, t)).start()
+
         else:
+            # Start player in same thread
+            # /!\ - Blocking!
             self.start(*args, **kwargs)
-            callback()
+            if callback is not None:
+                callback()
 
     def setup(self, root):
         try:
@@ -75,7 +86,8 @@ class BasePlayer:
             self.parent = Tk()  # Toplevel(root)
         else:
             self.parent = Toplevel(self.root)
-        self.name = str(type(self)).split('.', 1)[-1].rsplit("_player", 1)[0].capitalize()
+        self.name = str(type(self)).split(
+            '.', 1)[-1].rsplit("_player", 1)[0].capitalize()
         self.parent.title("{} Media Player".format(self.name))
 
         self.videopanel = Frame(self.parent)
@@ -100,11 +112,11 @@ class BasePlayer:
         self.parent.iconbitmap("icons/app_icon/icon.ico")
         # self.parent.iconphoto(False, self.image("app_icon/icon.ico", (128, 128)))
 
-        self.parent.update()
         self.parent.minsize(width=550, height=300)
         self.parent.bind('<Escape>', lambda e: self.toggleFullscreen())
         self.parent.bind('<KeyPress>', self.keyHandler)
         self.parent.bind('<Motion>', self.mouseHandler)
+        self.mouseHandler() # Start the loop immediately
         self.parent.protocol("WM_DELETE_WINDOW", self.OnClose)
         self.parent.lift()
 
@@ -339,12 +351,15 @@ class BasePlayer:
                 else:
                     func(arg)
 
-    def mouseHandler(self, e):
+    def mouseHandler(self, e=None):
         self.parent.config(cursor="arrow")
         self.lastMovement = time.time()
+
         if self.movementCheck is not None:
             self.parent.after_cancel(self.movementCheck)
-        self.movementCheck = self.parent.after(self.hideCursorDelay * 1000, self.hideCursor)
+
+        self.movementCheck = self.parent.after(
+            self.hideCursorDelay * 1000, self.hideCursor)
 
     def queryMousePosition(self):
         pt = POINT()
@@ -352,60 +367,109 @@ class BasePlayer:
         return pt.x, pt.y
 
     def hideCursor(self):
+        # Hide mouse cursor when it's not moving
         if time.time() - self.lastMovement >= self.hideCursorDelay:
             self.parent.config(cursor="none")
         else:
             if self.movementCheck is not None:
                 self.parent.after_cancel(self.movementCheck)
-            self.movementCheck = self.parent.after(int((self.hideCursorDelay - (time.time() - self.lastMovement)) * 1000), self.hideCursor)
+            self.movementCheck = self.parent.after(int(
+                (self.hideCursorDelay - (time.time() - self.lastMovement)) * 1000), self.hideCursor)
 
     def updateDb(self):
+        # Update last seen episode in db
+
         # self.log("Updating last_seen db",flush=True)
         def handler(self):
             if self.id is not None and self.database is not None:
                 filename = self.playlist[self.index]
-                thread_safe_db(self.database).set(
-                    {'id': self.id, 'last_seen': str(filename)}, table="anime")
-        self.thread = threading.Thread(target=handler, args=(self,), daemon=True)
-        self.thread.start()
+                thread_safe_db(self.database).set({
+                        'id': self.id, 
+                        'last_seen': str(filename)
+                    }, 
+                    table="anime"
+                )
+        
+        threading.Thread(
+            target=handler, 
+            args=(self,), 
+            daemon=True
+        ).start()
 
-    def getPlaylist(self, url, playlist):
-        if url:
+    def getPlaylist(self, from_url, playlist):
+        # Get titles and stream urls from playlist
+        # Return a threading.Event, set when data is ready
+        event = threading.Event()
+
+        if from_url:
+            # Fetch from urls in playlist
             que = queue.Queue()
             threads = []
+
+            # Start threads
             for i, v in enumerate(playlist):
-                t = threading.Thread(target=self.getVideoUrl, args=(que, i, v), daemon=True)
+                t = threading.Thread(
+                    target=self.getVideoUrl, 
+                    args=(que, i, v)
+                )
                 threads.append(t)
                 t.start()
-            for t in threads:
-                try:
-                    while t.is_alive():
-                        time.sleep(1 / 60)
-                        self.parent.update()
-                except Exception:
-                    self.parent.after(1, self.OnClose)  # TODO - Really useful?
-                    break
-            self.playlist = []
-            while not que.empty():
-                self.playlist.append(que.get())
-            self.playlist.sort(key=lambda e: e[0])
-            self.titles = [e[2] for e in self.playlist]
-            self.playlist = [e[1] for e in self.playlist]
+            
+            def condition(threads):
+                while threads and not threads[0].is_alive():
+                    # If thread is done, remove from list
+                    threads.pop(0)
+                
+                return len(threads) == 0
+
+            def callback(que, event):
+                # Get threads output
+
+                data = []
+                while not que.empty():
+                    data.append(que.get())
+
+                data.sort(key=lambda e: e[0])
+
+                self.titles, self.playlist = [], []
+                
+                for i, title, url in data:
+                    self.titles.append(title)
+                    self.playlist.append(url)
+                
+                event.set()
+
+            self.condition_waiter(lambda t=threads: condition(t), lambda q=que, e=event: callback(q, e))
+            return event
+
         else:
+            # From filepaths
+            # Simply parse filename to extract a title
+
             self.playlist = playlist
             self.titles = [os.path.basename(f).rpartition(".")[
                 0] for f in self.playlist]
 
-    def getVideoUrl(self, que, i, v):  # TODO - Ignore self
+            event.set()
+            return event
+
+    @classmethod
+    def getVideoUrl(self, que, i, v):
         def getTitle(v, q):
+            # Avoid blocking main thread
             try:
                 q.put(v.title)
             except Exception:
                 q.put(None)
-        video = YouTube(v)
-        title = queue.Queue()
-        threading.Thread(target=getTitle, args=(video, title), daemon=True).start()
 
+        video = YouTube(v)
+
+        # Get title
+        title = queue.Queue() # TODO - Use Value instead of Queue?
+        threading.Thread(target=getTitle, args=(
+            video, title), daemon=True).start()
+
+        # Get streams
         try:
             streams = list(video.streams.filter(file_extension='mp4'))
         except pytube.exceptions.VideoUnavailable:
@@ -414,20 +478,34 @@ class BasePlayer:
         except pytube.exceptions.RegexMatchError:
             log("Video not found for url", v)
             return
-        except pytube.exceptions.VideoPrivate:
-            log("The video is private!")
-            return
         except urllib.error.URLError:
             log("No internet connection!")
         except Exception as e:
-            log("Error while fetching youtube video for url:", v, "-", e, "-", traceback.format_exc())
+            log("Error while fetching youtube video for url:",
+                v, "-", e, "-", traceback.format_exc())
         else:
-            streams.sort(key=lambda s: int(
-                s.resolution[:-1]) if s.resolution is not None and s.includes_audio_track else 0, reverse=True)
+            # Filter streams
+            def stream_filter(stream):
+                score = 0
+                if stream.resolution is not None:
+                    score += int(stream.resolution[:-1]) # '360p' -> 360
+                if stream.includes_audio_track:
+                    score += 1
+                return score
+
+            streams.sort(key=stream_filter, reverse=True)
             stream = streams[0]
             que.put((i, stream.url, title.get()))
 
+    def condition_waiter(self, condition, callback, delay=100):
+        # Wait for condition() to return True, without blocking the window
+        if condition():
+            return callback()
+        else:
+            self.parent.after(delay, self.condition_waiter, condition, callback, delay)
+
     def toggle_iconify(self):
+        # Hide player
         if self.is_iconified:
             self.parent.deiconify()
             self.togglePause(playing=True)
@@ -436,11 +514,15 @@ class BasePlayer:
             self.togglePause(playing=False)
         self.is_iconified = not self.is_iconified
 
-    def callback(self, cb, p):
+    def callback_handler(self, cb, p):
+        # Call callback when player exits
         p.join()
         if cb is not None:
             cb()
 
+    def log(self, *args, **kwargs):
+        # Simple wrapper for the log function
+        return log(*args, **kwargs)
 
 class POINT(Structure):
     _fields_ = [("x", c_long), ("y", c_long)]

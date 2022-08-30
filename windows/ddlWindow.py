@@ -13,7 +13,7 @@ import utils
 
 
 class ddlWindow:
-    def ddlWindow(self, id, fetcher=None, parent=None):
+    def drawDdlWindow(self, id, fetcher=None, parent=None):
         # Functions
         if True:
             def filename_slug(f):
@@ -34,7 +34,8 @@ class ddlWindow:
 
             def search_handler(table, fetcher):
                 # Handle torrent search and sorting
-                timer = utils.Timer("Torrent search", logger=lambda *args, **kwargs: self.log('FILE_SEARCH', *args, **kwargs)) # Init timer
+                timer = utils.Timer("Torrent search", logger=lambda *args, **
+                                    kwargs: self.log('FILE_SEARCH', *args, **kwargs))  # Init timer
 
                 # Start torrent search
                 if fetcher is None:
@@ -44,14 +45,14 @@ class ddlWindow:
                     database = self.getDatabase()
                     data = database(id=id, table="anime")
                     titles = data.title_synonyms
-                        
-                    fetcher = search_engines.search(titles) 
+
+                    fetcher = search_engines.search(titles)
 
                 # Start search
                 torrents = TorrentList(fetcher)
 
                 # Init publishers dict
-                
+
                 def key_topPublishers(k):
                     # Bring best publishers to the top of the list
                     if k[0] in self.topPublishers:
@@ -61,36 +62,38 @@ class ddlWindow:
 
                 def key_dualAudio(k):
                     # Try to guess if torrent has dual audio
-                    marked = ('dual', 'dub') # TODO - Shouldn't be hardcoded
+                    marked = ('dual', 'dub')  # TODO - Shouldn't be hardcoded
                     for mark in marked:
                         for title in k[1]:
                             if mark in title['filename'].lower():
                                 return 1
 
                     return 0
-                
+
                 def key_seeds(k):
-                    # Sort publishers by the highest amount of 
+                    # Sort publishers by the highest amount of
                     # seeds in their torrents
-                    
+
                     key, values = k
-                    if not values: # None or empty
-                        return -1 # Should be inferior to 0
-                    
+                    if not values:  # None or empty
+                        return -1  # Should be inferior to 0
+
                     else:
                         max_seeds = max(map(itemgetter('seeds'), values))
                         return max_seeds
-                
+
                 keys = (
-                    (key_topPublishers, True), # Prioritize 'famous' / 'well-known' publishers
-                    (key_dualAudio, True), # Bring torrents with dual audio to the top
-                    (key_seeds, True), # Sort by seeds
+                    # Prioritize 'famous' / 'well-known' publishers
+                    (key_topPublishers, True),
+                    # Bring torrents with dual audio to the top
+                    (key_dualAudio, True),
+                    (key_seeds, True),  # Sort by seeds
                 )
                 publishers = SortedDict(keys=keys)
 
                 def cache_handler(torrent):
-                    # Compute some cache data for 
-                    # each torrent in a thread, it's better to 
+                    # Compute some cache data for
+                    # each torrent in a thread, it's better to
                     # avoid doing it in main thread
 
                     filename = torrent['filename']
@@ -102,9 +105,9 @@ class ddlWindow:
 
                     if torrent is None:
                         return
-                    
+
                     # Avoid raising an error when the window is closing
-                    if self.closing or not self.publisherChooser.winfo_exists():
+                    if self.closing or not self.ddlWindow.winfo_exists():
                         torrents.interrupt()
                         print('Interrupted')
                         return
@@ -142,7 +145,7 @@ class ddlWindow:
                     if publishers:
                         draw_table(table, publishers)
 
-                    self.publisherChooser.after(500, func)
+                    self.ddlWindow.after(500, func)
 
                 def cb(index):
                     self.log('FILE_SEARCH', 'All torrents found')
@@ -153,12 +156,13 @@ class ddlWindow:
                         self.log('FILE_SEARCH', 'Overriding final torrents')
                         draw_table(table, publishers)
                     timer.stats()
-                
+
                 torrents.map(func, delay, cb)
                 torrents.add_callback(cache_handler)
 
             def draw_table(table, publishers):
-                timer = utils.Timer('Draw torrent table', logger=lambda *args, **kwargs: self.log('FILE_SEARCH', *args, **kwargs))
+                timer = utils.Timer('Draw torrent table', logger=lambda *args,
+                                    **kwargs: self.log('FILE_SEARCH', *args, **kwargs))
                 i = None
 
                 for i, torrent in enumerate(publishers.items()):
@@ -169,9 +173,9 @@ class ddlWindow:
                         publisher = 'None'
 
                     # Save data
-                    self.publisherChooser.publisherData[publisher] = data
+                    self.ddlWindow.publisherData[publisher] = data
 
-                    button = self.publisherChooser.publisherButtons.get(
+                    button = self.ddlWindow.publisherButtons.get(
                         i, None)
                     if button:
                         if button[0] == publisher:
@@ -190,7 +194,7 @@ class ddlWindow:
                     bg = (self.colors['Gray2'], self.colors['Gray3'])[i % 2]
 
                     # Avoid raising an error when the window is closing
-                    if self.closing or not self.publisherChooser.winfo_exists():
+                    if self.closing or not self.ddlWindow.winfo_exists():
                         return
 
                     b = Button(
@@ -215,13 +219,13 @@ class ddlWindow:
                         sticky="nsew"
                     )
 
-                    self.publisherChooser.publisherButtons[i] = (publisher, b)
+                    self.ddlWindow.publisherButtons[i] = (publisher, b)
 
                 try:
                     if i is None:
-                        self.publisherChooser.titleLbl['text'] = "No files\nfound!"
+                        self.ddlWindow.titleLbl['text'] = "No files\nfound!"
                     else:
-                        self.publisherChooser.titleLbl['text'] = "Publisher:"
+                        self.ddlWindow.titleLbl['text'] = "Publisher:"
                 except TclError:
                     pass
                 table.update_scrollzone()
@@ -229,24 +233,23 @@ class ddlWindow:
                 #     'FILE_SEARCH', f'Updated torrent table in {round(time.time()-start, 2)}s')
                 timer.stats()
 
-
         # Window init - Fancy corners - Main frame - Events
         if True:
             size = (self.publisherDDLWindowMinWidth,
                     self.publisherDDLWindowMinHeight)
-            if self.publisherChooser is None or not self.publisherChooser.winfo_exists():
+            if self.ddlWindow is None or not self.ddlWindow.winfo_exists():
                 if parent is None:
-                    parent = self.choice
+                    parent = self.optionsWindow
 
-                self.publisherChooser = utils.RoundTopLevel(
+                self.ddlWindow = utils.RoundTopLevel(
                     parent,
                     title="Loading...",
                     minsize=size,
                     bg=self.colors['Gray3'],
                     fg=self.colors['Gray2'])
             else:
-                self.publisherChooser.clear()
-                self.publisherChooser.titleLbl.configure(
+                self.ddlWindow.clear()
+                self.ddlWindow.titleLbl.configure(
                     text="Loading...",
                     bg=self.colors['Gray3'],
                     fg=self.colors['Gray2'],
@@ -254,19 +257,31 @@ class ddlWindow:
                         "Source Code Pro Medium",
                         18))
 
-            table = utils.ScrollableFrame(
-                self.publisherChooser, bg=self.colors['Gray3'])
-            table.grid_columnconfigure(0, weight=1)
-            table.grid()
-
-            if self.closing or not self.publisherChooser.winfo_exists():
-                return
-            self.publisherChooser.update()
+        # Search terms button
+        if True:
+            searchTermsBut = Button(
+                self.ddlWindow,
+                text="Manage search terms",
+                bd=0,
+                height=1,
+                relief='solid',
+                font=(
+                    "Source Code Pro Medium",
+                    13),
+                bg=self.colors['Gray2'],
+                fg=self.colors['Gray'],
+                command=lambda id=id: self.searchTermsWindow(id, self.ddlWindow))
+            searchTermsBut.grid(row=0, sticky='ew', pady=(0, 5))
 
         # Torrent publisher list
         if True:
-            self.publisherChooser.publisherData = {}
-            self.publisherChooser.publisherButtons = {}
+            table = utils.ScrollableFrame(
+                self.ddlWindow, bg=self.colors['Gray3'])
+            table.grid_columnconfigure(0, weight=1)
+            table.grid(row=1)
+
+            self.ddlWindow.publisherData = {}
+            self.ddlWindow.publisherButtons = {}
             # que = queue.Queue()
             # is_empty = True
             # t = threading.Thread(
@@ -275,3 +290,6 @@ class ddlWindow:
             # handler_loop(table, t, que, is_empty)
             search_handler(table, fetcher)
             # draw_table(table, fetcher)
+
+        if self.closing or not self.ddlWindow.winfo_exists():
+            return

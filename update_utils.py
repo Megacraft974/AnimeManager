@@ -193,7 +193,7 @@ class UpdateUtils:
 
             database.save()
         if c >= 1:
-            self.log('DB_UPDATE', "{} status updated!".format(c))  # TODO - ORTHOGRAPH (s / sses / ses / ???)
+            self.log('DB_UPDATE', "Status updated for {} animes".format(c))
         else:
             self.log('DB_UPDATE', "No status to update.")
 

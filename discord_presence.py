@@ -22,6 +22,9 @@ class DiscordPresence:
             self.RPC = globals()['RPC']
 
     def get_RPC(self):
+        if "RPC" in globals().keys():
+            return
+
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
@@ -30,8 +33,11 @@ class DiscordPresence:
             print("Error on RPC: DiscordNotFound")
             return
         RPC.connect()
+
         RPC.global_start = time.time()
         RPC.watching = False
+        RPC.timer = None
+
         self.RPC = RPC
         globals()['RPC'] = self.RPC
 
@@ -61,7 +67,12 @@ class DiscordPresence:
             pass
 
         if not self.RPC.watching and not self.closing:
-            threading.Timer(60, self.RPC_menu).start()
+            if self.RPC.timer is not None and self.RPC.timer.is_alive():
+                # Interrupt previous timer
+                self.RPC.timer.cancel()
+
+            self.RPC.timer = threading.Timer(60, self.RPC_menu)
+            self.RPC.timer.start()
 
     def RPC_watching(self, title, **kwargs):
         threading.Thread(target=self.RPC_watching_, args=(title,), kwargs=kwargs).start()
@@ -96,6 +107,8 @@ class DiscordPresence:
 
     def RPC_stop(self):
         if self.RPC is not None:
+            if self.RPC.timer is not None:
+                self.RPC.timer.cancel()
             self.RPC.close()
 
     def get_random_quote(self):
@@ -171,8 +184,6 @@ def get_ipc_path(pipe=None):
 
 
 if __name__ == "__main__":
-    import pipes
-
     pipe = get_ipc_path()
 
     act_details = {

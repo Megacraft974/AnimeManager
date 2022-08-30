@@ -52,8 +52,10 @@ class torrentFilesWindow:
                         # Magnet url
                         self.downloadFile(id, url=text)
                     else:
+                        # Torrent title
+                        self.addSearchTerms(id, text)
                         fetcher = search_engines.search([text])
-                        self.ddlWindow(id, fetcher, parent=self.torrentFilesChooser)
+                        self.drawDdlWindow(id, fetcher, parent=self.torrentFilesChooser)
 
                 self.textPopupWindow(
                     self.torrentFilesChooser,
@@ -196,7 +198,7 @@ class torrentFilesWindow:
                         pady=15,
                         ipady=8)
                 
-                torrent_list_frame.update()
+                torrent_list_frame.update_scrollzone()
 
             def download_torrent(id, t):
                 # path = os.path.join(self.torrentPath, t)
@@ -234,7 +236,7 @@ class torrentFilesWindow:
             if self.torrentFilesChooser is None or not self.torrentFilesChooser.winfo_exists():
                 size = (self.torrentFilesWindowMinWidth, self.torrentFilesWindowMinHeight)
                 self.torrentFilesChooser = utils.RoundTopLevel(
-                    self.choice, title="Torrents files",
+                    self.optionsWindow, title="Torrents files",
                     minsize=size, bg=self.colors['Gray2'], fg=self.colors['Gray3']
                 )
             else:
@@ -322,4 +324,3 @@ class torrentFilesWindow:
 
             self.torrentFilesChooser.torrent_thread = None
             updateTorrentsList()
-        self.torrentFilesChooser.update()

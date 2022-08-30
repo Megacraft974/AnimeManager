@@ -7,6 +7,7 @@ path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 if not os.path.exists(path):
     raise ImportError("mpv lib folder not found!")
 os.environ['PATH'] = path + ";" + os.environ["PATH"]
+
 import mpv
 
 
@@ -19,6 +20,7 @@ class MpvPlayer(BasePlayer):
         self.id = id
         self.database = dbPath
 
+        self.player = None
         self.hidden = False
         self.fullscreen = False
         self.paused = False
@@ -33,8 +35,15 @@ class MpvPlayer(BasePlayer):
 
         self.initWindow()
 
-        self.getPlaylist(url, playlist)
+        event = self.getPlaylist(url, playlist)
+        # Wait for playlist data to be processed
+        self.condition_waiter(event.is_set, lambda url=url: self.start_after(url))
 
+        if self.root is None:
+            self.parent.mainloop()
+
+    def start_after(self, url):
+        # Triggers when playlist is loaded
         if len(self.playlist) == 0:
             self.log("No video found!")
             self.player = None
@@ -52,7 +61,7 @@ class MpvPlayer(BasePlayer):
         self.videoSize = (self.videopanel.winfo_width(),
                           self.videopanel.winfo_height())
 
-        self.log("Playing", self.playlist[self.index])
+        self.log("Playing", self.titles[self.index])
 
         self.showTitle()
         self.updateDb()
@@ -60,9 +69,6 @@ class MpvPlayer(BasePlayer):
         self.updateAudioLbl()
 
         self.parent.after(100, self.OnTick)
-
-        if self.root is None:
-            self.parent.mainloop()
 
     def getAudio(self, i=None):
         self.audioTracks = [
@@ -90,7 +96,6 @@ class MpvPlayer(BasePlayer):
         else:
             self.audioLbl['text'] = "Audio 0/{} - Disabled".format(
                 len(self.audioTracks))
-        self.audioLbl.update()
 
     def audioTrackNext(self):
         i = self.player.audio
@@ -138,7 +143,6 @@ class MpvPlayer(BasePlayer):
         else:
             self.subLbl['text'] = "Sub 0/{} - Disabled".format(
                 len(self.subTracks))
-        self.subLbl.update()
 
     def subTrackNext(self):
         i = self.player.sub
@@ -164,7 +168,6 @@ class MpvPlayer(BasePlayer):
         if self.threadLock:
             return
         self.threadLock = True
-        self.updateDb()
 
         sub, audio = self.player.sub, self.player.audio
 
@@ -178,6 +181,7 @@ class MpvPlayer(BasePlayer):
         self.videoSize = (self.videopanel.winfo_width(),
                           self.videopanel.winfo_height())
         time.sleep(2)
+        self.updateDb()
 
         self.showTitle()
         self.player.sub, self.player.audio = sub, audio
@@ -245,7 +249,6 @@ class MpvPlayer(BasePlayer):
     def toggleFullscreen(self):
         self.fullscreen = not self.fullscreen
         self.parent.attributes("-fullscreen", self.fullscreen)
-        self.parent.update()
         self.videoSize = (self.videopanel.winfo_width(),
                           self.videopanel.winfo_height())
 
@@ -256,7 +259,6 @@ class MpvPlayer(BasePlayer):
 
             self.titleLabel.place(anchor="n", relx=0.5,
                                   y=current, relwidth=1, height=50)
-            self.parent.update()
             p += step
 
             if start < stop:
@@ -279,7 +281,6 @@ class MpvPlayer(BasePlayer):
         if self.titleLock:
             return
         self.titleLock = True
-        # lbl.place(anchor="n",relx=0.5,rely=0,relwidth=1,height=50)
         if animations:
             try:
                 animate(-50, 0, 1)
@@ -288,7 +289,7 @@ class MpvPlayer(BasePlayer):
                 pass
         try:
             if not self.stopped:
-                self.parent.after(5000, lbl.place_forget)
+                self.parent.after(5000, self.titleLabel.place_forget)
         except Exception:
             pass
 

@@ -89,7 +89,6 @@ class initWindow:
 
             self.root.protocol("WM_DELETE_WINDOW", self.quit)
             self.root.focus_force()
-            self.root.update()
             self.root.iconify()
             self.root.bind("<Map>", bringToTop)
 
@@ -263,8 +262,6 @@ class initWindow:
             dbFrame.pack(fill="both", expand=True)
             for i in range(4):
                 self.animeList.grid_columnconfigure(i, weight=1)
-
-        self.fen.update()
 
         self.log('TIME', "Window created:".ljust(25),
                  round(time.time() - self.start, 2), "sec")

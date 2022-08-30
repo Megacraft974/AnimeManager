@@ -28,7 +28,6 @@ class characterWindow:
                 self.getImage(im_path, iconSize)
                 b.configure(image=image)
                 b.image = image
-                b.update()
 
                 for but in self.characterListTable.winfo_children():
                     if but.winfo_class() == 'Button' and but.name == id:
@@ -36,7 +35,6 @@ class characterWindow:
                         if not liked:
                             text += " ❤"
                         but['text'] = text
-                        but.update()
                         break
 
             def switchAnime(id):
@@ -45,13 +43,13 @@ class characterWindow:
                 except Exception:
                     pass
                 try:
-                    self.characterList.exit()
+                    self.characterListWindow.exit()
                 except Exception:
                     pass
                 try:
                     self.reload(id, False)
                 except Exception:
-                    self.optionsWindow(id)
+                    self.drawOptionsWindow(id)
 
             def update(id):
                 c = self.api.character(id)
@@ -67,7 +65,7 @@ class characterWindow:
                     self.characterInfoWindowMinHeight)
             if self.characterInfo is None or not self.characterInfo.winfo_exists():
                 self.characterInfo = utils.RoundTopLevel(
-                    self.characterList,
+                    self.characterListWindow,
                     title="Loading data...",
                     minsize=size,
                     bg=self.colors['Gray2'],
@@ -127,7 +125,6 @@ class characterWindow:
 
             self.characterInfo.titleLbl = titleLbl
             self.characterInfo.handles = [titleLbl]
-            self.characterInfo.update()
 
             if bool(character.like):
                 im_path = os.path.join(self.iconPath, "heart.png")
@@ -258,4 +255,3 @@ class characterWindow:
             infoFrame.grid(row=1, column=1, sticky="nsew",
                            padx=(20, 0), pady=(10, 0))
 
-            self.characterInfo.update()

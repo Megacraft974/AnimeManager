@@ -31,8 +31,6 @@ class seasonSelector:
             [table.grid_columnconfigure(i, weight=1) for i in range(5)]
             # table.grid_columnconfigure(0,weight=1)
 
-            self.seasonChooser.update()
-
         # Table init
         if True:
             today = date.today()
@@ -67,10 +65,8 @@ class seasonSelector:
                         bg=bg,
                         fg=fg,
                         command=lambda y=year,
-                        s=season: self.getSeason(
-                            y,
-                            s))
+                        s=season: self.animeList.set(self.api.season(y, s))
+                    )
                     cell.grid(row=i, column=j + 1, sticky="nsew")
 
-        table.update()
-        self.seasonChooser.update()
+        table.update_scrollzone()

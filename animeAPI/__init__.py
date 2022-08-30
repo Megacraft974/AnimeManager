@@ -161,7 +161,6 @@ class AnimeAPI(Getters, Logger):
             database.save(get_output=False)
 
 # TODO - Add more APIs:
-# anilist.co
 # nautiljon.com
 # anisearch.com
 

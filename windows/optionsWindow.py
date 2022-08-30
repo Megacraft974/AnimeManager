@@ -19,7 +19,7 @@ import utils
 
 
 class optionsWindow:
-	def optionsWindow(self, id):
+	def drawOptionsWindow(self, id):
 		# Functions
 		if True:
 			def findTorrent(id):
@@ -49,7 +49,7 @@ class optionsWindow:
 					else:
 						if len(qbtorrents) > 0:
 							self.animeHashes[id] = qbtorrents[0].hash
-							self.choice.after(10, self.reload, id, False)
+							self.optionsWindow.after(10, self.reload, id, False)
 
 			def updateLoadingBar(id, bar, text):
 				if not self.animeHashes.get(id):
@@ -73,10 +73,9 @@ class optionsWindow:
 						bar['value'] = value
 						# TODO - Fill with zeros
 						text.configure(text=str(round(value, 2)) + "%")
-						self.choice.update()
 					except Exception:
 						pass
-					self.choice.after(500, updateLoadingBar, id, bar, text)
+					self.optionsWindow.after(500, updateLoadingBar, id, bar, text)
 
 			def updateEpisodes(epsList, title, folder):
 				eps = self.getEpisodes(folder)
@@ -145,7 +144,6 @@ class optionsWindow:
 				image = self.getImage(im_path, iconSize)
 				b.configure(image=image)
 				b.image = image
-				b.update()
 
 				for lbl in self.animeList.winfo_children():
 					if lbl.winfo_class() == 'Label' and lbl.name == str(id):
@@ -153,7 +151,6 @@ class optionsWindow:
 						if not liked:
 							text += " ❤"
 						lbl['text'] = text
-						lbl.update()
 						break
 
 			def watch(title, file, eps, var):
@@ -178,7 +175,7 @@ class optionsWindow:
 					url = var.get()
 					self.downloadFile(id, url=url)
 				self.textPopupWindow(
-					self.choice,
+					self.optionsWindow,
 					"Enter torrent url",
 					lambda var,
 					id=id: callback(
@@ -267,15 +264,14 @@ class optionsWindow:
 			def switch(id, titles=None):
 				if titles is not None:
 					id = titles[id]
-				self.choice.clear()
-				self.optionsWindow(id)
+				self.optionsWindow.clear()
+				self.drawOptionsWindow(id)
 
 			def dataUpdate(id):
-				database = self.getDatabase()
 				data = self.api.anime(id)
 
 				if 'status' in data.keys() and data.status != 'UPDATE':
-					self.choice.after(10, self.reload, id)
+					self.optionsWindow.after(10, self.reload, id)
 
 		# Window init - Fancy corners - Main frame
 		if True:
@@ -288,22 +284,22 @@ class optionsWindow:
 			if len(anime.keys()) == 0:
 				anime.title = "Loading..."
 
-			if self.choice is None or not self.choice.winfo_exists():
+			if self.optionsWindow is None or not self.optionsWindow.winfo_exists():
 				size = (self.infoWindowMinWidth, self.infoWindowMinHeight)
-				self.choice = utils.RoundTopLevel(
+				self.optionsWindow = utils.RoundTopLevel(
 					self.fen,
 					title=anime.title,
 					minsize=size,
 					bg=self.colors['Gray2'],
 					fg=self.colors['Gray3'])
-				self.choice.titleLbl.configure(
+				self.optionsWindow.titleLbl.configure(
 					# fg=self.colors[self.tagcolors[self.database(
 					#     id=id, table='anime').tag]]
 					fg=self.colors[self.tagcolors[anime.tag]]
 				)
 			else:
-				self.choice.clear()
-				self.choice.titleLbl.configure(
+				self.optionsWindow.clear()
+				self.optionsWindow.titleLbl.configure(
 					text=anime.title,
 					bg=self.colors['Gray2'],
 					fg=self.colors[self.tagcolors[anime.tag]],
@@ -312,7 +308,7 @@ class optionsWindow:
 
 		# Title - File buttons
 		if True:
-			titleFrame = Frame(self.choice, bg=self.colors['Gray2'])
+			titleFrame = Frame(self.optionsWindow, bg=self.colors['Gray2'])
 
 			if self.animeHashes.get(id):
 				offRow = 1
@@ -346,7 +342,7 @@ class optionsWindow:
 				activeforeground=self.colors['White'],
 				bg=self.colors['Gray3'],
 				fg=self.colors['White'],
-				command=lambda id=id: self.ddlWindow(id))
+				command=lambda id=id: self.drawDdlWindow(id))
 			b.bind("<Button-3>", lambda e, id=id: ddlFromUrl(id))
 			b.grid(row=1 + offRow, column=0, sticky="nsew", padx=2, pady=2)
 
@@ -446,12 +442,11 @@ class optionsWindow:
 					fg=self.colors['Gray3'],
 					bg=self.colors['Gray2']
 				)
-				# epsList.menu.update()
 				epsList.grid(row=2 + offRow, column=1,
 							 sticky="nsew", padx=2, pady=2)
 				epsList.var = var
 
-				self.choice.after(10, lambda a=epsList, b=anime.title, c=folder: updateEpisodes(a, b, c))
+				self.optionsWindow.after(10, lambda a=epsList, b=anime.title, c=folder: updateEpisodes(a, b, c))
 
 			[titleFrame.grid_columnconfigure(i, weight=1) for i in range(2)]
 
@@ -487,7 +482,7 @@ class optionsWindow:
 
 		# Tags
 		if True:
-			tags = Frame(self.choice, bg=self.colors['Gray2'])
+			tags = Frame(self.optionsWindow, bg=self.colors['Gray2'])
 			Label(
 				tags,
 				text="Tag as:",
@@ -558,7 +553,7 @@ class optionsWindow:
 		if True:
 			if anime.synopsis not in ('', None):
 				synopsis = Label(
-					self.choice,
+					self.optionsWindow,
 					text=anime.synopsis,
 					wraplength=900,
 					font=(
@@ -568,7 +563,7 @@ class optionsWindow:
 					fg=self.colors['White'])
 			else:
 				synopsis = Label(
-					self.choice,
+					self.optionsWindow,
 					text="No synopsis",
 					wraplength=900,
 					font=(
@@ -580,7 +575,7 @@ class optionsWindow:
 
 		# Secondary infos
 		if True:
-			secondInfos = Frame(self.choice, bg=self.colors['Gray2'])
+			secondInfos = Frame(self.optionsWindow, bg=self.colors['Gray2'])
 			if anime.episodes is not None:
 				text = str(anime.episodes) + \
 					" episode{}".format("s" if anime.episodes > 1 else "")
@@ -657,7 +652,7 @@ class optionsWindow:
 
 		# Genres
 		if True:
-			genresFrame = Frame(self.choice, bg=self.colors['Gray2'])
+			genresFrame = Frame(self.optionsWindow, bg=self.colors['Gray2'])
 			genres = anime.genres
 
 			all_genres = dict(self.database.sql(
@@ -697,7 +692,7 @@ class optionsWindow:
 
 		# Relations
 		if True:
-			relationsFrame = Frame(self.choice, bg=self.colors['Gray2'])
+			relationsFrame = Frame(self.optionsWindow, bg=self.colors['Gray2'])
 			relations = self.get_relations(id, type='anime')
 			column = 0
 			relations = sorted(relations, key=itemgetter('name'))
@@ -791,7 +786,7 @@ class optionsWindow:
 
 		# State
 		if True:
-			state = Frame(self.choice, bg=self.colors['Gray2'])
+			state = Frame(self.optionsWindow, bg=self.colors['Gray2'])
 			datefrom, dateto = anime.date_from, anime.date_to
 			if datefrom is not None:
 				datefrom = date.fromisoformat(datefrom)
@@ -831,7 +826,7 @@ class optionsWindow:
 
 		# Actions
 		if True:
-			actions = Frame(self.choice, bg=self.colors['Gray2'])
+			actions = Frame(self.optionsWindow, bg=self.colors['Gray2'])
 			for i, data in enumerate(self.actionButtons):
 				Button(actions,
 					   text=data['text'],
@@ -864,10 +859,11 @@ class optionsWindow:
 
 			actions.grid(row=9, column=0)
 
-		self.choice.update()
 		if id not in self.animeHashes:
 			t = threading.Thread(target=findTorrent, args=(id,))
 			t.start()
+
+		self.optionsWindow.update_events()
 
 	def copy_title(self, id):
 		database = self.getDatabase()
@@ -878,16 +874,16 @@ class optionsWindow:
 	def reload(self, id, update=True):
 		def wait_for_thread(t, cb=None):
 			if t.is_alive():
-				self.choice.after(500, wait_for_thread, t, cb)
+				self.optionsWindow.after(500, wait_for_thread, t, cb)
 			elif cb:
 				cb()
 	
 		def finish_reload():
-			if self.closing or self.choice is None or not self.choice.winfo_exists():
+			if self.closing or self.optionsWindow is None or not self.optionsWindow.winfo_exists():
 				return
 
-			self.choice.clear()
-			self.optionsWindow(id)
+			self.optionsWindow.clear()
+			self.drawOptionsWindow(id)
 
 			self.log('TIME', "Reloading:".ljust(25),
 							round(time.time() - self.reload_start, 2), "sec")
@@ -969,7 +965,7 @@ class optionsWindow:
 		self.log('DB_UPDATE', f"Deleted {self.database(id=id, table='anime').get('title')}")
 		self.animeList.remove(id=id)
 		self.database.remove(None, id=id, table="anime")
-		self.choice.exit()
+		self.optionsWindow.exit()
 
 	def deleteSeenEpisodes(self, id):
 		folder = self.getFolder(id)

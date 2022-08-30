@@ -16,8 +16,8 @@ from logger import log, Logger
 class db():
     '''Database manager using sqlite3'''
 
-    def __init__(self, path):
-        if 'database_main_thread' in globals() and not isinstance(globals()['database_main_thread'], threading.Event):
+    def __init__(self, path, force_new=False):
+        if not force_new and 'database_main_thread' in globals() and not isinstance(globals()['database_main_thread'], threading.Event):
             raise Exception("Another db instance already exists!")
         self.path = path
         self.remote_lock = threading.RLock()
@@ -101,7 +101,6 @@ class db():
             for c in commands:
                 self.cur.execute(c)
             self.save()
-        # self.createGenres()
 
     def close(self):
         with self.get_lock():
@@ -365,7 +364,6 @@ class db():
                 # TODO
                 self.cur.executescript(sql.format(id=id))
             else:
-                # self.update(key, None, id, table)
                 self.set({"id": id, key: None}, table, save=False)
             if save:
                 self.save()
@@ -419,11 +417,7 @@ class db():
         return AnimeList([self.get_all_metadata(Anime(keys=keys, values=data)) for data in data_list])
         # return (Anime(keys=keys, values=data) for data in data_list)
 
-    def sql(self, sql, values=[], save=False, to_dict=False, iterate=False):
-        def cur_iterator():
-            for row in self.cur:
-                yield row
-
+    def sql(self, sql, values=[], save=False, to_dict=False):
         if not isinstance(values, dict):
             values = list(values)  # dict_keys type raise a ValueError
 
@@ -436,17 +430,14 @@ class db():
             else:
                 if save:
                     self.save()
+                elif to_dict:
+                    keys = tuple(k[0] for k in self.cur.description)
+                    out = []
+                    for data in self.cur:
+                        out.append(NoneDict(keys=keys, values=data, default=None))
+                    return out
                 else:
-                    if iterate:
-                        return cur_iterator()
-                    elif to_dict:
-                        keys = tuple(k[0] for k in self.cur.description)
-                        out = []
-                        for data in self.cur:
-                            out.append(NoneDict(keys=keys, values=data, default=None))
-                        return out
-                    else:
-                        return self.cur.fetchall()
+                    return self.cur.fetchall()
 
     def save(self):
         with self.get_lock():

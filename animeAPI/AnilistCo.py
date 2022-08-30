@@ -332,7 +332,11 @@ class AnilistCoWrapper(APIUtils):
 		}
 		out.status = mapped_status.get(a.get('status'))
 
-		out.synopsis = re.sub('<.*?>', '', a.get('description')) # Remove all HTML tags
+		desc = a.get('description')
+		if desc: # Avoid using regex when it isn't necessary
+			out.synopsis = re.sub('<.*?>', '', desc) # Remove all HTML tags
+		else:
+			out.synopsis = None
 
 		datefrom = a.get('startDate')
 		if None not in datefrom.values():

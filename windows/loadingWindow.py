@@ -47,5 +47,3 @@ class loadingWindow:
         self.loadProgress = Progressbar(
             self.loadfen, orient=HORIZONTAL, length=500, mode='determinate')
         self.loadProgress.pack(side="bottom", padx=10, pady=10)
-
-        self.loadfen.update()

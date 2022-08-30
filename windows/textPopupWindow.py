@@ -48,8 +48,6 @@ class textPopupWindow:
                 pady=(
                     0,
                     20))
-
-            self.popupWindow.update()
         else:
             self.log("ERROR", "Unknown window type", fentype)
             raise

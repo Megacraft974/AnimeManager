@@ -46,7 +46,6 @@ class settingsWindow:
 
             def checkboxHandler(value, var):
                 self.setSettings({var: bool(value.get())})
-                self.settings.update()
                 self.start = time.time()
                 self.initWindow()
 
@@ -614,8 +613,6 @@ class settingsWindow:
             logsFrame.grid_rowconfigure(1, weight=1)
             logsFrame.grid_columnconfigure(0, weight=1)
             logsFrame.grid(row=10, column=0, sticky="nsew")
-
-        self.settings.update()
 
     def setSettings(self, settings):
         with open(self.settingsPath, 'r') as f:

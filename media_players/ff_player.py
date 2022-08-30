@@ -112,7 +112,6 @@ class FfPlayer(BasePlayer):
     def toggleFullscreen(self, *_):
         self.fullscreen = not self.fullscreen
         self.parent.attributes("-fullscreen", self.fullscreen)
-        self.parent.update()
         self.videoSize = (self.videopanel.winfo_width(),
                           self.videopanel.winfo_height())
 
@@ -235,7 +234,6 @@ class FfPlayer(BasePlayer):
         if self.threadLock:
             return
         self.threadLock = True
-        self.updateDb()
 
         sub, audio = self.player.sub, self.player.audio
 
@@ -249,6 +247,7 @@ class FfPlayer(BasePlayer):
         self.videoSize = (self.videopanel.winfo_width(),
                           self.videopanel.winfo_height())
         time.sleep(2)
+        self.updateDb()
 
         self.showTitle()
         self.player.sub, self.player.audio = sub, audio
@@ -315,7 +314,6 @@ class FfPlayer(BasePlayer):
 
             self.titleLabel.place(anchor="n", relx=0.5,
                                   y=current, relwidth=1, height=50)
-            self.parent.update()
             p += step
 
             if start < stop:
@@ -335,7 +333,6 @@ class FfPlayer(BasePlayer):
         title = self.playlist[self.index].rsplit("/", 1)[1].rsplit(".", 1)[0]
         # self.log(title)
         self.titleLabel['text'] = title
-        # lbl.place(anchor="n",relx=0.5,rely=0,relwidth=1,height=50)
         if animations:
             try:
                 animate(-50, 0, 1)
@@ -344,7 +341,7 @@ class FfPlayer(BasePlayer):
                 pass
         try:
             if not self.stopped:
-                self.parent.after(5000, lbl.place_forget)
+                self.parent.after(5000, self.titleLabel.place_forget)
         except Exception:
             pass
 
@@ -355,9 +352,10 @@ class FfPlayer(BasePlayer):
     def OnPlay(self):
         self.paused = not self.paused
         self.player.set_pause(self.paused)
+
         icon = "play" if self.paused else "pause"
-        img = ImageTk.PhotoImage(file=os.path.join(
-            self.iconPath, "{}.png".format(icon)), size=(25, 25))
+        img = self.image(f"{icon}.png", (25, 25))
+
         self.playButton['image'] = img
         self.playButton.image = img
         # self.playButton['text'] = "Pause" if self.paused else "Play"
@@ -416,7 +414,6 @@ class FfPlayer(BasePlayer):
         self.canvas.delete("all")
         self.canvas.create_image(self.center, image=tkImg)
         self.canvas.img = tkImg
-        self.parent.update()
         # sleep(delay)
 
     def OnClose(self):

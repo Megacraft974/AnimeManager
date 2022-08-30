@@ -14,7 +14,7 @@ class ddlFileListWindow:
                     label.configure(fg=self.colors['Gray4'])
                 except Exception:
                     pass
-            table.update()
+            table.update_scrollzone()
             download_cb(out, labels)
 
         def download_cb(out, labels):
@@ -35,7 +35,7 @@ class ddlFileListWindow:
                     self.torrentDDLWindowMinHeight)
             if self.fileChooser is None or not self.fileChooser.winfo_exists():
                 self.fileChooser = utils.RoundTopLevel(
-                    self.publisherChooser,
+                    self.ddlWindow,
                     title="Torrents:",
                     minsize=size,
                     bg=self.colors['Gray2'],
@@ -51,11 +51,9 @@ class ddlFileListWindow:
             # table = TableFrame(scroll_frame, keys, )
             table.grid_columnconfigure(0, weight=1)
 
-            self.fileChooser.update()
-
         # Torrent list
         if True:
-            data = self.publisherChooser.publisherData[publisher]
+            data = self.ddlWindow.publisherData[publisher]
 
             maxTitleLength = len(
                 sorted(
@@ -103,5 +101,4 @@ class ddlFileListWindow:
                 sizeLbl.bind("<Button-1>", command)
                 # Label(table, text=d['seeders'], font=("Source Code Pro Medium",13), bg=bg, fg=self.colors['White']
                 #     ).grid(row=row,column=2,sticky="nsew")
-            table.update()
-            self.fileChooser.update()
+            table.update_scrollzone()

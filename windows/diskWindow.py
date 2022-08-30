@@ -186,5 +186,3 @@ class diskWindow:
                 sticky="nsew")
             # [fileFrame.grid_columnconfigure(i,weight=1) for i in range(2)]
             fileFrame.pack(pady=20)
-
-        self.diskfen.update()

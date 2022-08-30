@@ -4,14 +4,19 @@ import time
 try:
     import vlc
 except FileNotFoundError:
-    import sys
-    # sys.path.append()
+    vlc = None
+
 import urllib.parse
-from multiprocessing import Value, Manager, Process
+from multiprocessing import Manager, Process
 
 
 class VlcPlayer(BasePlayer):
     def __init__(self, *args, **kwargs):
+        if vlc is None:
+            # Couldn't import library
+            self.log("Couldn't import vlc library!")
+            return
+
         self.method = "NONE"
         super().__init__(*args, **kwargs)
 
@@ -21,8 +26,8 @@ class VlcPlayer(BasePlayer):
             states['running'] = 0
             states['index'] = args[1]
             states['fullscreen'] = False
-            state = manager.Value("i", -1, lock=False)
-            videoIndex = manager.Value("i", args[1], lock=False)
+            # state = manager.Value("i", -1, lock=False)
+            # videoIndex = manager.Value("i", args[1], lock=False)
 
             start = time.time()
             while states['running'] != -1:
@@ -110,7 +115,6 @@ class VlcPlayer(BasePlayer):
         self.fullscreen = not self.fullscreen
         self.states['fullscreen'] = self.fullscreen
         self.parent.attributes("-fullscreen", self.fullscreen)
-        self.parent.update()
         self.videoSize = (self.videopanel.winfo_width(),
                           self.videopanel.winfo_height())
 
@@ -150,7 +154,6 @@ class VlcPlayer(BasePlayer):
             text = subDesc[i].decode()
             self.subLbl['text'] = "Sub {}/{} - {}".format(
                 list(subDesc.keys()).index(i) + 1, len(subDesc), text)
-            self.subLbl.update()
         else:
             self.parent.after(100, self.updateSubLbl)
 
@@ -246,17 +249,17 @@ class VlcPlayer(BasePlayer):
         h = self.videopanel.winfo_id()
         self.player.set_hwnd(h)
 
-        def cb(e):
-            threading.Thread(target=self.changeVideo, args=(1,), daemon=True).start()
         events = self.player.event_manager()
-        # lambda e:self.changeVideo(1))
-        events.event_attach(vlc.EventType().MediaPlayerEndReached, cb)
+        
+        events.event_attach(
+            vlc.EventType().MediaPlayerEndReached, 
+            lambda e:self.changeVideo(1))
+
 
     def changeVideo(self, i):
         if self.threadLock:
             return
         self.threadLock = True
-        self.updateDb()
 
         subs = self.getSubsList()
         current = self.player.video_get_spu()
@@ -280,6 +283,7 @@ class VlcPlayer(BasePlayer):
         self.states['index'] = self.index
 
         self.getNewPlayer()
+        self.updateDb()
 
         self.videoSize = (self.videopanel.winfo_width(),
                           self.videopanel.winfo_height())
@@ -302,7 +306,6 @@ class VlcPlayer(BasePlayer):
 
             self.titleLabel.place(anchor="n", relx=0.5,
                                   y=current, relwidth=1, height=50)
-            self.parent.update()
             p += step
 
             if start < stop:
@@ -323,7 +326,7 @@ class VlcPlayer(BasePlayer):
             "/", 1)[1].rsplit(".", 1)[0]
         # self.log(title)
         self.titleLabel['text'] = title
-        # lbl.place(anchor="n",relx=0.5,rely=0,relwidth=1,height=50)
+
         if animations:
             try:
                 animate(-50, 0, 1)
@@ -332,7 +335,7 @@ class VlcPlayer(BasePlayer):
                 pass
         try:
             if not self.stopped:
-                self.parent.after(5000, lbl.place_forget)
+                self.parent.after(5000, self.titleLabel.place_forget)
         except Exception:
             pass
 
@@ -388,9 +391,10 @@ class VlcPlayer(BasePlayer):
             return
         self.paused = not self.paused
         self.player.pause()
+
         icon = "play" if self.paused else "pause"
-        img = ImageTk.PhotoImage(file=os.path.join(
-            self.iconPath, "{}.png".format(icon), size=(25, 25)))
+        img = self.image(f"{icon}.png", (25, 25))
+
         self.playButton['image'] = img
         self.playButton.image = img
         # self.playButton['text'] = "Pause" if self.paused else "Play"

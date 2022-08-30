@@ -157,6 +157,8 @@
         "mainWindowWidth": 920,
         "publisherDDLWindowMinHeight": 410,
         "publisherDDLWindowMinWidth": 250,
+        "searchTermsWindowMinHeight": 750,
+        "searchTermsWindowMinWidth": 1000,
         "seasonChooserMinHeight": 750,
         "seasonChooserMinWidth": 750,
         "settingsWindowMinHeight": 400,

@@ -1,4 +1,3 @@
-import threading
 import time
 import queue
 import os
@@ -10,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from classes import AnimeList, DefaultDict
 
 # from ctypes import windll, Structure, c_long, byref
-from logger import log, Logger
+from logger import log
 from tkinter import *
 from PIL import Image, ImageTk, ImageDraw
 
@@ -74,7 +73,7 @@ class RoundTopLevel(Frame):
         container.grid_rowconfigure(container_row, weight=1)
         container.grid_columnconfigure(0, weight=1)
 
-        self.update()
+        self.update_events()
 
     def get(self):
         return self.mainFrame.get()
@@ -120,12 +119,15 @@ class RoundTopLevel(Frame):
 
     def getChild(self, w):
         out = []
-        if not isinstance(w, (Button, Checkbutton, Toplevel, OptionMenu, DropDownMenu, ScrollableFrame, CustomScrollbar)):
+        # ScrollableFrame
+        if not isinstance(w, (Button, Checkbutton, Toplevel, OptionMenu, DropDownMenu, CustomScrollbar)):
             out.append(w)
-        if type(w) in (Toplevel, Canvas, Frame, RoundTopLevel):  # , ScrollableFrame):
+
+        # RoundTopLevel, ScrollableFrame
+        if isinstance(w, (Toplevel, Canvas, Frame)):
             try:
-                for w in w.winfo_children():
-                    out += self.getChild(w)
+                for sub_w in w.winfo_children():
+                    out += self.getChild(sub_w)
             except Exception:
                 pass
         return out
@@ -181,15 +183,15 @@ class RoundTopLevel(Frame):
         except Exception as e:
             log("Error while moving window", e)
 
-    def update(self):
-        super().update()
+    def update_events(self):
         try:
             self.titleLbl.bind("<ButtonPress-1>", self.start_move)
             self.titleLbl.bind("<B1-Motion>", self.do_move)
         except Exception:
             pass
         
-        for wid in self.getChild(self.fen):
+        children = self.getChild(self.fen)
+        for wid in children:
             if wid not in self.handles:
                 wid.bind("<Button-1>", self.exit)
 
@@ -231,26 +233,29 @@ class ScrollableFrame(Frame):
         if scrollbar:
             self.scrollbar = CustomScrollbar(self.root, **kwargs)
             if axis == "V":
-                self.scrollbar.config(command=self.canvas.yview, orient="vertical")
+                self.scrollbar.config(
+                    command=self.canvas.yview, orient="vertical")
                 self.canvas.configure(yscrollcommand=self.scrollbar.set)
                 self.scrollbar.grid(row=0, column=1, sticky="ns")
             else:
-                self.scrollbar.config(command=self.canvas.xview, orient="horizontal")
+                self.scrollbar.config(
+                    command=self.canvas.xview, orient="horizontal")
                 self.canvas.configure(xscrollcommand=self.scrollbar.set)
                 self.scrollbar.grid(row=1, column=0, sticky="ew")
             self.root.grid_columnconfigure(0, weight=1)
             self.root.grid_rowconfigure(0, weight=1)
 
-        self.update()
+        self.update_scrollzone()
 
     def scroll(self, event, scroll_frame, canvas):
         if self.axis == "V":
             if self.winfo_height() > self.canvas.winfo_height():
-                self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+                self.canvas.yview_scroll(
+                    int(-1 * (event.delta / 120)), "units")
         else:
             if self.winfo_width() > self.canvas.winfo_width():
-                self.canvas.xview_scroll(int(-1 * (event.delta / 120)), "units")
-        super().update()
+                self.canvas.xview_scroll(
+                    int(-1 * (event.delta / 120)), "units")
 
     def pack(self, *args, **kwargs):
         # Placeholder
@@ -277,14 +282,6 @@ class ScrollableFrame(Frame):
     def bbox(self, *args, **kwargs):
         return self.canvas.bbox(*args, **kwargs)
 
-    def update(self):
-        super().update()
-        self.update_scrollzone()
-
-    def update_idletasks(self):
-        super().update_idletasks()
-        self.update_scrollzone()
-    
     def update_scrollzone(self, childs=None):
         if childs is None:
             childs = self.getChild(self.canvas)
@@ -316,7 +313,8 @@ class CustomScrollbar(Frame):
         else:
             tmp = {"height": self.thickness}
 
-        self.frame = Canvas(self, **tmp, bg=self.bg, bd=0, highlightthickness=0)
+        self.frame = Canvas(self, **tmp, bg=self.bg,
+                            bd=0, highlightthickness=0)
 
         self.frame.bind("<B1-Motion>", self.move_thumb)
 
@@ -338,7 +336,8 @@ class CustomScrollbar(Frame):
             self.command = kwargs.pop("command")
         if "thickness" in kwargs:
             self.thickness = kwargs.pop("thickness")
-            kwargs["width" if self.orient == "V" else "height"] = self.thickness
+            kwargs["width" if self.orient ==
+                   "V" else "height"] = self.thickness
         if "padding" in kwargs:
             self.padding = kwargs.pop("padding")
         if "sb_fg" in kwargs:
@@ -368,7 +367,6 @@ class CustomScrollbar(Frame):
             pass
 
     def draw_thumb(self, start, stop):
-        self.update_idletasks()
         width = self.frame.winfo_width()
         height = self.frame.winfo_height()
         if self.orient == "H":
@@ -376,22 +374,28 @@ class CustomScrollbar(Frame):
 
         self.frame.delete(ALL)
         scale = 10
-        img_size = (max(1, (width - self.padding * 2)) * scale, max(1, int(((stop - start) * height - self.padding * 2)) * scale))
+        img_size = (max(1, (width - self.padding * 2)) * scale, max(1,
+                    int(((stop - start) * height - self.padding * 2)) * scale))
         img_width = img_size[0]
         img_height = img_size[1]
 
         if img_height <= img_width:
             image = Image.new('RGB', (img_width, img_width), self.bg)
             draw = ImageDraw.Draw(image)
-            draw.ellipse((0, 0, img_width, img_width), fill=self.fg, outline=None)
+            draw.ellipse((0, 0, img_width, img_width),
+                         fill=self.fg, outline=None)
         else:
             image = Image.new('RGB', img_size, self.bg)
             draw = ImageDraw.Draw(image)
-            draw.ellipse((0, 0, img_width, img_width), fill=self.fg, outline=None)
-            draw.rectangle((0, img_width / 2, img_width, img_height - img_width / 2), fill=self.fg, outline=None)
-            draw.ellipse((0, img_height - img_width - 1, img_width, img_height - 1), fill=self.fg, outline=None)
+            draw.ellipse((0, 0, img_width, img_width),
+                         fill=self.fg, outline=None)
+            draw.rectangle((0, img_width / 2, img_width, img_height -
+                           img_width / 2), fill=self.fg, outline=None)
+            draw.ellipse((0, img_height - img_width - 1, img_width,
+                         img_height - 1), fill=self.fg, outline=None)
 
-        self.thumb = image.resize((max(1, img_width // scale), max(1, max(img_height, img_width) // scale)), Image.ANTIALIAS)
+        self.thumb = image.resize(
+            (max(1, img_width // scale), max(1, max(img_height, img_width) // scale)), Image.ANTIALIAS)
         if self.orient == "H":
             self.thumb = self.thumb.rotate(90, expand=True)
         thumb_img = ImageTk.PhotoImage(self.thumb, master=self.frame)
@@ -399,9 +403,11 @@ class CustomScrollbar(Frame):
         pos = start * (height - self.padding * 2) + self.padding
         pos = min(pos, height - self.padding * 2 - img_width // scale)
         if self.orient == "V":
-            self.frame.create_image(self.padding, pos, image=thumb_img, anchor="nw")
+            self.frame.create_image(
+                self.padding, pos, image=thumb_img, anchor="nw")
         else:
-            self.frame.create_image(pos, self.padding, image=thumb_img, anchor="nw")
+            self.frame.create_image(
+                pos, self.padding, image=thumb_img, anchor="nw")
         self.frame.image = thumb_img
 
     def move_thumb(self, event):
@@ -441,7 +447,8 @@ class LoadingBar(Frame):
             width=self.radius,
             bg=bg,
             **kwargs)
-        left.create_oval(0, 0, self.radius * 2, self.radius * 2, fill=self.fg, outline="")
+        left.create_oval(0, 0, self.radius * 2, self.radius *
+                         2, fill=self.fg, outline="")
         left.grid(row=0, column=0, sticky="nsw")
 
         bar = Frame(self.wrapper, bg=fg)
@@ -477,7 +484,7 @@ class DropDownMenu(Button):
         self.config(**parse_args(self, kwargs))
         self.menu = DropDown(self, self.var, *self.values, **kwargs)
         super().configure(
-            text=var.get(), 
+            text=var.get(),
             command=self.menu.show
         )
 
@@ -522,9 +529,11 @@ class DropDown(Toplevel):
         self.bind("<FocusOut>", self.hide)
 
     def show(self):
-        x, y = self.master.winfo_rootx(), self.master.winfo_rooty() + self.master.winfo_height()
+        x, y = self.master.winfo_rootx(), self.master.winfo_rooty() + \
+            self.master.winfo_height()
         sb_thickness = self.config_.get('thickness', 30)
-        size_x, size_y = self.master.winfo_width() * 2, min(20, len(self.values)) * self.row_height + sb_thickness
+        size_x, size_y = self.master.winfo_width() * 2, min(20, len(self.values)) * \
+            self.row_height + sb_thickness
         if self.main_frame is not None:
             size_x = min(self.main_frame.winfo_width(), size_x)
         self.geometry("{}x{}+{}+{}".format(size_x, size_y, x, y))
@@ -546,7 +555,7 @@ class DropDown(Toplevel):
                 if val not in self.values:
                     self.values.append(val)
             self.update_values()
-        
+
         catch = ('command', 'elem_per_row', 'scrollbar')
         for key in catch:
             if key in kwargs:
@@ -565,27 +574,26 @@ class DropDown(Toplevel):
         # kwargs['bg'] = self.fg
         super().configure(**kwargs)
 
-    def update(self):
-        self.update_values()
-        super().update()
-
     def entryconfig(self, i, **kwargs):
         self.rows[i].configure(**kwargs)
 
     def update_values(self):
         if self.main_frame is not None:
             self.main_frame.destroy()
-        self.main_frame = ScrollableFrame(self, axis="H", scrollbar=self.scrollbar, **self.config_)
+        self.main_frame = ScrollableFrame(
+            self, axis="H", scrollbar=self.scrollbar, **self.config_)
         self.main_frame.pack(expand=True, fill="both")
 
-        columns, rows = len(self.values) // self.elem_per_row + 1, min(self.elem_per_row, len(self.values))
+        columns, rows = len(self.values) // self.elem_per_row + \
+            1, min(self.elem_per_row, len(self.values))
 
         for i in range(columns):
             self.main_frame.grid_columnconfigure(i * 2, weight=1)
         for i in range(rows):
-            self.main_frame.grid_rowconfigure(i, weight=1, minsize=self.row_height)
+            self.main_frame.grid_rowconfigure(
+                i, weight=1, minsize=self.row_height)
 
-        self.rows = [] # TODO - Empty rows
+        self.rows = []  # TODO - Empty rows
         if len(self.values) == 0:
             row = Label(
                 self.main_frame,
@@ -597,15 +605,18 @@ class DropDown(Toplevel):
             self.rows.append(row)
         else:
             for i, val in enumerate(self.values):
-                row = Button(self.main_frame, text=val, command=self.handle_command(val), anchor="w")
+                row = Button(self.main_frame, text=val,
+                             command=self.handle_command(val), anchor="w")
                 row.config(**parse_args(row, self.config_))
-                row.grid(row=i % self.elem_per_row, column=i // self.elem_per_row * 2, sticky="new")
+                row.grid(row=i % self.elem_per_row, column=i //
+                         self.elem_per_row * 2, sticky="new")
                 self.rows.append(row)
             for i in range(columns - 1):
                 sep = Frame(self.main_frame, bg=self.fg, width=2)
-                sep.grid(row=0, column=i * 2 + 1, rowspan=self.elem_per_row, sticky="ns", pady=10)
+                sep.grid(row=0, column=i * 2 + 1,
+                         rowspan=self.elem_per_row, sticky="ns", pady=10)
 
-        self.main_frame.update()
+        self.main_frame.update_scrollzone()
 
     def handle_command(self, val):
         def handler():
@@ -624,30 +635,12 @@ class AnimeListFrame(ScrollableFrame):
         self.animePerPage = self.parent.animePerPage
         self.log = self.parent.log
 
-        self.interrupt = False
         self.list = []
-        self.list_locked = False
-        self.list_lock = threading.Lock()
         self.next_list = None
         self.blank_image = None
+        self.list_id = 0
 
         super().__init__(self.root, **kwargs)
-
-    def get(self, default=None, iterate=True):
-        while not self.list.is_ready():
-            try:
-                self.root.update() # TODO - Bad!
-            except AttributeError:
-                pass
-            if self.interrupt or self.parent.closing:
-                return None
-            time.sleep(0.01)
-        data = self.list.get(default=default)
-        if data == default and self.next_list is not None and iterate:
-            tmp, self.next_list = self.next_list()
-            self.list = self.list + tmp
-            return self.get(default, iterate=False)
-        return data
 
     def find(self, limit=1, **kwargs):
         c = 0
@@ -667,7 +660,8 @@ class AnimeListFrame(ScrollableFrame):
 
     def set(self, data):
         if not isinstance(data, AnimeList):
-            raise TypeError("AnimeList instance required, not: {}".format(type(data)))
+            raise TypeError(
+                "AnimeList instance required, not: {}".format(type(data)))
         else:
             self.list = data
         self.next_list = None
@@ -720,8 +714,8 @@ class AnimeListFrame(ScrollableFrame):
                                 +({}-broadcasts.hour)*60
                                 +({}-broadcasts.minute)
                                 +86400
-                            )%86400 
-                            ELSE "9" 
+                            )%86400
+                            ELSE "9"
                         END ASC,
                         date_from
                     """
@@ -732,40 +726,36 @@ class AnimeListFrame(ScrollableFrame):
                     # Depend on timezone - TODO
                 filter = "tag = '{}'".format(criteria) + commonFilter
 
-        args = {'table': table, 'sort': sort, 'range': listrange, 'order': order, 'filter': filter}
+        args = {'table': table, 'sort': sort,
+                'range': listrange, 'order': order, 'filter': filter}
 
         def get_next(args):
             listrange = args['range']
             new_list = self.database.filter(**args)
             if not new_list.empty():
-                next_range = (listrange[1], listrange[1] + listrange[1] - listrange[0])
+                next_range = (listrange[1], listrange[1] +
+                              listrange[1] - listrange[0])
                 next_args = args.copy()
                 next_args['range'] = next_range
-                next_list = lambda args=next_args: get_next(args)
+                def next_list(args=next_args): return get_next(args)
             else:
                 next_list = None
             return new_list, next_list
 
         self.list, self.next_list = get_next(args)
 
-        self.update()
+        self.update_scrollzone() # Necessary?
         self.createList()
 
-    def createList(self, start=0, waiting=None):
-        self.interrupt = True  # Interrupt previous list generation
-        self.root.update()
-        if self.list_locked is True:
-            if waiting is None:
-                waiting = time.time()
-            self.root.after(100, lambda s=start, w=waiting: self.createList(s, w))
-        else:
-            if waiting is not None:
-                self.log("ANIME_LIST", "Waited for", int((time.time() - waiting) * 1000), "ms")
-            self.generate_list(start)
+    def createList(self, start=0, waiting=None, list_id=None):
+        if list_id is None:
+            list_id = self.list_id + 1
+            self.list_id = list_id
+            # self.log("ANIME_LIST", f'New list id: {list_id}')
 
-    def generate_list(self, start):
-        self.interrupt, self.list_locked = False, True
+        self.generate_list(start, list_id)
 
+    def generate_list(self, start, list_id):
         que = queue.Queue()
         self.parent.getElemImages(que)
 
@@ -775,12 +765,14 @@ class AnimeListFrame(ScrollableFrame):
                 while len(self.winfo_children()) > 0:
                     for child in self.winfo_children():
                         child.destroy()
-                    self.root.update()
-                    if self.interrupt or self.parent.closing:
-                        return
-            
+
             except Exception as e:
-                self.log("MAIN_STATE", "[ERROR] - On AnimeListFrame.create_list():", e)
+                self.log("MAIN_STATE",
+                         "[ERROR] - On AnimeListFrame.create_list():", e)
+                return
+
+            if self.list_id != list_id:
+                # self.log("ANIME_LIST", f'Interrupted, list id: {list_id}')
                 return
 
         # Ensure the Load More button is on the last column
@@ -788,15 +780,18 @@ class AnimeListFrame(ScrollableFrame):
 
         ids = set()
         row = []
-        self.list_timer = Timer("Anime List Timer", lambda *args: self.log("ANIME_LIST", *args))
-        # for i in range(start, anime_count + start):
-        #     data = self.get()
-        def func(start, stop):
+        self.list_timer = Timer(
+            "Anime List Timer", lambda *args: self.log("ANIME_LIST", *args))
+
+        def func(start, stop, list_id):
             def wrapped(i, data):
                 if i < start or i >= stop:
-                    return 
-                if self.interrupt or self.parent.closing:
+                    return
+
+                if self.list_id != list_id or self.parent.closing:
+                    # self.log("ANIME_LIST", f'Interrupted, list id: {list_id}')
                     return False
+
                 if data is None:
                     if i == 0:
                         Label(
@@ -811,7 +806,7 @@ class AnimeListFrame(ScrollableFrame):
                             columnspan=self.animePerRow,
                             row=0,
                             pady=50)
-                    return False # == break
+                    return False  # == break
                 row.append((i, data, que))
 
                 if i % self.animePerRow == 2:
@@ -822,32 +817,36 @@ class AnimeListFrame(ScrollableFrame):
                             ids.add(tmp)
                         # if args[1]['status'] == 'UPDATE': # TODO - Use a thread?
                         #     self.parent.api.anime(args[1]['id'])
-                    self.root.update()
-                    if self.interrupt or self.parent.closing:
+                    if self.list_id != list_id:
                         return False
             return wrapped
-        
-        def cb(i):
-            try:
-                if ids:
-                    with self.database.get_lock():
-                        sql = 'UPDATE anime SET status="UPDATE" WHERE id IN (' + ', '.join(str(i) for i in ids) + ')'
-                        self.database.sql(sql, get_output=False)
 
-                if not self.list.empty():
-                    self.load_more_button(i - len(row) + 1)
-                else:
-                    while row:
-                        args = row.pop(0)
-                        self.create_elem(*args)
+        def cb(list_id):
+            def wrapped(i):
+                if list_id != self.list_id:
+                    return
+                try:
+                    if ids:
+                        with self.database.get_lock():
+                            sql = 'UPDATE anime SET status="UPDATE" WHERE id IN (' + ', '.join(
+                                str(i) for i in ids) + ')'
+                            self.database.sql(sql, get_output=False)
 
-                self.list_timer.stats()
-                self.parent.stopSearch = True
-            finally:
-                que.put("STOP")
-                self.list_locked = False
-        
-        self.list.map(func(start, anime_count + start), lambda func: self.after(100, func), cb)
+                    if not self.list.empty():
+                        self.load_more_button(i - len(row) + 1)
+                    else:
+                        while row:
+                            args = row.pop(0)
+                            self.create_elem(*args)
+
+                    self.list_timer.stats()
+                    self.parent.stopSearch = True
+                finally:
+                    que.put("STOP")
+            return wrapped
+
+        self.list.map(func(start, anime_count + start, list_id),
+                      lambda func: self.after(100, func), cb(list_id))
 
     def create_elem(self, index, anime, queue):
         self.list_timer.start()
@@ -860,8 +859,10 @@ class AnimeListFrame(ScrollableFrame):
         if len(title) > 35:
             title = title[:35] + "..."
 
-        img_can = Canvas(self, width=225, height=310, highlightthickness=0, bg=self.parent.colors['Gray3'])
-        img_can.bind("<Button-1>", lambda e, id=anime.id: self.parent.optionsWindow(id))
+        img_can = Canvas(self, width=225, height=310,
+                         highlightthickness=0, bg=self.parent.colors['Gray3'])
+        img_can.bind("<Button-1>", lambda e,
+                     id=anime.id: self.parent.drawOptionsWindow(id))
         img_can.bind("<Button-3>", lambda e, id=anime.id: self.parent.view(id))
         img_can.grid(
             column=index % self.animePerRow,
@@ -889,7 +890,7 @@ class AnimeListFrame(ScrollableFrame):
         filename = os.path.join(self.parent.cache, str(anime.id) + ".jpg")
         # url = anime.picture
         pics = self.parent.getAnimePictures(anime.id)
-        if pics: # TODO - Choose best pic
+        if pics:  # TODO - Choose best pic
             url = pics[0]['url']
             queue.put((filename, url, img_can))
             out = None
@@ -901,7 +902,8 @@ class AnimeListFrame(ScrollableFrame):
         return out
 
     def load_more_button(self, index):
-        img_can = Canvas(self, width=225, height=310, highlightthickness=0, bg=self.parent.colors['Gray2'])
+        img_can = Canvas(self, width=225, height=310,
+                         highlightthickness=0, bg=self.parent.colors['Gray2'])
         img_can.grid(column=index % self.animePerRow,
                      row=index // self.animePerRow * 2)
 
@@ -921,7 +923,8 @@ class AnimeListFrame(ScrollableFrame):
         lbl.name = str(-1)
 
         toDestroy = (img_can, lbl)
-        img_can.bind("<Button-1>", lambda e, s=index: self.load_more(index, toDestroy))
+        img_can.bind("<Button-1>", lambda e,
+                     s=index: self.load_more(index, toDestroy))
 
     def load_more(self, start, toDestroy):
         [e.destroy() for e in toDestroy]
@@ -999,7 +1002,7 @@ class TableFrame(Frame):
         else:
             self.sort_key = key
             self.invert_sort = True
-        self.update()
+        self.draw_table()
 
     def draw_table(self):
         for w in self.winfo_children():
@@ -1018,10 +1021,6 @@ class TableFrame(Frame):
                     column=i,
                     sticky="nsew"
                 )
-
-    def update(self):
-        self.draw_table()
-        super().update()
 
     def configure(self, **kwargs):
         self.config_ = kwargs
@@ -1060,7 +1059,8 @@ class Timer():
         if len(self.timeList) > 0:
             total = sum(self.timeList)
             avg = total / len(self.timeList)
-            self.log(nameBracks, "Average:", int(avg * 1000), "ms/loop - Loops:", len(self.timeList), ' (', int(total * 1000), 'ms)')
+            self.log(nameBracks, "Average:", int(avg * 1000), "ms/loop - Loops:",
+                     len(self.timeList), ' (', int(total * 1000), 'ms)')
 
 
 def parse_args(wid, kwargs):
@@ -1094,7 +1094,8 @@ def peek(iter):
 def project_modules(root="./"):
     ignore = ("__pycache__", ".git", "venv", "lib", "build", "dist", ".vscode")
     modules = {}
-    pattern = re.compile(r"(?:from ([\w_\.]*) import \S*)|(?:import ([\w_\.]*))")
+    pattern = re.compile(
+        r"(?:from ([\w_\.]*) import \S*)|(?:import ([\w_\.]*))")
     for f in os.listdir(root):
         if f in ignore:
             continue
@@ -1158,7 +1159,8 @@ def project_stats(root="./"):
             folders += t_folders + 1
             size += t_size
     if root == "./":
-        log("{} lines in the project, {} files, {} folders, total size: {}".format(lines, files, folders, pp_bytes(size)))
+        log("{} lines in the project, {} files, {} folders, total size: {}".format(
+            lines, files, folders, pp_bytes(size)))
     return lines, files, folders, size
 
 
