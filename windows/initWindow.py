@@ -76,7 +76,8 @@ class initWindow:
         if self.root is None:
             self.root = Tk()
             mainloop = True
-            self.root.iconbitmap(icon_path)
+            if os.path.exists(icon_path):
+                self.root.iconbitmap(icon_path)
             self.root.title(self.mainWindowTitle)
             # self.root.attributes('-alpha', 0.0)
             self.root.attributes('-topmost', 1)
@@ -104,7 +105,8 @@ class initWindow:
                 "{}x{}+100+100".format(self.mainWindowWidth, self.mainWindowHeight))
             self.fen.overrideredirect(True)
             self.fen.title(self.mainWindowTitle)
-            self.fen.iconbitmap(icon_path)
+            if os.path.exists(icon_path):
+                self.fen.iconbitmap(icon_path)
             self.fen.bind("<FocusIn>", checkFocus)
 
             self.fen.resizable(False, True)

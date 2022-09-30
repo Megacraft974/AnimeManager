@@ -23,6 +23,7 @@ class MediaPlayers:
                     if func_name in locals().keys():
                         f = locals()[func_name]
                         self.media_players[name] = f
+        # log(f'{len(self.media_players)} players found:\n{self.media_players}')
 
     def convert_name(self, name):  # TODO - Remove self
         out = name[0].upper()

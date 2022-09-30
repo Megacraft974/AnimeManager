@@ -19,87 +19,35 @@ class db():
     def __init__(self, path, force_new=False):
         if not force_new and 'database_main_thread' in globals() and not isinstance(globals()['database_main_thread'], threading.Event):
             raise Exception("Another db instance already exists!")
+        
         self.path = path
         self.remote_lock = threading.RLock()
+        self.alltable_keys = {}
+        self.log_commands = False
+        self.last_op = "None"
+        
         if not os.path.exists(self.path):
             self.createNewDb()
+        
         self.con = sqlite3.connect(path)
         # self.con.row_factory = sqlite3.Row
         sqlite3.register_adapter(bool, int)
         sqlite3.register_converter("BOOLEAN", lambda v: bool(int(v)))
         self.cur = self.con.cursor()
-        self.alltable_keys = {}
-        self.log_commands = False
-        self.last_op = "None"
-
+        
     def createNewDb(self):
         open(self.path, "w")
         self.con = sqlite3.connect(self.path)
         # self.con.row_factory = sqlite3.Row
         self.cur = self.con.cursor()
-        commands = ('''CREATE TABLE "anime" (
-                        "id"    INTEGER NOT NULL UNIQUE,
-                        "title" TEXT,
-                        "picture"   TEXT,
-                        "date_from" TEXT,
-                        "date_to"   TEXT,
-                        "synopsis"  TEXT,
-                        "episodes"  INTEGER,
-                        "duration"  INTEGER,
-                        "rating"    TEXT,
-                        "status"    TEXT,
-                        "broadcast" TEXT,
-                        "last_seen" INTEGER,
-                        "trailer"   TEXT,
-                        "like"  INTEGER,
-                        "tag"   TEXT,
-                        PRIMARY KEY("id")
-                    )''',
-                    '''CREATE TABLE "indexList" (
-                        "id"    INTEGER NOT NULL UNIQUE,
-                        "mal_id"    INTEGER UNIQUE,
-                        "kitsu_id"    INTEGER UNIQUE,
-                        "anilist_id"    INTEGER UNIQUE,
-                        "anidb_id"    INTEGER UNIQUE,
-                        PRIMARY KEY("id" AUTOINCREMENT)
-                    )''',
-                    '''CREATE TABLE "charactersIndex" (
-                        "id"    INTEGER NOT NULL UNIQUE,
-                        "mal_id"    INTEGER UNIQUE,
-                        "kitsu_id"    INTEGER UNIQUE,
-                        PRIMARY KEY("id" AUTOINCREMENT)
-                    )''',
-                    '''CREATE TABLE "genresIndex" (
-                        "id"    INTEGER NOT NULL UNIQUE,
-                        "mal_id"    INTEGER,
-                        "kitsu_id"  INTEGER,
-                        "name"  INTEGER,
-                        PRIMARY KEY("id" AUTOINCREMENT)
-                    )''',
-                    '''CREATE TABLE "characters" (
-                        "id"    INTEGER NOT NULL,
-                        "anime_id"    INTEGER NOT NULL,
-                        "name"    TEXT NOT NULL,
-                        "role"    TEXT,
-                        "picture"    TEXT,
-                        "desc"    TEXT,
-                        "like"    INTEGER
-                    )''',
-                    '''CREATE TABLE "genres" (
-                        "id"    INTEGER NOT NULL,
-                        "value" INTEGER NOT NULL
-                    )''',
-                    '''CREATE TABLE "title_synonyms" (
-                        "id"    INTEGER NOT NULL,
-                        "value" TEXT NOT NULL
-                    )''',
-                    '''CREATE TABLE "torrents" (
-                        "id"    INTEGER NOT NULL,
-                        "value" TEXT NOT NULL
-                    )''')
+
+        with open('db_model.sql') as f:
+            script = f.read()
+
         with self.get_lock():
-            for c in commands:
-                self.cur.execute(c)
+            self.cur.executescript(script)
+            # for c in commands:
+            #     self.cur.execute(c)
             self.save()
 
     def close(self):
