@@ -203,6 +203,8 @@ class ScrollableFrame(Frame):
             raise TypeError("Axis must be either 'H' or 'V'")
         self.axis = axis  # Either "H" or "V"
 
+        self.ARROW_SCROLL_SPEED = 1 # TODO - Put in constants?
+        
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_rowconfigure(0, weight=1)
 
@@ -247,15 +249,15 @@ class ScrollableFrame(Frame):
 
         self.update_scrollzone()
 
-    def scroll(self, event, scroll_frame, canvas):
+    def scroll(self, delta):
         if self.axis == "V":
             if self.winfo_height() > self.canvas.winfo_height():
                 self.canvas.yview_scroll(
-                    int(-1 * (event.delta / 120)), "units")
+                    int(-1 * (delta / 120)), "units")
         else:
             if self.winfo_width() > self.canvas.winfo_width():
                 self.canvas.xview_scroll(
-                    int(-1 * (event.delta / 120)), "units")
+                    int(-1 * (delta / 120)), "units")
 
     def pack(self, *args, **kwargs):
         # Placeholder
@@ -285,11 +287,17 @@ class ScrollableFrame(Frame):
     def update_scrollzone(self, childs=None):
         if childs is None:
             childs = self.getChild(self.canvas)
+
         for w in childs:
             w.bind(
                 "<MouseWheel>",
-                lambda e, a=self, b=self.canvas: self.scroll(e, a, b))
-
+                lambda e: self.scroll(e.delta))
+            # w.bind(
+            #     "<Up>",
+            #     lambda e: self.scroll(-self.ARROW_SCROLL_SPEED))
+            # w.bind(
+            #     "<Down>",
+            #     lambda e: self.scroll(self.ARROW_SCROLL_SPEED))
 
 class CustomScrollbar(Frame):
     def __init__(self, parent, orient='V', **kwargs):

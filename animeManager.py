@@ -180,7 +180,16 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				self.checkSettings()
 
 			self.api = animeAPI.AnimeAPI('all', self.dbPath)
-			self.player = self.media_players[self.player_name]
+			
+			for player_name in self.players_order:
+				if player_name in self.media_players:
+					self.player = self.media_players[player_name]
+					break
+			else:
+				# No player found
+				self.player = None
+				self.log('MAIN_STATE', '[ERROR] - No media player found!')
+
 			# self.last_broadcasts = self.getBroadcast()
 			self.getQB(use_thread=True)
 
@@ -480,7 +489,17 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		else:
 			self.checkSettings()
 
-		self.player = self.media_players[self.player_name]
+		# self.player = self.media_players[self.player_name]
+					
+		for player_name in self.players_order:
+			if player_name in self.media_players:
+				self.player = self.media_players[player_name]
+				break
+		else:
+			# No player found
+			self.player = None
+			self.log('MAIN_STATE', '[ERROR] - No media player found!')
+
 		# self.last_broadcasts = self.getBroadcast()
 
 		# self.RPC_stop()

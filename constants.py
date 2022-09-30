@@ -49,7 +49,9 @@ class Constants:
         self.torrentApiLogin = 'admin'
         self.torrentApiPassword = ''.join(map(str, range(1, 7)))
 
-        self.player_name = "mpv_player"  # TODO - Choose different player
+        # self.player_name = "mpv_player"  # TODO - Choose different player
+        # TODO - Move to settings file
+        self.players_order = ['mpv_player', 'vlc_player', 'ff_player']
 
         self.RPC_client_id = '930139147803459695'  # TODO - Put somewhere else?
 
