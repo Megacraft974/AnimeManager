@@ -34,6 +34,8 @@ except ModuleNotFoundError as e:
 	else:
 		print(f"Installing modules! {e}")
 		subprocess.run([
+			sys.executable,
+			"-m",
 			"pip", 
 			"install", 
 			"qbittorrent-api", 
@@ -80,6 +82,7 @@ except ModuleNotFoundError as e:
 	sys.exit()
 
 # TodoList - Yeah I know there are better tools for that but I'm lazy
+# TODO - Look for torrent client on file system + give installation link?
 # TODO - App Installer
 # TODO - Relations tree
 # TODO - simkl.com API

@@ -45,7 +45,7 @@ class Logger:
             return
 
         if not os.path.exists(self.logsPath):
-            os.mkdir(self.logsPath)
+            os.makedirs(self.logsPath)
 
         logsList = os.listdir(self.logsPath)
         size = sum(os.path.getsize(os.path.join(self.logsPath, f))
