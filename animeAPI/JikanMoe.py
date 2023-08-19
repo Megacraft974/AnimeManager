@@ -131,21 +131,6 @@ class JikanMoeWrapper(APIUtils):
 
 		out['title_synonyms'] = titles
 
-		if 'aired' in a.keys():
-			datefrom, dateto = a['aired']['prop'].values()
-		else:
-			datefrom, dateto = {1: None}, {1: None}
-		out['date_from'] = str(
-			date(
-				datefrom['year'],
-				datefrom['month'],
-				datefrom['day'])) if None not in datefrom.values() else None
-		out['date_to'] = str(
-			date(
-				dateto['year'],
-				dateto['month'],
-				dateto['day'])) if None not in dateto.values() else None
-
 		out['picture'] = a['images']['jpg']['image_url']
 
 		pictures = []
@@ -194,10 +179,29 @@ class JikanMoeWrapper(APIUtils):
 		# out['broadcast'] = a['broadcast']['day'] + '-' +  if 'broadcast' in a.keys() else None
 		out['trailer'] = a['trailer_url'] if 'trailer_url' in a.keys() else None
 
-		if out['date_from'] is None:
+		
+		if 'aired' in a.keys():
+			datefrom, dateto = a['aired']['prop'].values()
+		else:
+			datefrom, dateto = {1: None}, {1: None}
+
+		if None in datefrom.values():
+			out['date_from'] = None
 			out['status'] = 'UPDATE'
 			return {}
 		else:
+			out['date_from'] = str(
+				date(
+					datefrom['year'],
+					datefrom['month'],
+					datefrom['day']))
+			
+			out['date_to'] = str(
+				date(
+					dateto['year'],
+					dateto['month'],
+					dateto['day'])) if None not in dateto.values() else None
+			
 			out['status'] = self.getStatus(
 				out) if 'status' in a.keys() else None
 

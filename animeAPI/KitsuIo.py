@@ -39,7 +39,7 @@ class KitsuIoWrapper(APIUtils):
             'anime/{}/characters'.format(str(kitsu_id)), modifier)
         for c in characters:
             yield self._convertCharacter(c, id)
-
+            
     def animePictures(self, id):
         modifier = Filter(id=id)
         rep = self.s.get('anime', modifier).resources
@@ -60,27 +60,36 @@ class KitsuIoWrapper(APIUtils):
                 continue
             yield data
 
-    def schedule(self, limit=100):
+    def schedule(self, limit=50):
+        pass
         def getSchedule():
-            modifier = Inclusion("genres", "mediaRelationships",
-                                 "mediaRelationships.destination", "mappings")
+            modifier = Inclusion(
+                "genres", "mediaRelationships", "mediaRelationships.destination", "mappings"
+            ) + Modifier(
+                "page[limit]=20"
+            )
             trending = self.s.iterate('trending/anime', modifier)
+
             for a in trending:
                 yield a
+
             modifier += Modifier("sort=-startDate,-endDate")
+
             r_modifier = modifier + Filter(status="current")
             recent = self.s.iterate('anime', r_modifier)
+
             u_modifier = modifier + Filter(status="upcoming")
             upcoming = self.s.iterate('anime', u_modifier)
+
             r_anime, u_anime = next(recent, None), next(upcoming, None)
             while r_anime is not None or u_anime is not None:
                 if r_anime is not None:
                     yield r_anime
+                    r_anime = next(recent, None)
                 if u_anime is not None:
                     yield u_anime
-                r_anime, u_anime = next(recent, None), next(upcoming, None)
+                    u_anime = next(upcoming, None)
 
-        out = []
         schedule = getSchedule()
 
         for c, a in enumerate(schedule):
@@ -122,7 +131,8 @@ class KitsuIoWrapper(APIUtils):
         if not force and a.subtype not in self.subtypes:
             return None
 
-        id = self.database.getId("kitsu_id", int(a.id))
+        with self.database.get_lock():
+            id = self.database.getId("kitsu_id", int(a.id))
 
         data = Anime()
         # data['kitsu_id'] = int(a.id)
@@ -135,7 +145,7 @@ class KitsuIoWrapper(APIUtils):
             data['picture'] = a.posterImage.small
         except Exception:
             pass
-        
+
         pictures = []
         for size in ('small', 'medium', 'large'):
             img_url = a.posterImage.get(size)
@@ -144,7 +154,7 @@ class KitsuIoWrapper(APIUtils):
                     'url': img_url,
                     'size': size
                 })
-        
+
         self.save_pictures(id, pictures)
 
         data['title_synonyms'] = list(a.titles.values()) + [data['title']]
@@ -180,9 +190,9 @@ class KitsuIoWrapper(APIUtils):
             rels = []
             for f in a.mediaRelationships:
                 rel = {
-                    'type': f.destination.type, 
-                    'name': f.role, 
-                    'rel_id': f.destination.id, 
+                    'type': f.destination.type,
+                    'name': f.role,
+                    'rel_id': f.destination.id,
                     'anime': {
                         'title': f.role + " - " + data['title']
                     }
@@ -261,4 +271,5 @@ if __name__ == "__main__":
     #     print(a['id'], a['date_to'], a['title'])
     # pass
 
-    ApiTester(KitsuIoWrapper)
+    t = ApiTester(KitsuIoWrapper)
+    t.test_all()

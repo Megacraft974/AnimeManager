@@ -58,6 +58,7 @@
         "apiHost": "kitsu.io",
         "hideRated": true,
         "maxTimeout": 30,
+        "scheduleTimeout": 120,
         "maxTrendingAnime": 100,
         "topPublishers": [
             "SubsPlease",
@@ -87,13 +88,29 @@
         "maxLogsSize": 50000
     },
     "paths": {
-        "animePath": "",
         "cache": "",
         "dbPath": "",
-        "filesFolder": "",
         "iconPath": "",
-        "logsPath": "",
-        "torrentPath": ""
+        "logsPath": ""
+    },
+    "file_managers":{
+        "Local": {
+            "dataPath": ""
+        },
+        "FTP": {
+            "url": "",
+            "login": "",
+            "password": "",
+            "dataPath": ""
+        }
+    },
+    "torrent_managers": {
+        "qBittorent": {
+            "url": "",
+            "login": "",
+            "password": "",
+            "qb_settings": {}
+        }
     },
     "phoneSyncServer": {
         "enableServer": false,
@@ -127,7 +144,12 @@
                 "Left": "playlistBack",
                 "Right": "playlistNext"
             }
-        }
+        },
+        "playerOrder": [
+            "mpv_player", 
+            "vlc_player", 
+            "ff_player"
+        ]
     },
     "qb_settings": {
         "qb_settings": {
@@ -144,8 +166,8 @@
         "torrentApiPassword": "123456"
     },
     "windows": {
-        "characterInfoWindowMinHeight": 300,
-        "characterInfoWindowMinWidth": 300,
+        "characterWindowWindowMinHeight": 300,
+        "characterWindowWindowMinWidth": 300,
         "characterListWindowMinHeight": 500,
         "characterListWindowMinWidth": 1000,
         "diskWindowMinHeight": 300,
@@ -159,8 +181,8 @@
         "publisherDDLWindowMinWidth": 250,
         "searchTermsWindowMinHeight": 750,
         "searchTermsWindowMinWidth": 1000,
-        "seasonChooserMinHeight": 750,
-        "seasonChooserMinWidth": 750,
+        "seasonSelectorMinHeight": 750,
+        "seasonSelectorMinWidth": 750,
         "settingsWindowMinHeight": 400,
         "settingsWindowMinWidth": 600,
         "torrentDDLWindowMinHeight": 500,

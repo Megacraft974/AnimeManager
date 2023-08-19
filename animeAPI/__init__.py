@@ -20,6 +20,7 @@ except ImportError:
                         NoIdFound)
     from getters import Getters
 
+
 class AnimeAPI(Getters, Logger):
     def __init__(self, apis='all', *args, **kwargs):
         super().__init__()#logs="ALL")
@@ -112,6 +113,13 @@ class AnimeAPI(Getters, Logger):
             t.start()
             threads.append(t)
 
+        # if 'timeout' in kwargs: # Disabled
+        #     delay = max(0, kwargs['timeout']) # Min 0 to loop at least once
+        #     timeout = delay + time.time()
+        # else:
+        #     timeout = None
+        #     delay = None
+
         out = ()
         if name in ('anime', 'character'):
             if name == 'anime':
@@ -119,13 +127,18 @@ class AnimeAPI(Getters, Logger):
             else:
                 out = Character()
             r = None
-            while not que.empty() or any(t.is_alive() for t in threads):
+            while not que.empty() or any(t.is_alive() for t in threads): # or (delay is not None and delay < 0):
                 try:
-                    r = que.get(block=True, timeout=0.01)
+                    r = que.get(block=True, timeout=1) #, timeout=delay)
                 except queue.Empty:
                     pass
                 else:
                     out += r
+
+                # if timeout is not None:
+                #     delay = timeout - time.time()
+                # else:
+                #     delay = None
 
             if len(out) == 0:
                 self.log("ANIME_SEARCH", "No data - id:" + str(name) + " - args:" + ",".join(map(str, args)))

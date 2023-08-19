@@ -16,7 +16,7 @@ class DiscordPresence:
     def __init__(self):
         if "RPC" not in globals().keys():
             self.RPC = None
-            self.init_t = threading.Thread(target=self.get_RPC)
+            self.init_t = threading.Thread(target=self.get_RPC, daemon=True)
             self.init_t.start()
         else:
             self.RPC = globals()['RPC']
@@ -32,7 +32,12 @@ class DiscordPresence:
         except pp_exceptions.DiscordNotFound:
             print("Error on RPC: DiscordNotFound")
             return
-        RPC.connect()
+
+        try:
+            RPC.connect()
+        except PermissionError:
+            print('Error on RPC: PermissionError')
+            return
 
         RPC.global_start = time.time()
         RPC.watching = False
@@ -42,7 +47,7 @@ class DiscordPresence:
         globals()['RPC'] = self.RPC
 
     def RPC_menu(self):
-        threading.Thread(target=self.RPC_menu_).start()
+        threading.Thread(target=self.RPC_menu_, daemon=True).start()
 
     def RPC_menu_(self):
         while self.RPC is None:
@@ -75,7 +80,7 @@ class DiscordPresence:
             self.RPC.timer.start()
 
     def RPC_watching(self, title, **kwargs):
-        threading.Thread(target=self.RPC_watching_, args=(title,), kwargs=kwargs).start()
+        threading.Thread(target=self.RPC_watching_, args=(title,), daemon=True, kwargs=kwargs).start()
 
     def RPC_watching_(self, title, **kwargs):
         # Kwargs can have three fields: start: float, end: float, eps: [int, int]
@@ -126,7 +131,7 @@ class DiscordPresence:
                 "Probably about to watch an anime"
             )
             return random.choice(funny_quotes)
-        elif cat == "disk":
+        elif False and cat == "disk": # Disk
             def list_sub_dirs(dir):
                 out = []
                 for f in os.listdir(dir):

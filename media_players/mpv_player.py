@@ -35,7 +35,7 @@ class MpvPlayer(BasePlayer):
 
         self.initWindow()
 
-        event = self.getPlaylist(url, playlist)
+        event = self.getPlaylist(playlist)
         # Wait for playlist data to be processed
         self.condition_waiter(event.is_set, lambda url=url: self.start_after(url))
 
@@ -326,7 +326,6 @@ class MpvPlayer(BasePlayer):
         except Exception:
             pass
 
-        # cursor = vlc.libvlc_video_get_cursor(self.player,0)[1]
         try:
             cursorX, cursorY = self.queryMousePosition()
         except Exception:
@@ -335,19 +334,9 @@ class MpvPlayer(BasePlayer):
             self.videopanel.winfo_rooty()
         # self.log(cursor)
 
-        if 0.95 < cursorY / \
-                self.videoSize[1] < 1 and 0 < cursorX < self.videoSize[0]:
-            if self.hidden:
-                self.updateSubLbl()
-                self.updateAudioLbl()
-                self.hidingFrame.place(
-                    anchor="s", relx=0.5, rely=1, width=500, relheight=0.08)
-                self.hidden = False
-                self.showTitle()
-        else:
-            if not self.hidden:
-                self.hidingFrame.place_forget()
-                self.hidden = True
+        if 1 in self.videoSize: # 1 is returned when not yet initialized
+            self.videoSize = (self.videopanel.winfo_width(),
+                            self.videopanel.winfo_height())
 
         self.parent.after(100, self.OnTick)
 

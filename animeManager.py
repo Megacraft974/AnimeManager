@@ -1,3 +1,4 @@
+import json
 import multiprocessing
 import os
 import queue
@@ -10,16 +11,16 @@ import time
 import traceback
 import urllib.parse
 import webbrowser
-from collections import defaultdict
 from tkinter import *
+from classes import Torrent
+import torrent_managers
 
 try:
 	import sys
 
-	import bencoding
-	import qbittorrentapi.exceptions
 	import requests
-	from bs4 import BeautifulSoup
+	import bencoding
+	import requests
 	from lxml import etree
 	from PIL import Image, ImageTk
 	from pypresence import Presence
@@ -45,9 +46,7 @@ except ModuleNotFoundError as e:
 			"requests", 
 			"Pillow", 
 			"bencoding", 
-			"bs4", 
 			"thefuzz", 
-			"pytube", 
 			"python-mpv", 
 			"python-vlc", 
 			"pypresence",
@@ -65,9 +64,10 @@ try:
 	import animeAPI
 	import search_engines
 	import utils
+	import mobile_server
 	import windows
-	from classes import (Anime, AnimeList, Character, SortedDict, SortedList,
-	                     TorrentList)
+	from classes import (Anime, AnimeList, Character, Magnet, SortedDict,
+						 SortedList, TorrentList)
 	from constants import Constants
 	from dbManager import db
 	from discord_presence import DiscordPresence
@@ -75,14 +75,17 @@ try:
 	from logger import Logger
 	from media_players import MediaPlayers
 	from update_utils import UpdateUtils
+	from classes import DefaultDict
+	from file_managers import LocalFileManager, FTPFileManager
 except ModuleNotFoundError as e:
-	print(e)
-	print(f"{e} - Please verify your app installation!")
+	print(f"Please verify your app installation!\n{traceback.format_exc()}")
 	import sys
 	sys.exit()
 
 # TodoList - Yeah I know there are better tools for that but I'm lazy
+# TODO - Torrent path dependent of file manager / multiple file managers?
 # TODO - Look for torrent client on file system + give installation link?
+# TODO - Multiple torrent clients compatibility (module-like)
 # TODO - App Installer
 # TODO - Relations tree
 # TODO - simkl.com API
@@ -112,6 +115,7 @@ except ModuleNotFoundError as e:
 # TODO - Add python-based torrent client -> uh oh complicated
 # TODO - Add RSS option
 # TODO - Automatic torrent downloading from RSS?
+# TODO - Qt windows / themes
 # TODO - Phone version -> Yup maybe not (Apple dev licence is too expensive)
 # TODO - Web version
 
@@ -121,8 +125,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		self.start = time.time()
 		Logger.__init__(self)
 		Constants.__init__(self)
-		MediaPlayers.__init__(self)
-		DiscordPresence.__init__(self)
 
 		self.remote = remote
 		self.animeFolder = []
@@ -136,30 +138,29 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		self.maxLogsSize = 50000  # In bytes
 		self.blank_image = None
 
-		self.qb = None
 		self.root = None
-		self.fen = None
-		self.logPanel = None
+		self.initWindow = None
+		self.logsWindow = None
 		self.optionsWindow = None
 		self.ddlWindow = None
-		self.fileChooser = None
-		self.torrentFilesChooser = None
-		self.loadfen = None
+		self.fileListWindow = None
+		self.torrentFilesWindow = None
+		self.loadingWindow = None
 		self.characterListWindow = None
-		self.characterInfo = None
-		self.settings = None
-		self.diskfen = None
-		self.popupWindow = None
-		self.searchTermsManager = None
+		self.characterWindow = None
+		self.settingsWindow = None
+		self.diskWindow = None
+		self.textPopupWindow = None
+		self.searchTermsWindow = None
 
 		self.menuOptions = {
 			'Liked characters': {'color': 'Green', 'command': lambda: self.drawCharacterListWindow("LIKED")},
-			'Disk manager': {'color': 'Orange', 'command': self.diskWindow},
-			'Log panel': {'color': 'Blue', 'command': self.logWindow},
+			'Disk manager': {'color': 'Orange', 'command': self.drawDiskWindow},
+			'Log panel': {'color': 'Blue', 'command': self.drawLogsWindow},
 			'Clear logs': {'color': 'Green', 'command': self.clearLogs},
 			'Clear cache': {'color': 'Blue', 'command': self.clearCache},
-			'Clear db': {'color': 'Red', 'command': self.clearDb},
-			'Settings': {'color': 'Gray', 'command': self.settingsWindow},
+			# 'Clear db': {'color': 'Red', 'command': self.clearDb},
+			'Settings': {'color': 'Gray', 'command': self.drawSettingsWindow},
 			'Reload': {'color': 'Orange', 'command': self.reloadAll},
 			'Exit': {'color': 'Red', 'command': self.quit}}
 		self.actionButtons = (
@@ -174,6 +175,9 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		self.startup()
 
 	def startup(self):
+		self.getFileManager('Local')
+		# TODO - Put that in settings
+
 		with self.getDatabase() as self.database:
 			if not os.path.exists(self.dbPath):
 				self.checkSettings()
@@ -182,35 +186,46 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			else:
 				self.checkSettings()
 
-			self.api = animeAPI.AnimeAPI('all', self.dbPath)
-			
-			for player_name in self.players_order:
-				if player_name in self.media_players:
-					self.player = self.media_players[player_name]
-					break
-			else:
-				# No player found
-				self.player = None
-				self.log('MAIN_STATE', '[ERROR] - No media player found!')
-
-			# self.last_broadcasts = self.getBroadcast()
-			self.getQB(use_thread=True)
-
-			self.RPC_menu()
-
 			if not self.remote:
 				try:
-					self.initWindow()
+					self.drawInitWindow()
 				except Exception as e:
 					self.log("MAIN_STATE", "[ROOT]:\n", traceback.format_exc())
+				finally:
+					self.quit()
+			else:
+				self.late_startup()
 
-				self.log('MAIN_STATE', "Stopping")
-				self.start = time.time()
-				self.RPC_stop()
-				self.updateAll()
-				self.log('TIME', "Stopping time:".ljust(25),
-						 round(time.time() - self.start, 2), 'sec')
-				self.database.close()
+	def late_startup(self):
+		MediaPlayers.__init__(self)
+		DiscordPresence.__init__(self)
+		
+		if not self.remote:
+			self.animeList.from_filter("DEFAULT")
+
+		self.api = animeAPI.AnimeAPI('all', self.dbPath)
+		
+		for player_name in self.players_order:
+			if player_name in self.media_players:
+				self.player = self.media_players[player_name]
+				break
+		else:
+			# No player found
+			self.player = None
+			self.log('MAIN_STATE', '[ERROR] - No media player found!')
+
+
+		# self.last_broadcasts = self.getBroadcast()
+		self.getTorrentManager('qBittorent')
+		# TODO - Put that in settings
+
+		self.RPC_menu()
+		self.checkServer()
+
+		self.getSchedule(thread=True)
+
+		self.log('TIME', "Ready:".ljust(25), round(
+			time.time() - self.start, 2), "sec")
 
 	# ___Search___
 	def search(self, event=None, force_search=False):
@@ -288,6 +303,36 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				for m in matchs:
 					yield Anime(keys=keys, values=m)
 
+		def searchNgrams(self, terms):  # TODO
+			def ngrams(string, n=3):
+				string = [l for l in string.lower() if l.isalnum() or l == " "]
+				ngrams = zip(*[string[i:] for i in range(n)])
+				return (''.join(ngram) for ngram in ngrams)
+
+			with self.database.get_lock():
+				data = self.database.sql("SELECT id, value FROM title_synonyms")
+
+				t_ngrams = set(ngrams(terms))
+				matches = DefaultDict(default=0)
+				for id, value in data:
+					for ngram in ngrams(value): # Removed comment
+						if ngram in t_ngrams:
+							matches[id] += 1
+
+				sql = 'SELECT * FROM anime WHERE id IN(' + ','.join("?" * len(matches)) + ');'
+				return AnimeList(
+					Anime(data)
+					for data in SortedList(
+						[(lambda e: matches[e['id']], True)]
+					).extend(
+						self.database.sql(
+							sql,
+							matches.keys(),
+							to_dict=True
+						)
+					)
+				)
+
 		def match_enumerator(terms):
 			sql = """
 				SELECT value, anime.*
@@ -359,36 +404,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		else:
 			return False
 
-	def searchNgrams(self, terms):  # TODO
-		def ngrams(string, n=3):
-			string = [l for l in string.lower() if l.isalnum() or l == " "]
-			ngrams = zip(*[string[i:] for i in range(n)])
-			return (''.join(ngram) for ngram in ngrams)
-
-		with self.database.get_lock():
-			data = self.database.sql("SELECT id, value FROM title_synonyms")
-
-			t_ngrams = set(ngrams(terms))
-			matches = defaultdict(lambda: 0)
-			for id, value in data:
-				for ngram in ngrams(value): # Removed comment
-					if ngram in t_ngrams:
-						matches[id] += 1
-
-			sql = 'SELECT * FROM anime WHERE id IN(' + ','.join("?" * len(matches)) + ');'
-			return AnimeList(
-				Anime(data)
-				for data in SortedList(
-					[(lambda e: matches[e['id']], True)]
-				).extend(
-					self.database.sql(
-						sql,
-						matches.keys(),
-						to_dict=True
-					)
-				)
-			)
-
 	# ___Clean up___
 	def clearLogs(self):
 		for f in os.listdir(self.logsPath):
@@ -422,10 +437,33 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			self.reloadAll()
 
 	def quit(self):
+		if self.closing is True:
+			return
+
+		self.log('MAIN_STATE', "Stopping")
+		self.root.withdraw()
+
+		self.start = time.time()
+
 		self.stopSearch = True
 		self.closing = True
+
+		if self.initWindow is not None and self.initWindow.winfo_exists():
+			self.initWindow.destroy()
+
+		try:
+			self.RPC_stop()
+			self.updateAll()
+		except Exception as e:
+			self.log('MAIN_STATE', f"Error while stopping: {e}")
+
+		self.database.close()
+
 		self.root.destroy()
 		self.root = None
+
+		self.log('TIME', "Stopping time:".ljust(25),
+					round(time.time() - self.start, 2), 'sec')
 
 	# ___Utils___
 	def mainloop_error_handler(self, exc, val, tb):
@@ -443,12 +481,12 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		self.stopSearch = True
 		self.closing = True
 		try:
-			self.fen.destroy()
+			self.initWindow.destroy()
 		except Exception:
 			pass
-		self.fen = None
+		self.initWindow = None
 
-		self.loadingWindow()
+		self.drawLoadingWindow()
 
 		processes = self.updateAllProgression()
 		lenght = next(processes)
@@ -460,7 +498,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			try:
 				self.loadLabel['text'] = text
 			except Exception:
-				if not self.loadfen.winfo_exists():
+				if not self.loadingWindow.winfo_exists():
 					break
 			loadStop = (i + 1) / lenght * 100
 			while thread.is_alive():
@@ -469,11 +507,11 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				try:
 					self.loadProgress['value'] = loadStart
 				except Exception:
-					if self.closing or not self.loadfen.winfo_exists():
+					if self.closing or not self.loadingWindow.winfo_exists():
 						break
 
 		try:
-			self.loadfen.destroy()
+			self.loadingWindow.destroy()
 			# self.quit()
 		except Exception:
 			pass
@@ -493,7 +531,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			self.checkSettings()
 
 		# self.player = self.media_players[self.player_name]
-					
+
 		for player_name in self.players_order:
 			if player_name in self.media_players:
 				self.player = self.media_players[player_name]
@@ -510,7 +548,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		self.RPC_menu()
 
 		if not self.remote:
-			self.initWindow()
+			self.drawInitWindow()
 
 	def view(self, id):
 		index = "indexList"
@@ -521,7 +559,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		for api_key, id in ids.items():
 			if id is not None and api_key in self.websitesViewUrls.keys():
 				url = self.websitesViewUrls[api_key].format(id)
-				threading.Thread(target=webbrowser.open, args=(url,)).start()
+				threading.Thread(target=webbrowser.open, args=(url,), daemon=True).start()
 
 	def loading(self, n=0, after=False):
 		if self.stopSearch:
@@ -535,28 +573,32 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			self.loadCanvas.create_image(
 				gif.width() // 2, gif.height() // 2, image=gif)
 		if self.timer_id is not None:
-			self.fen.after_cancel(self.timer_id)
-		self.timer_id = self.fen.after(30, self.loading, n + 1, True)  # TODO - Use a timer instead of n
+			self.initWindow.after_cancel(self.timer_id)
+		self.timer_id = self.initWindow.after(30, self.loading, n + 1, True)  # TODO - Use a timer instead of n
 
 	# ___Networking___
-	def downloadFile(self, id, url=None, file=None):
-		def handler(id, put, url=None, file=None):
-			isMagnet = False
+	def downloadFile(self, id, url=None, hash=None):
+		def handler(id, out, url=None, hash=None):
+			# Get torrent data (url / magnet / file)
 			if url is not None:
+				if isinstance(url, Magnet):
+					url = url.get()
 				pattern = re.compile(r"^magnet:\?xt=urn:")
+
 				if pattern.match(url):
+					# Magnet url
 					isMagnet = True
 					# self.log('NETWORK', 'Added magnet link:', url)
+					torrent = Torrent.from_magnet(url)
+
 				else:
+					# Torrent file url
 					try:
+						# When nyaa.si blocked my ip:
 						# if url.startswith("https://nyaa.si/"):
 						#     url = "https://torproxy.cyou/?cdURL="+url
 						req = None
 						req = requests.get(url, allow_redirects=True)
-						file = urllib.parse.unquote(
-							req.headers['content-disposition'].split('"')[-2]
-						)
-						file = re.sub(r"[^a-zA-Z0-9.\\\ \[\]-]", "_", file)
 					except Exception:
 						self.log(
 							'NETWORK',
@@ -564,86 +606,72 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 							url,
 							"status_code",
 							req.status_code if req is not None else "unknown")
-						out.put(False)
+						out.put(False) # Download failed
 						return
-					self.log('NETWORK', "Downloading", file)
-					filePath = os.path.normpath(os.path.join(self.torrentPath, file))
-					with open(filePath, 'wb') as f:
-						f.write(req.content)
-			else:  # File is not None
-				filePath = os.path.normpath(os.path.join(self.torrentPath, file))
+					
+					torrent = Torrent.from_file(req.content)
+			
+			elif hash is not None:
+				# Should already be in database
+				database = self.getDatabase()
+				data = database.sql('SELECT name, trackers FROM torrents WHERE hash=?', (hash,))
+				torrent = Torrent(hash=hash, name=data[0], trackers=data[1])
 
+			else:
+				self.log('MAIN_STATE', '[ERROR] - No torrent provided!')
+				out.put(False) # Download failed
+				return
 
+			# Add torrent to database
 			database = self.getDatabase()
 			with database.get_lock():
-				torrents = database.get_metadata(id, "torrents")
-				database.save_metadata(id, {"torrents": torrents + [file]})
+				self.saveTorrent(id, torrent)
 
 				if database(id=id, table='anime')['tag'] != 'WATCHING':
 					database.set({'id': id, 'tag': 'WATCHING'}, table='anime', get_output=False)
 				database.save()
 
-			if not isMagnet:
-				filePath = os.path.normpath(filePath)
-				if not os.path.exists(filePath):
-					return
-
-			if self.getQB() == "OK":
-				out.put(True)
+			# Add torrent to client
+			try:
+				out.put(True) # Download started
 				path = self.getFolder(id)
+
+				# Get anime folder
 				if not os.path.isdir(path):
 					try:
 						os.mkdir(path)
 					except FileExistsError:
 						pass
-				if isMagnet:
-					args = {'urls': url}
-				else:
-					args = {'torrent_files': open(filePath, 'rb')}
+
+				# Start downloading
 				try:
-					self.qb.torrents_add(**args, save_path=path)
-				except qbittorrentapi.exceptions.APIConnectionError:
-					self.log(
-						'NETWORK', "[ERROR] - Couldn't find the torrent client!")
+					self.tm.add(torrent.to_magnet(), path=path)
+
+					# Try to move torrents to anime folder					
+					self.tm.move(path=path, hashes=[torrent.hash])
+				except torrent_managers.TorrentException as e:
+					out.put(False)
+					self.log('NETWORK', f"[ERROR] - {str(e)}")
 				else:
-					if isMagnet:
-						torrenthash = self.getMagnetHash(url)
-					else:
-						torrenthash = self.getTorrentHash(filePath)
-					qb_path = os.path.join(self.qbCache, str(torrenthash) + ".torrent")
+					self.log('NETWORK', 'Successfully downloaded torrent, hash:', torrent.hash)
 
-					if isMagnet:
-						file = str(torrenthash) + ".torrent"
-						filePath = os.path.join(self.torrentPath, file)
-						# self.log('NETWORK', 'Waiting for file:', qb_path)
-						while not os.path.exists(qb_path):
-							time.sleep(0.1)
-						shutil.copyfile(qb_path, filePath)
-
-					while not os.path.exists(qb_path):
-						time.sleep(0.1)
-					self.qb.torrents_set_location(
-						location=path, torrent_hashes=[torrenthash])
-
-					self.log('NETWORK', 'Successfully downloaded torrent, hash:', torrenthash)
-			else:
-				out.put(False)
+			except Exception as e:
+				out.put(False) # Download failed
 				self.log(
-					'NETWORK', "[ERROR] - Couldn't find the torrent client!")
+					'NETWORK', f"[ERROR] - {str(e)}")
 
-		assert url is not None or file is not None, "You need to specify either an url or a file path"
+		assert url is not None or hash is not None, "You need to specify either an url or a file path"
 		out = queue.Queue()
-		threading.Thread(target=handler, args=(id, out, url, file), daemon=True).start()
+		threading.Thread(target=handler, args=(id, out, url, hash), daemon=True).start()
 		return out
 
 	def redownload(self, id):
-		if self.getQB() == "OK":
-			database = self.getDatabase()
-
-			torrents = database.get_metadata(id, "torrents")
+		try:
+			torrents = self.getTorrents(id)
 
 			for torrent in torrents:
-				self.downloadFile(id, file=torrent)
+				self.downloadFile(id, url=torrent.to_magnet())
+
 			if len(torrents) > 0:
 				self.log(
 					'NETWORK',
@@ -655,16 +683,23 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 					'No torrents to download!'.format(
 						len(torrents)))
 
-		else:
-			self.log('NETWORK', "[ERROR] - Couldn't find the torrent client!")
+		except torrent_managers.TorrentException as e:
+			self.log('NETWORK', f"[ERROR] - {str(e)}")
 
 	def bluetoothConnect(self):
 		pass
 		# TODO -> En fait c'est chiant
 
-	# ___Data update___
-	def getSeason(self, year, season):
-		self.animeList.set(self.api.season(year, season))
+	def checkServer(self):
+		if threading.main_thread() == threading.current_thread():
+			threading.Thread(target=self.checkServer, daemon=True).start()
+			return
+		if self.enableServer:
+			self.server = mobile_server.startServer(
+				self.hostName, self.serverPort, self.dbPath, self)
+		elif self.server is not None:
+			mobile_server.stopServer(self.server, self)
+			self.server = None
 
 if __name__ == '__main__':
 	multiprocessing.freeze_support()

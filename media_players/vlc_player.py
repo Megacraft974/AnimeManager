@@ -1,9 +1,21 @@
-from .base_player import BasePlayer
 import time
+import os
+from .base_player import BasePlayer, dict_merge
 
 try:
+    lib_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'lib', 'libvlc.dll')
+    import sys
+    # TODO - Find it another way
+    sys.path.append('C:\\Program Files (x86)\\VideoLAN\\VLC')
+    
+    os.environ['PATH'] += 'C:\\Program Files (x86)\\VideoLAN\\VLC' + os.sep + os.environ['PATH']
+    # is64bit = sys.maxsize > 2**32
     import vlc
-except FileNotFoundError:
+except FileNotFoundError as e:
+    vlc = None
+except Exception as e:
+    vlc = None
+except SystemExit as e:
     vlc = None
 
 import urllib.parse
@@ -34,7 +46,7 @@ class VlcPlayer(BasePlayer):
                 if "root" in kwargs.keys():
                     del kwargs["root"]
                 p = Process(target=self._start, args=args,
-                            kwargs=kwargs | {'states': states})
+                            kwargs=dict_merge(kwargs, {'states': states}))
                 p.start()
                 p.join()
                 self.log(states)
@@ -79,18 +91,18 @@ class VlcPlayer(BasePlayer):
         self.volume = 100
         self.OnVolume()
 
-        devices = []
-        mods = self.player.audio_output_device_enum()
-        if mods:
-            mod = mods
-            while mod:
-                mod = mod.contents
-                if 'Casque (2- JBL TUNE510BT Stereo)' in str(mod.description):
-                    self.player.audio_output_device_set(None, mod.device)
-                    break
-                mod = mod.next
+        # devices = []
+        # mods = self.player.audio_output_device_enum()
+        # if mods:
+        #     mod = mods
+        #     while mod:
+        #         mod = mod.contents
+        #         if 'Casque (2- JBL TUNE510BT Stereo)' in str(mod.description):
+        #             self.player.audio_output_device_set(None, mod.device)
+        #             break
+        #         mod = mod.next
 
-        vlc.libvlc_audio_output_device_list_release(mods)
+        # vlc.libvlc_audio_output_device_list_release(mods)
 
         self.videoSize = (self.videopanel.winfo_width(),
                           self.videopanel.winfo_height())
@@ -240,7 +252,7 @@ class VlcPlayer(BasePlayer):
             del self.Instance
         except Exception:
             pass
-        self.Instance = vlc.Instance()
+        self.Instance = vlc.Instance('--verbose 3')
         self.Instance.log_unset()
         self.player = self.Instance.media_player_new()
         self.player.set_mrl(self.playlist[self.index])
@@ -362,26 +374,24 @@ class VlcPlayer(BasePlayer):
         except Exception:
             pass
 
-        # cursor = vlc.libvlc_video_get_cursor(self.player,0)[1]
         try:
             cursorX, cursorY = self.queryMousePosition()
         except Exception:
             cursorX, cursorY = 0, 0
-        cursorX, cursorY = cursorX - self.videopanel.winfo_rootx(), cursorY - \
-            self.videopanel.winfo_rooty()
+        cursorX, cursorY = cursorX - self.videopanel.winfo_rootx(), cursorY - self.videopanel.winfo_rooty()
         # self.log(cursor)
 
-        if 0.95 < cursorY / \
-                self.videoSize[1] < 1 and 0 < cursorX < self.videoSize[0]:
-            if self.hidden:
-                self.hidingFrame.place(
-                    anchor="s", relx=0.5, rely=1, width=500, relheight=0.08)
-                self.hidden = False
-                self.showTitle()
-        else:
-            if not self.hidden:
-                self.hidingFrame.place_forget()
-                self.hidden = True
+        # if 0.95 < cursorY / \
+        #         self.videoSize[1] < 1 and 0 < cursorX < self.videoSize[0]:
+        #     if self.hidden:
+        #         self.hidingFrame.place(
+        #             anchor="s", relx=0.5, rely=1, width=500, relheight=0.08)
+        #         self.hidden = False
+        #         self.showTitle()
+        # else:
+        #     if not self.hidden:
+        #         self.hidingFrame.place_forget()
+        #         self.hidden = True
 
         if not self.stopped:
             self.parent.after(100, self.OnTick)

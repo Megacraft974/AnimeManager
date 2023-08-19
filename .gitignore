@@ -1,6 +1,7 @@
 build/
 dist/
 venv/
+.vscode/
 **/__pycache__/
 
 .pem
@@ -12,4 +13,6 @@ lib/upx-3.96-win64/
 *.sublime-workspace
 *.lnk
 *.code-workspace
+*.log
 test.py
+icons/Thumbs.db

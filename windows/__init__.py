@@ -14,7 +14,8 @@ def windows():
                 print(f'Error while importing window: {name} - {e}')
                 raise
             module = globals()[name]
-            func = getattr(module, name)
+            funcname = name[0].upper() + name[1:]
+            func = getattr(module, funcname)
             windows.append(func)
     
     return windows

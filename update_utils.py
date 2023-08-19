@@ -3,6 +3,7 @@ if __name__ == "__main__":
 
 from datetime import date, datetime, timedelta
 import os
+import time
 import utils
 import json
 import re
@@ -45,21 +46,25 @@ class UpdateUtils:
             self.updateDirs: "Updating directories",
             self.updateTag: "Updating tags",
             self.updateStatus: "Updating status",
-            self.regroupFiles: "Regrouping files",
+            # self.regroupFiles: "Regrouping files",
         }
-        if schedule:
-            reloadFunc |= {
-                self.getSchedule: "Updating schedule"
-            }
+
+        # It's better to get schedule after startup
+        # if schedule:
+
+        #     reloadFunc = utils.dict_merge(reloadFunc, {
+        #         self.getSchedule: "Updating schedule"
+        #     })
         yield len(reloadFunc)
 
         for f, text in reloadFunc.items():
-            thread = threading.Thread(target=wrapper, args=(f,))
+            thread = threading.Thread(target=wrapper, args=(f,), daemon=True)
             thread.start()
             yield thread, text
             thread.join()
 
     def regroupFiles(self, silent=False):
+        # Not really needed anymore, also it's fucking slow
         if not silent:
             self.log("DB_UPDATE", "Regrouping files")
         database = self.getDatabase()
@@ -69,23 +74,6 @@ class UpdateUtils:
             if os.path.isfile(os.path.join(self.animePath, file)):
                 files.append(file)
 
-        if self.getQB() == "OK":
-            try:
-                torrents = self.qb.torrents_info()
-            except Exception as e:
-                self.log("MAIN_STATE", "[ERROR] - While fetching qb.torrents_info(), disconnecting")
-                self.qb = None
-                torrents = []
-        else:
-            torrents = []
-
-        if not os.path.isdir(self.torrentPath):
-            if not silent:
-                self.log("DISK_ERROR", "Torrent folder doesn't exists!")
-            return
-
-        c = 0
-
         torrentDb = database.sql(
             'SELECT id,title FROM anime WHERE id IN (SELECT id FROM torrents)',
             to_dict=True)
@@ -93,16 +81,9 @@ class UpdateUtils:
             anime = Anime(data)
             path = self.getFolder(anime=anime)
             if os.path.isdir(path):
-                hashes = []
-                anime.torrents = database.get_metadata(anime.id, "torrents")
-                for t in anime.torrents:
-                    filePath = os.path.join(self.torrentPath, t)
-                    if os.path.isfile(filePath):
-                        torrent_hash = self.getTorrentHash(filePath)
-                        hashes.append(torrent_hash)
-                if self.getQB() == "OK":
-                    self.qb.torrents_set_location(
-                        location=path, torrent_hashes=hashes)
+                torrents = self.getTorrents(anime.id)
+                hashes = list(map(lambda t: t.hash, torrents))
+                self.tm.move(path=path, hashes=hashes)
 
         if not silent:
             self.log("DB_UPDATE", "Files regrouped!")
@@ -233,33 +214,37 @@ class UpdateUtils:
         else:
             self.log('DB_UPDATE', "No tags to update.")
 
-    def getSchedule(self):
-        timer = utils.Timer("schedule")
-        database = self.getDatabase()
-
-        data = self.api.schedule(limit=self.maxTrendingAnime)
-
-        c = 0
-        ids = [anime['id'] for anime in data if anime]
-        if len(ids) == 0:
-            self.log('DB_UPDATE', 'No animes found from schedule!')
+    def getSchedule(self, thread=False):
+        if thread is True:
+            threading.Thread(target=self.getSchedule, daemon=True).start()
             return
-        sql = "SELECT id FROM anime WHERE id IN (" + ", ".join("?" * len(ids)) + ") AND status IS NOT null and status !='UPDATE';"
-        exists = {e[0] for e in database.sql(sql, ids)}
-        with database.get_lock():
-            for anime in data:
-                id = anime['id']
-                # not id in dbKeys:
-                if id not in ids:
-                    c += 1
-                    title = anime['title']
-                    database.set(anime, table="anime", get_output=False)
-                    self.log('SCHEDULE', "Added anime",
-                             id, title, "from schedule")
+        # timer = utils.Timer("schedule")
 
-        if c == 0:
-            self.log('DB_UPDATE', "No new animes from schedule")
-        else:
-            self.log(
-                'DB_UPDATE',
-                "Updated {} new animes from schedule".format(c))
+        self.log('SCHEDULE', "Starting")
+        start = time.time()
+        print('STARTED')
+        data = self.api.schedule(limit=self.maxTrendingAnime)
+        
+        queue = []
+
+        timeout = time.time() + self.scheduleTimeout
+
+        while not data.empty():
+            time_left = timeout - time.time()
+            if time_left < 0:
+                self.log('SCHEDULE', "Schedule took too long, interrupted")
+                break
+
+            anime = data.get(timeout=time_left)
+            if anime is None or len(anime) == 0:
+                continue
+
+            queue.append(anime)
+
+        database = self.getDatabase()
+        with database.get_lock():
+            for anime in queue:
+                database.set(anime, table="anime", get_output=False, save=False)
+            database.save()
+
+        self.log('SCHEDULE', f"Done: {round(time.time()-start, 3)} sec")

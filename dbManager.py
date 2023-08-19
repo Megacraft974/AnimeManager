@@ -250,31 +250,63 @@ class db():
             return
         keys = []
         values = []
+        misc_table = table not in ("anime", "characters")
         with self.get_lock():
             self.updateKeys(table)
+            tablekeys = set(self.tablekeys)
+
             if isinstance(data, Item):
                 data, meta = data.save_format()
             else:
                 meta = []
+
+            out = {}
             for k, v in data.items():
-                if (table not in ("anime", "characters") or k in self.tablekeys):
+                if (misc_table or k in tablekeys):
+                    if not misc_table:
+                        # Then k is in tablekeys
+                        tablekeys.remove(k)
+
                     if type(v) in (dict, list):
                         meta[k] = v
                     else:
-                        keys.append(k)
-                        values.append(v)
+                        out[k] = v
 
-            if self.exists(data["id"], table, "id"):
-                sql = "UPDATE " + table + " SET " + \
-                    ",".join(["{} = ?"] * len(keys)) + " WHERE {} = ?;"
-                sql = sql.format(*keys, "id")
-                self.execute(sql, (*values, data["id"]))
-            else:
-                sql = "INSERT INTO " + table + \
-                    "(" + ",".join(["{}"] * len(keys)) + \
-                      ") VALUES(" + ",".join("?" * len(keys)) + ");"
-                sql = sql.format(*keys)
-                self.execute(sql, (*values,))
+            f_keys = ",".join(self.tablekeys)
+            keys = []
+            values = []
+            for key in self.tablekeys:
+                # Here, we will try to determine for each key if we should overwrite it or if we should get the current value
+                if key in out:
+                    # Can't use "if key in data:" here, because it might be a meta key
+                    keys.append(key)
+                    value = '?'
+                    # value = str(data[k]) # -> not really secure, it's better to use a ? instead
+                else:
+                    # Let's just hope that the pk is the first key, AND that you always have at least the pk set
+                    value = f'(SELECT {key} FROM {table} WHERE {self.tablekeys[0]}={out[self.tablekeys[0]]})'
+
+                values.append(value)
+            f_values = ",".join(values)
+
+            sql = f"INSERT OR REPLACE INTO {table}({f_keys}) VALUES ({f_values})"
+            self.execute(
+                sql, 
+                tuple(map(lambda k: str(data[k]), keys))
+            )
+            # if self.exists(data["id"], table, "id"):
+            #     f_keys = ",".join(map(lambda k: f"{k} = ?"))
+            #     sql = f"UPDATE {table} SET {f_keys} WHERE id = ?;"
+            #     self.execute(sql, (*values, data["id"]))
+            # else:
+            #     f_keys = ",".join(keys)
+            #     f_values = ",".join("?" * len(keys))
+            #     sql = f"INSERT INTO {table}({keys}) VALUES({f_values});"
+            #     sql2 = "INSERT INTO " + table + \
+            #         "(" + ",".join(["{}"] * len(keys)) + \
+            #           ") VALUES(" + ",".join("?" * len(keys)) + ");"
+            #     sql2 = sql2.format(*keys)
+            #     self.execute(sql, (*values,))
 
             self.save_metadata(data["id"], meta)
             if save:

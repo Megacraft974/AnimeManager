@@ -1,4 +1,4 @@
-from .base_player import BasePlayer
+from .base_player import BasePlayer, dict_merge
 import time
 
 from tkinter import Canvas
@@ -117,12 +117,12 @@ class FfPlayer(BasePlayer):
 
     def getSubsList(self):
         streams = {-1: {'TAG:title': 'Disabled'}}
-        streams |= self.getMetadata(self.playlist[self.index], 'subtitle')
+        streams = dict_merge(streams, self.getMetadata(self.playlist[self.index], 'subtitle'))
         return streams
 
     def getAudioList(self):
         streams = {-1: {'TAG:language': 'Disabled'}}
-        streams |= self.getMetadata(self.playlist[self.index], 'audio')
+        streams = dict_merge(streams, self.getMetadata(self.playlist[self.index], 'audio'))
         return streams
 
     def getMetadata(self, file, filter=""):
@@ -386,22 +386,6 @@ class FfPlayer(BasePlayer):
             self.posLbl['text'] = currentTimeText + " - " + totalTimeText
         except Exception:
             pass
-
-        cursorX, cursorY = self.queryMousePosition()
-        # cursorX, cursorY = cursorX-self.videopanel.winfo_rootx(), cursorY-self.videopanel.winfo_rooty()
-        # self.log(cursor)
-
-        if 0.95 < cursorY / \
-                self.videoSize[1] < 1 and 0 < cursorX < self.videoSize[0]:
-            if self.hidden:
-                self.hidingFrame.place(
-                    anchor="s", relx=0.5, rely=1, width=500, relheight=0.08)
-                self.hidden = False
-                self.showTitle()
-        else:
-            if not self.hidden:
-                self.hidingFrame.place_forget()
-                self.hidden = True
 
         if not self.stopped:
             self.parent.after(100, self.OnTick)
