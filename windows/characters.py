@@ -11,8 +11,8 @@ import utils
 from classes import CharacterList, Character
 
 
-class CharacterList:
-    def drawCharacterListWindow(self, id, update=True):
+class Characters:
+    def drawCharactersWindow(self, id, update=True):
         # Functions
         if True:
             def characterCell(character, index, queue):
@@ -85,10 +85,10 @@ class CharacterList:
 
             def reload(id, c):
                 if getCharacters(id) != c:
-                    self.characterListWindow.after(1, self.drawCharacterListWindow, id, False)
+                    self.characterListWindow.after(1, self.drawCharactersWindow, id, False)
 
             def update(id):
-                parent.after(10, self.drawCharacterListWindow, id)
+                parent.after(10, self.drawCharactersWindow, id)
 
             def loop_handler(id, t):
                 if t.is_alive():

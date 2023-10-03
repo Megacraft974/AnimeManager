@@ -154,7 +154,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		self.searchTermsWindow = None
 
 		self.menuOptions = {
-			'Liked characters': {'color': 'Green', 'command': lambda: self.drawCharacterListWindow("LIKED")},
+			'Liked characters': {'color': 'Green', 'command': lambda: self.drawCharactersWindow("LIKED")},
 			'Disk manager': {'color': 'Orange', 'command': self.drawDiskWindow},
 			'Log panel': {'color': 'Blue', 'command': self.drawLogsWindow},
 			'Clear logs': {'color': 'Green', 'command': self.clearLogs},
@@ -167,7 +167,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			{'text': 'Copy title', 'color': 'Green', 'command': self.copy_title},
 			{'text': 'Reload', 'color': 'Blue', 'command': self.reload},
 			{'text': 'Redownload files', 'color': 'Green', 'command': self.redownload},
-			{'text': 'Characters', 'color': 'Green', 'command': self.drawCharacterListWindow},
+			{'text': 'Characters', 'color': 'Green', 'command': self.drawCharactersWindow},
 			{'text': 'Delete seen episodes', 'color': 'Blue', 'command': self.deleteSeenEpisodes},
 			{'text': 'Delete all files', 'color': 'Red', 'command': self.deleteFiles},
 			{'text': 'Remove from db', 'color': 'Red', 'command': self.delete},)
@@ -614,7 +614,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			elif hash is not None:
 				# Should already be in database
 				database = self.getDatabase()
-				data = database.sql('SELECT name, trackers FROM torrents WHERE hash=?', (hash,))
+				data = database.sql('SELECT name, trackers FROM torrents WHERE hash=?', (hash,))[0]
 				torrent = Torrent(hash=hash, name=data[0], trackers=data[1])
 
 			else:

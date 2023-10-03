@@ -36,6 +36,7 @@ class RSS:
                 title = entry.text
             elif entry.tag == 'description':
                 desc = entry.text
+
         return {
             'title': title, 
             'desc': desc, 

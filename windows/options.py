@@ -764,6 +764,10 @@ class Options:
 		if True:
 			state = Frame(self.optionsWindow, bg=self.colors['Gray2'])
 			datefrom, dateto = anime.date_from, anime.date_to
+			if dateto == 'None':
+				# TODO - Fix that
+				dateto = None
+				self.log('MAIN_STATE', f'Anime {anime.title} has "None" instead of None in dateto field')
 			if datefrom is not None:
 				datefrom = date.fromisoformat(datefrom)
 			if dateto is not None:
@@ -867,21 +871,21 @@ class Options:
 		if 'TIME' in self.logs:
 			self.reload_start = time.time()
 
-		thread_files = threading.Thread(
-			target=self.regroupFiles, args=(True,), daemon=True)
-		thread_files.start()
+		# thread_files = threading.Thread(
+		# 	target=self.regroupFiles, args=(True,), daemon=True)
+		# thread_files.start()
 
-		waiter = lambda thread_files=thread_files: wait_for_thread(thread_files, finish_reload)
+		# waiter = lambda thread_files=thread_files: wait_for_thread(thread_files, finish_reload)
 
 		if update:
 			thread_data = threading.Thread(
 				target=self.api.anime, args=(id,), daemon=True)
 			thread_data.start()
-
-			old_waiter = waiter
-			waiter = lambda thread_data=thread_data: wait_for_thread(thread_data, old_waiter)
-
-		waiter()
+			wait_for_thread(thread_data, finish_reload)
+	
+		else:
+	
+			finish_reload()
 
 	def deleteFiles(self, id):
 		def clearFolder(path):
@@ -912,12 +916,12 @@ class Options:
 			torrents = self.getTorrents(id)
 
 			try:
-				hashes = torrents
+				hashes = list(map(lambda t: t.hash, torrents))
 
 				self.log('DB_UPDATE', "Deleting", path, "-",
 						 len(hashes), "torrents to remove")
 
-				self.tm.delete(hashes=[hashes])
+				self.tm.delete(hashes=hashes)
 			except torrent_managers.TorrentException:
 				pass
 

@@ -203,7 +203,7 @@ class TorrentFiles:
                 torrent_list_frame.update_scrollzone()
 
             def download_torrent(id, t):
-                self.downloadFile(id, file=t)
+                self.downloadFile(id, hash=t)
 
                 self.torrentFilesWindow.after(1000, self.drawTorrentFilesWindow, id)
 

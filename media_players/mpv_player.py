@@ -1,3 +1,4 @@
+from tkinter import TclError
 from .base_player import BasePlayer
 import os
 import time
@@ -330,8 +331,12 @@ class MpvPlayer(BasePlayer):
             cursorX, cursorY = self.queryMousePosition()
         except Exception:
             cursorX, cursorY = 0, 0
-        cursorX, cursorY = cursorX - self.videopanel.winfo_rootx(), cursorY - \
-            self.videopanel.winfo_rooty()
+        try:
+            cursorX, cursorY = cursorX - self.videopanel.winfo_rootx(), cursorY - self.videopanel.winfo_rooty()
+        except TclError:
+            # Window was closed
+            return
+
         # self.log(cursor)
 
         if 1 in self.videoSize: # 1 is returned when not yet initialized

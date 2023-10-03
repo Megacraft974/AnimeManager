@@ -38,6 +38,10 @@ class DiscordPresence:
         except PermissionError:
             print('Error on RPC: PermissionError')
             return
+        except pp_exceptions.DiscordNotFound:
+            print("Error on RPC: DiscordNotFound")
+            return
+
 
         RPC.global_start = time.time()
         RPC.watching = False
@@ -59,7 +63,8 @@ class DiscordPresence:
             return
 
         start = self.RPC.global_start
-        quote = self.get_random_quote()
+        # quote = self.get_random_quote()
+        quote = "Hi!"
 
         try:
             self.RPC.update(

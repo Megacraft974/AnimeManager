@@ -222,7 +222,6 @@ class UpdateUtils:
 
         self.log('SCHEDULE', "Starting")
         start = time.time()
-        print('STARTED')
         data = self.api.schedule(limit=self.maxTrendingAnime)
         
         queue = []

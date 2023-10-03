@@ -277,7 +277,7 @@ class db():
             values = []
             for key in self.tablekeys:
                 # Here, we will try to determine for each key if we should overwrite it or if we should get the current value
-                if key in out:
+                if key in out and data.get(key, None) is not None:
                     # Can't use "if key in data:" here, because it might be a meta key
                     keys.append(key)
                     value = '?'
@@ -285,6 +285,8 @@ class db():
                 else:
                     # Let's just hope that the pk is the first key, AND that you always have at least the pk set
                     value = f'(SELECT {key} FROM {table} WHERE {self.tablekeys[0]}={out[self.tablekeys[0]]})'
+                    if data.get(key, None) is None:
+                        pass
 
                 values.append(value)
             f_values = ",".join(values)
@@ -292,7 +294,7 @@ class db():
             sql = f"INSERT OR REPLACE INTO {table}({f_keys}) VALUES ({f_values})"
             self.execute(
                 sql, 
-                tuple(map(lambda k: str(data[k]), keys))
+                tuple(map(lambda k: str(data[k]) if k in data and data[k] is not None else None, keys))
             )
             # if self.exists(data["id"], table, "id"):
             #     f_keys = ",".join(map(lambda k: f"{k} = ?"))
@@ -336,7 +338,7 @@ class db():
                 sql = """
                     DELETE FROM anime WHERE id={id};
                     DELETE FROM title_synonyms WHERE id={id};
-                    DELETE FROM torrents WHERE id={id};
+                    DELETE FROM torrentsIndex WHERE id={id};
                     DELETE FROM genres WHERE id={id};
                     DELETE FROM indexList WHERE id={id};
                     DELETE FROM characters WHERE anime_id={id};
@@ -503,6 +505,7 @@ class thread_safe_db(Logger):
             try:
                 out = getattr(self.db, name)(*args, **kwargs)
             except Exception as e:
+                self.log('DB_MAIN', f"[ERROR]: On db.{name}(*{args}, **{kwargs}: {str(e)}")
                 output.put(e)
             else:
                 output.put(out)

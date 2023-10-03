@@ -15,7 +15,7 @@ added_files = [
     ('icons/*.*', 'icons'),
     ('lib/mpv-1.dll', 'lib'),
     ('media_players/*.py', 'media_players'),
-    ('search_engines/*.py', 'search_engines'),
+    ('search_engines/**/*.py', 'search_engines'),
     ('windows/*.py', 'windows'),
 ]
 

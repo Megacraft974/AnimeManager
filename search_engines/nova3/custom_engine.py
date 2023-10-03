@@ -1,16 +1,20 @@
 import multiprocessing
 import os
 import queue
-import re
 import sys
 import threading
 import urllib.parse
 from os import path
 import glob
 
-sys.path.append(os.path.dirname(__file__))
-import engines
-import novaprinter
+try:
+	from . import engines
+	from . import novaprinter
+except ImportError:
+	sys.path.append(os.path.dirname(__file__))
+	import engines
+	import novaprinter
+
 
 try:
 	from classes import Magnet, Torrent
@@ -39,7 +43,9 @@ def initialize_engines():
 			continue
 		try:
 			# import engines.[engine]
-			engine_module = getattr(engines, engi)
+			# engine_module = getattr(engines, engi) -> Doesn't work with pyinstaller
+			exec(f'from engines import {engi}')
+			engine_module = locals()[engi]
 
 			# get low-level module
 			engine_class = getattr(engine_module, engi)
@@ -103,14 +109,14 @@ def run_search(engine_list):
 		else:
 			engine.search(what)
 
-		run_search.out.put({'search_done': True, 'engine': name, 'error': None})
+		run_search.out({'search_done': True, 'engine': name, 'error': None})
 		return True
 	except Exception as e:
-		run_search.out.put({'search_done': True, 'engine': name, 'error': str(e)})
+		run_search.out({'search_done': True, 'engine': name, 'error': str(e)})
 		return False
  
-def f_init(out):
-	run_search.out = out
+def f_init(search_id, out):
+	run_search.out = lambda torrent: out.put((search_id, torrent))
 	
 def search(terms, engines=None):
 	supported_engines = initialize_engines()
@@ -133,29 +139,42 @@ def search(terms, engines=None):
 	
 	terms = [urllib.parse.quote(term) for term in terms if len(term) > 5]
 
-	def search_thread():
+	def search_thread(search_id):
 		if THREADED:
 			pool = multiprocessing.Pool
 		else:
 			pool = multiprocessing.pool.ThreadPool
 		
-		with pool(min(len(engines_list), MAX_THREADS), f_init, [out]) as pool:
+		with pool(min(len(engines_list), MAX_THREADS), f_init, [search_id, out]) as pool:
 			args = ([engine, globals()[engine], term] for engine in engines_list for term in terms)
 			pool.map(run_search, args)
 	
 	engines_pool = {engine: len(terms) for engine in engines_list} 
 
-	t = threading.Thread(target=search_thread)
+	search_id = hash('\n'.join(map(str, sorted(terms)))) # Should be unique for any list of terms
+
+	t = threading.Thread(target=search_thread, args=(search_id,))
 	t.start()
 
 	# f = lambda e, l: str(e)[:l].ljust(l)
 	
 	while True:
 		try:
-			torrent = out.get()
+			s_id, torrent = out.get()
 		except EOFError:
 			break
 		else:
+			if s_id != search_id:
+				print('Invalid search id:', s_id, search_id)
+				out.put((s_id, torrent))
+			
+				if len(engines_pool) == 0: 
+					# This should avoid infinite loops
+					# But we might have a VERY fast loop sometimes, might want to fix that too
+					break
+				else:
+					continue
+
 			if torrent.get('search_done') == True:
 				engine = torrent['engine']
 				if engines_pool.get(engine, 0) > 0:
@@ -168,9 +187,11 @@ def search(terms, engines=None):
 					except ValueError:
 						# Value probably already deleted by another process
 						pass
+
 				# print(engine)
 				if len(engines_pool) == 0:
 					break
+
 			else:
 				torrent['link'] = Magnet(torrent['link'], torrent['engine_url'], download_torrent)
 				try:

@@ -39,7 +39,7 @@ def prettyPrinter_old(dictionary):
 
 def prettyPrinter(dictionnary):
     if prettyPrinter.output is not None:
-        prettyPrinter.output.put(dictionnary)
+        prettyPrinter.output(dictionnary)
 
 prettyPrinter.output = None
 
