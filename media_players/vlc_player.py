@@ -104,9 +104,6 @@ class VlcPlayer(BasePlayer):
 
         # vlc.libvlc_audio_output_device_list_release(mods)
 
-        self.videoSize = (self.videopanel.winfo_width(),
-                          self.videopanel.winfo_height())
-
         self.log("Playing", self.playlist[self.index])
 
         # if self.stopFlag.value != -1:
@@ -127,8 +124,6 @@ class VlcPlayer(BasePlayer):
         self.fullscreen = not self.fullscreen
         self.states['fullscreen'] = self.fullscreen
         self.parent.attributes("-fullscreen", self.fullscreen)
-        self.videoSize = (self.videopanel.winfo_width(),
-                          self.videopanel.winfo_height())
 
     def getSubsList(self):
         return dict(self.player.video_get_spu_description())
@@ -296,9 +291,7 @@ class VlcPlayer(BasePlayer):
 
         self.getNewPlayer()
         self.updateDb()
-
-        self.videoSize = (self.videopanel.winfo_width(),
-                          self.videopanel.winfo_height())
+        
         time.sleep(2)
 
         self.showTitle()
@@ -373,25 +366,6 @@ class VlcPlayer(BasePlayer):
             self.posLbl['text'] = currentTimeText + " - " + totalTimeText
         except Exception:
             pass
-
-        try:
-            cursorX, cursorY = self.queryMousePosition()
-        except Exception:
-            cursorX, cursorY = 0, 0
-        cursorX, cursorY = cursorX - self.videopanel.winfo_rootx(), cursorY - self.videopanel.winfo_rooty()
-        # self.log(cursor)
-
-        # if 0.95 < cursorY / \
-        #         self.videoSize[1] < 1 and 0 < cursorX < self.videoSize[0]:
-        #     if self.hidden:
-        #         self.hidingFrame.place(
-        #             anchor="s", relx=0.5, rely=1, width=500, relheight=0.08)
-        #         self.hidden = False
-        #         self.showTitle()
-        # else:
-        #     if not self.hidden:
-        #         self.hidingFrame.place_forget()
-        #         self.hidden = True
 
         if not self.stopped:
             self.parent.after(100, self.OnTick)

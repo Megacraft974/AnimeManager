@@ -7,7 +7,7 @@ except ImportError:
     from base import *
 
 class qBittorrent(BaseTorrentManager):
-    name = 'qBittorent'
+    name = 'qBittorrent'
 
     def __init__(self, *args, **kwargs):
         self.qb = None
@@ -47,7 +47,7 @@ class qBittorrent(BaseTorrentManager):
                 self.qb = None
                 self.login_event = None
                 # Can't find client, so just ignore
-                print("Couldn't connect to qBittorent client!")
+                print("Couldn't connect to qBittorrent client!")
                 return None
             return self.login_dialog()
         else:
@@ -70,7 +70,7 @@ class qBittorrent(BaseTorrentManager):
 
         dialog = LoginDialog(
             fields = fields, 
-            title = 'Login to qBittorent UI', 
+            title = 'Login to qBittorrent UI', 
             validator = validator
         )
         data = dialog.results
@@ -90,13 +90,13 @@ class qBittorrent(BaseTorrentManager):
                 # Not connected yet
                 if self.login_event is None:
                     # Error while connecting
-                    raise TorrentException("Couldn't connect to qBittorent")
+                    raise TorrentException("Couldn't connect to qBittorrent")
 
                 connected = self.login_event.wait(self.timeout)
             
                 if not connected or self.qb is None:
                     # Couldn't connect
-                    raise TorrentException("Couldn't connect to qBittorent")
+                    raise TorrentException("Couldn't connect to qBittorrent")
             
             return self.error_wrapper(func)(self, *args, **kwargs)
         return wrapper

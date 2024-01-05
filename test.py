@@ -38,25 +38,16 @@ dbPath = os.path.join(appdata, "animeData.db")
 	# print(name)
 	# player([path])
 
-if __name__ == '__main__':
-	multiprocessing.freeze_support()
-	p = multiprocessing.current_process()
-	if p.name == 'MainProcess':
-		m = Manager(remote=True)
 
-		hash = 'b15810986dad9c6f46a09221912ebefdd598b6d1'
-		path = 'E:\\AnimeManager\\Animes\\Liar Liar - 27046'
-		m.tm.move(path, [hash])
-
-if False:
+if True:
 	fen = Tk()
-	Label(fen, text='loooool').pack()
-	frame = Frame(fen)
-	frame.pack(fill='both')
-	table = TableFrame(frame, {'titre': 'title', 'col': 'row', 'autre': 'looool'}, cb=print)
+	# Label(fen, text='loooool').pack()
+	table = TableFrame(fen, {'titre': 'title', 'col': 'row', 'autre': 'looool'}, cb=print, bg="pink")
 	table.extend([{'title': f'aaaa{i}', 'row': i} for i in range(50)])
 	table.draw_table()
-	table.pack()
+	table.grid(sticky='nsew')
+	fen.grid_columnconfigure(0, weight=1)
+	fen.grid_rowconfigure(0, weight=1)
 	fen.mainloop()
 
 # db = Getters.getDatabase()

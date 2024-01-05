@@ -2,10 +2,7 @@ import os
 import threading
 import time
 import json
-import queue
 import sys
-import traceback
-import urllib.error
 
 from tkinter import *
 from PIL import Image, ImageTk
@@ -48,8 +45,8 @@ class BasePlayer:
                              args=(callback, t)).start()
 
         else:
-            # Start player in same thread
-            # /!\ - Blocking!
+            # Start player in current thread
+            # /!\ - Will block the thread!
             self.start(*args, **kwargs)
             if callback is not None:
                 callback()
@@ -70,6 +67,7 @@ class BasePlayer:
         with open(self.settingsPath, 'r') as f:
             self.settings = json.load(f)
         self.lastMovement = 0
+        self.videoSize = (0, 0, 0)
         self.movementCheck = None
         self.is_iconified = False
         self.hideCursorDelay = 3
@@ -307,6 +305,11 @@ class BasePlayer:
 
         if e is not None:
             x, y = e.x_root - self.parent.winfo_rootx(), e.y_root - self.parent.winfo_rooty()
+            
+            t = time.time()
+            if self.videoSize[2] + 1 < t: # Update screen size every 1 sec
+                self.videoSize = (self.videopanel.winfo_width(), self.videopanel.winfo_height(), t)
+    
             if 0 < x < self.videoSize[0] and 0.95 < y / self.videoSize[1] < 1:
                 if self.hidden:
                     self.hidingFrame.place(

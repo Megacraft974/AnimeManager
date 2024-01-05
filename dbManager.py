@@ -483,6 +483,7 @@ class thread_safe_db(Logger):
             self.lock = main.lock
             self.tasks = main.tasks
             self.db_thread = main.db_thread
+            
         else:
             self.ready_flag = threading.Event()
             release_flag = threading.Event()
@@ -574,10 +575,19 @@ class thread_safe_db(Logger):
                 ))
             if not self.db_thread.is_alive():
                 self.__init__(self.path)
+
+            start = time.time()
+            self.log("DB_ACCESS", f"ID: {str(start)[-5:]}, {name}({args=}, {kwargs=})")
+
             self.tasks.put((output, name, args, kwargs))
+
             if get_output:
                 out = output.get()
+
                 if isinstance(out, Exception):
+                    self.log("DB_ACCESS", f"ID: {str(start)[-5:]}, done in {round(time.time()-start, 3)}s, error occured: {str(out)}")
                     raise out
+
                 else:
+                    self.log("DB_ACCESS", f"ID: {str(start)[-5:]}, done in {round(time.time()-start, 3)}s, OK")
                     return out

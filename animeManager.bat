@@ -1,1 +1,1 @@
-start /min pyw "./animeManager.py"
+start /min cd C:\Users\William\Documents\Python\AnimeManager && .\venv\Scripts\pythonw.exe "./animeManager.py"

@@ -1,4 +1,4 @@
-from jsonapi_client import Filter, Inclusion, Modifier, Session, relationships
+from jsonapi_client import Filter, Inclusion, Modifier, Session, relationships, exceptions
 
 try:
     from .APIUtils import Anime, APIUtils, Character
@@ -61,7 +61,6 @@ class KitsuIoWrapper(APIUtils):
             yield data
 
     def schedule(self, limit=50):
-        pass
         def getSchedule():
             modifier = Inclusion(
                 "genres", "mediaRelationships", "mediaRelationships.destination", "mappings"
@@ -80,15 +79,55 @@ class KitsuIoWrapper(APIUtils):
 
             u_modifier = modifier + Filter(status="upcoming")
             upcoming = self.s.iterate('anime', u_modifier)
+            
+            try:
+                r_anime = next(recent, None)
+            except exceptions.DocumentError as e:
+                r_anime = None
+                if e.errors['status_code'] == 500:
+                    # Internal server error
+                    # Happens while using filter, might be fixed one day?
+                    pass
+                else:
+                    raise
+            
+            try:
+                u_anime = next(upcoming, None)
+            except exceptions.DocumentError as e:
+                u_anime = None
+                if e.errors['status_code'] == 500:
+                    # Internal server error
+                    # Happens while using filter, might be fixed one day?
+                    pass
+                else:
+                    raise
 
-            r_anime, u_anime = next(recent, None), next(upcoming, None)
             while r_anime is not None or u_anime is not None:
                 if r_anime is not None:
                     yield r_anime
-                    r_anime = next(recent, None)
+                    
+                    try:
+                        r_anime = next(recent, None)
+                    except exceptions.DocumentError as e:
+                        if e.errors['status_code'] == 500:
+                            # Internal server error
+                            # Happens while using filter, might be fixed one day?
+                            pass
+                        else:
+                            raise
+
                 if u_anime is not None:
                     yield u_anime
-                    u_anime = next(upcoming, None)
+                    
+                    try:
+                        u_anime = next(upcoming, None)
+                    except exceptions.DocumentError as e:
+                        if e.errors['status_code'] == 500:
+                            # Internal server error
+                            # Happens while using filter, might be fixed one day?
+                            pass
+                        else:
+                            raise
 
         schedule = getSchedule()
 
@@ -213,6 +252,8 @@ class KitsuIoWrapper(APIUtils):
                         'api_key': api_key,
                         'api_id': api_id
                     })
+                else:
+                    pass
 
             self.save_mapped(int(a.id), mapped)
 

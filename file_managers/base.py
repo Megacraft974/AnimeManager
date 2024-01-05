@@ -12,8 +12,8 @@ class BaseFileManager:
 
         if update or self.settings.get('dataPath', '') == '':
             self.change_path(settings)
-
-        self.initialize()
+        else:
+            self.initialize()
 
     def initialize(self):
         """Optional, called right after __init__"""
@@ -34,6 +34,15 @@ class BaseFileManager:
     def exists(self, path):
         """Check if path is valid and exists"""
         raise NotImplementedError()
+
+    def isdir(self, path):
+        """Check if path is a directory"""
+        return NotImplementedError()
+    
+    def isfile(self, path):
+        """Check if path is a file"""
+        # By default, will assume that anything that isn't a directory is a file
+        return not self.isdir(path)
 
     def delete(self, path):
         """Delete a file or folder"""

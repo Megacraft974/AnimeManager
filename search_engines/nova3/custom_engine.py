@@ -9,11 +9,12 @@ import glob
 
 try:
 	from . import engines
-	from . import novaprinter
+	
 except ImportError:
 	sys.path.append(os.path.dirname(__file__))
 	import engines
-	import novaprinter
+
+import novaprinter
 
 
 try:

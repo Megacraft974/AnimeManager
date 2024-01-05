@@ -1,8 +1,6 @@
 import ftplib
 import io
 import os
-from tkinter import messagebox
-
 
 try:
     from .base import BaseFileManager, LoginDialog
@@ -12,14 +10,6 @@ except ImportError:
 
 class FTPFileManager(BaseFileManager):
     name = 'FTP'
-    def __init__(self, settings={}, update=False) -> None:
-        super().__init__()
-
-        self.settings = settings
-        if update:
-            self.change_path()
-
-        self.initialize()
 
     def initialize(self):
         self.url = self.settings.get('url', '')
@@ -30,9 +20,14 @@ class FTPFileManager(BaseFileManager):
         self.user = self.settings.get('user', "")
         self.password = self.settings.get('password', "")
 
+        self.ftp = None
+
         self.connect()
 
     def connect(self):
+        if self.ftp is not None:
+            self.ftp.quit()
+
         try:
             self.ftp = ftplib.FTP(self.url, timeout=5)
         except TimeoutError:
@@ -89,6 +84,24 @@ class FTPFileManager(BaseFileManager):
 
         return CallbackStream(io.BytesIO(), w_cb=write_callback, c_cb=close_callback)
 
+    def mkdir(self, path):
+        if self.ftp is None:
+            raise Exception('Not connected to FTP server!')
+        
+        try:
+            self.ftp.cwd(os.path.dirname(path))
+        except ftplib.error_perm as e:
+            if str(e).startswith("550"):
+                return [] # Not found
+            else:
+                raise
+
+        dirname = self.ftp.mkd(path)
+        self.ftp.sendcmd('SITE CHMOD 770 ' + dirname) # Change perms
+        if dirname != path:
+            # Might because of an error?
+            pass
+
     def list(self, path):
         if self.ftp is None:
             raise Exception('Not connected to FTP server!')
@@ -141,6 +154,10 @@ class FTPFileManager(BaseFileManager):
             title = 'Login to FTP server', 
             validator = validator
         )
+        if dialog.results is None:
+            # Login was cancelled
+            raise ConnectionAbortedError('Login was cancelled!')
+        
         data = dialog.results
 
         settings = {}
@@ -186,14 +203,14 @@ class CallbackStream:
 
 if __name__ == "__main__":
     settings = {
-        'url': '192.168.1.51',
+        'url': 'william-server.local',
         'user': 'william',
         'password': 'Megacraft97421',
-        'dataPath': '/home/willi'
+        'dataPath': '/home/william'
     }
 
     fm = FTPFileManager(settings)
-    # print(fm.list('/home/william'))
+    print(fm.list('/home/william'))
 
     # path = '/home/william/Documents/test.txt'
 

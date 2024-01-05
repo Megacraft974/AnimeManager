@@ -31,10 +31,11 @@ class Constants:
             os.mkdir(appdata)
         self.qbCache = os.path.join(os.path.expanduser("~"), "AppData\\Local\\qBittorrent\\BT_backup")
 
-        self.dataPath = os.path.expanduser('~\\Documents\\AnimeManager')
-        if not os.path.exists(self.dataPath):
-            os.mkdir(self.dataPath)
-        self.animePath = os.path.join(self.dataPath, "Animes")
+        # self.dataPath = os.path.expanduser('~\\Documents\\AnimeManager')
+        # if not os.path.exists(self.dataPath):
+        #     os.mkdir(self.dataPath)
+        # self.animePath = os.path.join(self.dataPath, "Animes")
+        self.animePath = None
 
         self.hideRated = True
         self.enableServer = True
@@ -44,11 +45,6 @@ class Constants:
 
         self.hostName = "0.0.0.0"
         self.serverPort = 8081
-
-        self.torrentApiAddress = 'http://' + \
-            str(socket.gethostbyname(socket.gethostname())) + ":8080"
-        self.torrentApiLogin = 'admin'
-        self.torrentApiPassword = ''.join(map(str, range(1, 7))) # Yeah ik that's super safe too
 
         # TODO - Move to settings file
         self.players_order = ['mpv_player', 'vlc_player', 'ff_player']
@@ -76,7 +72,6 @@ class Constants:
             'THREAD',
             'TIME']
         self.pathSettings = [
-            "animePath",
             "iconPath", "cache",
             "dbPath", "logsPath"]
         self.websitesViewUrls = {

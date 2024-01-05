@@ -59,9 +59,6 @@ class MpvPlayer(BasePlayer):
         self.volume = 100
         self.volumeUp()
 
-        self.videoSize = (self.videopanel.winfo_width(),
-                          self.videopanel.winfo_height())
-
         self.log("Playing", self.titles[self.index])
 
         self.showTitle()
@@ -179,8 +176,6 @@ class MpvPlayer(BasePlayer):
 
         self.player.play(self.playlist[self.index])
 
-        self.videoSize = (self.videopanel.winfo_width(),
-                          self.videopanel.winfo_height())
         time.sleep(2)
         self.updateDb()
 
@@ -250,8 +245,6 @@ class MpvPlayer(BasePlayer):
     def toggleFullscreen(self):
         self.fullscreen = not self.fullscreen
         self.parent.attributes("-fullscreen", self.fullscreen)
-        self.videoSize = (self.videopanel.winfo_width(),
-                          self.videopanel.winfo_height())
 
     def showTitle(self, animations=True):
         def animate(start, stop, time, fps=60, p=0):
@@ -336,12 +329,6 @@ class MpvPlayer(BasePlayer):
         except TclError:
             # Window was closed
             return
-
-        # self.log(cursor)
-
-        if 1 in self.videoSize: # 1 is returned when not yet initialized
-            self.videoSize = (self.videopanel.winfo_width(),
-                            self.videopanel.winfo_height())
 
         self.parent.after(100, self.OnTick)
 

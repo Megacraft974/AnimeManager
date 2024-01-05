@@ -12,8 +12,14 @@ class LocalFileManager(BaseFileManager):
     def open(self, path, mode):
         return open(path, mode)
     
+    def mkdir(self, path):
+        os.mkdir(path)
+    
     def list(self, path):
-        return os.listdir(path)
+        try:
+            return os.listdir(path)
+        except NotADirectoryError:
+            return []
 
     def exists(self, path):
         return os.path.exists(path)

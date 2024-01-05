@@ -94,6 +94,7 @@
         "logsPath": ""
     },
     "file_managers":{
+        "last_fm_used": "Local",
         "Local": {
             "dataPath": ""
         },
@@ -105,12 +106,13 @@
         }
     },
     "torrent_managers": {
-        "qBittorent": {
+        "qBittorrent": {
             "url": "",
             "login": "",
             "password": "",
             "qb_settings": {}
-        }
+        },
+        "Transmission": {}
     },
     "phoneSyncServer": {
         "enableServer": false,
@@ -150,20 +152,6 @@
             "vlc_player", 
             "ff_player"
         ]
-    },
-    "qb_settings": {
-        "qb_settings": {
-            "auto_tmm_enabled": true,
-            "incomplete_files_ext": true,
-            "save_path": "E:/Animes/",
-            "save_path_changed_tmm_enabled": true,
-            "start_paused_enabled": false
-        }
-    },
-    "torrentApi": {
-        "torrentApiAddress": "http://192.168.0.2:8080",
-        "torrentApiLogin": "admin",
-        "torrentApiPassword": "123456"
     },
     "windows": {
         "characterWindowWindowMinHeight": 300,

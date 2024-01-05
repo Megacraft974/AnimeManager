@@ -12,15 +12,16 @@ class Download:
     def drawDdlWindow(self, id, fetcher=None, parent=None):
         # Functions
         if True:
+
             def filename_slug(f):
                 # Format a filename to increase matchs
-                return f.lower().replace(' ', '')
+                return f.lower().replace(" ", "")
 
             def get_publisher(filename):
                 # Try to get a publisher name from a filename
 
                 # '[publisher name]torrent name.torrent'
-                publisher_pattern = r'^\[(.*?)\]+'
+                publisher_pattern = r"^\[(.*?)\]+"
 
                 result = re.findall(publisher_pattern, filename)
                 if len(result) >= 1:
@@ -30,8 +31,12 @@ class Download:
 
             def search_handler(table, fetcher):
                 # Handle torrent search and sorting
-                timer = utils.Timer("Torrent search", logger=lambda *args, **
-                                    kwargs: self.log('FILE_SEARCH', *args, **kwargs))  # Init timer
+                timer = utils.Timer(
+                    "Torrent search",
+                    logger=lambda *args, **kwargs: self.log(
+                        "FILE_SEARCH", *args, **kwargs
+                    ),
+                )  # Init timer
 
                 # Start torrent search
                 if fetcher is None:
@@ -59,10 +64,10 @@ class Download:
 
                 def key_dualAudio(k):
                     # Try to guess if torrent has dual audio
-                    marked = ('dual', 'dub')  # TODO - Shouldn't be hardcoded
+                    marked = ("dual", "dub")  # TODO - Shouldn't be hardcoded
                     for mark in marked:
                         for title in k[1]:
-                            if mark in title['name'].lower():
+                            if mark in title["name"].lower():
                                 return 1
 
                     return 0
@@ -76,7 +81,7 @@ class Download:
                         return -1  # Should be inferior to 0
 
                     else:
-                        max_seeds = max(map(itemgetter('seeds'), values))
+                        max_seeds = max(map(itemgetter("seeds"), values))
                         return max_seeds
 
                 keys = (
@@ -93,7 +98,7 @@ class Download:
                     # each torrent in a thread, it's better to
                     # avoid doing it in main thread
 
-                    filename = torrent['name']
+                    filename = torrent["name"]
                     self.getTorrentColor(filename)
 
                 def func(index, torrent):
@@ -106,10 +111,10 @@ class Download:
                     # Avoid raising an error when the window is closing
                     if self.closing or not self.ddlWindow.winfo_exists():
                         torrents.interrupt()
-                        print('Interrupted')
+                        print("Interrupted")
                         return
 
-                    filename = torrent['name']
+                    filename = torrent["name"]
                     # Look for publisher name
                     publisher = get_publisher(filename)
 
@@ -118,10 +123,9 @@ class Download:
                         file_hash = filename_slug(filename)
 
                         for i, tmp_torrent in enumerate(publishers[publisher]):
-                            if file_hash == filename_slug(tmp_torrent['name']):
-
+                            if file_hash == filename_slug(tmp_torrent["name"]):
                                 # Replace torrent if it has more seeds
-                                if torrent['seeds'] > tmp_torrent['seeds']:
+                                if torrent["seeds"] > tmp_torrent["seeds"]:
                                     publishers[publisher][i] = torrent
 
                                 return
@@ -133,24 +137,25 @@ class Download:
                     else:
                         # Insert new publisher
                         publishers[publisher] = SortedList(
-                            keys=((itemgetter('seeds'), True),))
+                            keys=((itemgetter("seeds"), True),)
+                        )
                         publishers[publisher].append(torrent)
                         return
 
                 def delay(func):
-                    self.log('FILE_SEARCH', 'Overriding torrents')
+                    self.log("FILE_SEARCH", "Overriding torrents")
                     if publishers:
                         draw_table(table, publishers)
 
                     self.ddlWindow.after(500, func)
 
                 def cb(index):
-                    self.log('FILE_SEARCH', 'All torrents found')
+                    self.log("FILE_SEARCH", "All torrents found")
                     if index == -1:
                         # No torrents found
                         draw_table(table, {})
                     else:
-                        self.log('FILE_SEARCH', 'Overriding final torrents')
+                        self.log("FILE_SEARCH", "Overriding final torrents")
                         draw_table(table, publishers)
                     timer.stats()
 
@@ -158,8 +163,12 @@ class Download:
                 torrents.add_callback(cache_handler)
 
             def draw_table(table, publishers):
-                timer = utils.Timer('Draw torrent table', logger=lambda *args,
-                                    **kwargs: self.log('FILE_SEARCH', *args, **kwargs))
+                timer = utils.Timer(
+                    "Draw torrent table",
+                    logger=lambda *args, **kwargs: self.log(
+                        "FILE_SEARCH", *args, **kwargs
+                    ),
+                )
                 i = None
 
                 for i, torrent in enumerate(publishers.items()):
@@ -167,13 +176,12 @@ class Download:
                     publisher, data = torrent
 
                     if publisher is None:
-                        publisher = 'None'
+                        publisher = "None"
 
                     # Save data
                     self.ddlWindow.publisherData[publisher] = data
 
-                    button = self.ddlWindow.publisherButtons.get(
-                        i, None)
+                    button = self.ddlWindow.publisherButtons.get(i, None)
                     if button:
                         if button[0] == publisher:
                             continue  # No need to create a new button, skip
@@ -181,14 +189,14 @@ class Download:
                             button[1].destroy()
 
                     # Get color for button - fetch first color from corresponding torrents
-                    for filename in [d['name'] for d in data]:
+                    for filename in [d["name"] for d in data]:
                         fg = self.getTorrentColor(filename)
                         # White is default color, ignore it
-                        if fg != self.colors['White']:
+                        if fg != self.colors["White"]:
                             break
 
                     # Alternating bg color
-                    bg = (self.colors['Gray2'], self.colors['Gray3'])[i % 2]
+                    bg = (self.colors["Gray2"], self.colors["Gray3"])[i % 2]
 
                     # Avoid raising an error when the window is closing
                     if self.closing or not self.ddlWindow.winfo_exists():
@@ -199,30 +207,25 @@ class Download:
                         text=publisher,
                         bd=0,
                         height=1,
-                        relief='solid',
-                        font=(
-                            "Source Code Pro Medium",
-                            13),
-                        activebackground=self.colors['Gray3'],
+                        relief="solid",
+                        font=("Source Code Pro Medium", 13),
+                        activebackground=self.colors["Gray3"],
                         activeforeground=fg,
                         bg=bg,
                         fg=fg,
-                        command=lambda publisher=publisher, id=id:
-                            self.drawFileListWindow(publisher, id)
+                        command=lambda publisher=publisher, id=id: self.drawFileListWindow(
+                            publisher, id
+                        ),
                     )
-                    b.grid(
-                        row=i,
-                        column=0,
-                        sticky="nsew"
-                    )
+                    b.grid(row=i, column=0, sticky="nsew")
 
                     self.ddlWindow.publisherButtons[i] = (publisher, b)
 
                 try:
                     if i is None:
-                        self.ddlWindow.titleLbl['text'] = "No files\nfound!"
+                        self.ddlWindow.titleLbl["text"] = "No files\nfound!"
                     else:
-                        self.ddlWindow.titleLbl['text'] = "Publisher:"
+                        self.ddlWindow.titleLbl["text"] = "Publisher:"
                 except TclError:
                     pass
                 table.update_scrollzone()
@@ -232,8 +235,7 @@ class Download:
 
         # Window init - Fancy corners - Main frame - Events
         if True:
-            size = (self.publisherDDLWindowMinWidth,
-                    self.publisherDDLWindowMinHeight)
+            size = (self.publisherDDLWindowMinWidth, self.publisherDDLWindowMinHeight)
             if self.ddlWindow is None or not self.ddlWindow.winfo_exists():
                 if parent is None:
                     parent = self.optionsWindow
@@ -242,40 +244,51 @@ class Download:
                     parent,
                     title="Loading...",
                     minsize=size,
-                    bg=self.colors['Gray3'],
-                    fg=self.colors['Gray2'])
+                    bg=self.colors["Gray3"],
+                    fg=self.colors["Gray2"],
+                )
             else:
                 self.ddlWindow.clear()
                 self.ddlWindow.titleLbl.configure(
                     text="Loading...",
-                    bg=self.colors['Gray3'],
-                    fg=self.colors['Gray2'],
-                    font=(
-                        "Source Code Pro Medium",
-                        18))
+                    bg=self.colors["Gray3"],
+                    fg=self.colors["Gray2"],
+                    font=("Source Code Pro Medium", 18),
+                )
 
         # Search terms button
         if True:
-            searchTermsBut = Button(
+            Button(
                 self.ddlWindow,
                 text="Manage search terms",
                 bd=0,
                 height=1,
-                relief='solid',
-                font=(
-                    "Source Code Pro Medium",
-                    13),
-                bg=self.colors['Gray2'],
-                fg=self.colors['Gray'],
-                command=lambda id=id: self.drawSearchTermsWindow(id, self.ddlWindow))
-            searchTermsBut.grid(row=0, sticky='ew', pady=(0, 5))
+                relief="solid",
+                font=("Source Code Pro Medium", 13),
+                bg=self.colors["Gray2"],
+                fg=self.colors["Gray"],
+                command=lambda id=id: self.drawSearchTermsWindow(id, self.ddlWindow),
+            ).grid(row=0, sticky="ew", pady=(0, 5))
+
+            Button(
+                self.ddlWindow,
+                text="Search torrent online",
+                bd=0,
+                height=1,
+                relief="solid",
+                font=("Source Code Pro Medium", 13),
+                activebackground=self.colors["Gray2"],
+                activeforeground=self.colors["Gray3"],
+                bg=self.colors["Gray3"],
+                fg=self.colors["White"],
+                command=lambda id=id: self.search_torrent(id),
+            ).grid(row=1, column=0, sticky="ew", pady=3, padx=(0, 2))
 
         # Torrent publisher list
         if True:
-            table = utils.ScrollableFrame(
-                self.ddlWindow, bg=self.colors['Gray3'])
+            table = utils.ScrollableFrame(self.ddlWindow, bg=self.colors["Gray3"])
             table.grid_columnconfigure(0, weight=1)
-            table.grid(row=1)
+            table.grid(row=2)
 
             self.ddlWindow.publisherData = {}
             self.ddlWindow.publisherButtons = {}

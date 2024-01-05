@@ -70,8 +70,8 @@ class UpdateUtils:
         database = self.getDatabase()
 
         files = []
-        for file in os.listdir(self.animePath):
-            if os.path.isfile(os.path.join(self.animePath, file)):
+        for file in self.fm.list(self.animePath):
+            if self.fm.isfile(self.animePath + '/' + file):
                 files.append(file)
 
         torrentDb = database.sql(
@@ -80,7 +80,7 @@ class UpdateUtils:
         for data in torrentDb:
             anime = Anime(data)
             path = self.getFolder(anime=anime)
-            if os.path.isdir(path):
+            if self.fm.isdir(path):
                 torrents = self.getTorrents(anime.id)
                 hashes = list(map(lambda t: t.hash, torrents))
                 self.tm.move(path=path, hashes=hashes)
@@ -104,29 +104,32 @@ class UpdateUtils:
 
     def updateDirs(self):
         def check_dir_empty(path):
-            if os.path.isfile(path):
+            if self.fm.isfile(path):
                 return False
-            files = os.listdir(path)
+            
+            files = self.fm.list(path)
             if len(files) == 0:
                 return True
             else:
-                return all(check_dir_empty(os.path.join(path, f)) for f in files)
+                return all(check_dir_empty(path + '/' + f) for f in files)
 
         def remove_dir(path):
-            if os.path.isfile(path):
+            if self.fm.isfile(path):
                 return
-            files = os.listdir(path)
+            
+            files = self.fm.list(path)
             if len(files) > 0:
                 for f in files:
-                    remove_dir(os.path.join(path, f))
+                    remove_dir(path + '/' + f)
 
-            os.rmdir(path)
+            # os.rmdir(path)
+            self.fm.delete(path)
 
         modified = False
         pattern = re.compile(r"^.*? - (\d+)$")
-        for f in os.listdir(self.animePath):
-            path = os.path.join(self.animePath, f)
-            if os.path.isdir(path):
+        for f in self.fm.list(self.animePath):
+            path = self.animePath + '/' + f
+            if self.fm.exists(path):
                 if check_dir_empty(path):
                     self.log("DB_UPDATE", os.path.normpath(path), 'is empty!')
                     remove_dir(path)
@@ -135,7 +138,7 @@ class UpdateUtils:
                 if not match or not match[0]:
                     # TODO - Find corresponding torrent
                     pass
-            elif os.path.isfile(path):
+            elif self.fm.exists(path):
                 pass
                 # TODO - Find corresponding anime and put in a directory
         if not modified:
@@ -186,9 +189,9 @@ class UpdateUtils:
             toWatch = set()
             toSeen = {data[0] for data in self.database.sql('SELECT id FROM anime WHERE tag="WATCHING" AND id IN (SELECT id FROM torrents)')}
 
-            for f in os.listdir(self.animePath):
-                path = os.path.join(self.animePath, f)
-                if os.path.isdir(path):
+            for f in self.fm.list(self.animePath):
+                path = self.animePath + '/' + f
+                if self.fm.isdir(path):
                     match = re.findall(pattern, f)
                     if match and match[0]:
                         anime_id = int(match[0])

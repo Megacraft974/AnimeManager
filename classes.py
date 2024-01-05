@@ -434,6 +434,9 @@ class ItemList():
 				self.interrupt()
 				cb(idx-1)
 
+		if self.stop is True: # THIS MIGHT BREAK STUFF SO BE CAREFUL, but it also prevents the load more button from working so...
+			self.stop = False
+
 		if isinstance(delay, (int, float)):
 			def delay_func(func, delay=delay):
 				time.sleep(delay)

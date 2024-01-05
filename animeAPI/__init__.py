@@ -182,10 +182,13 @@ if __name__ == "__main__":
     appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
     dbPath = os.path.join(appdata, "animeData.db")
     api = AnimeAPI('all', dbPath)
-    s = api.searchAnime("boku")
+    # s = api.searchAnime("boku")
+    s = api.schedule()
     c = 0
-    for e in s:
-        log(c, e['title'])
-        c += 1
-    for k, v in api.anime(10).items():
-        log(k, v)
+    while not s.empty():
+        for e in s:
+            log(c, e['title'])
+            c += 1
+    log(f'Returned {c} animes')
+    # for k, v in api.anime(10).items():
+    #     log(k, v)

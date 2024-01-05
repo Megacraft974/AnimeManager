@@ -85,7 +85,7 @@ class Deluge(BaseTorrentManager):
 
         dialog = LoginDialog(
             fields = fields, 
-            title = 'Login to qBittorent UI', 
+            title = 'Login to Deluge UI', 
             validator = validator
         )
         data = dialog.results

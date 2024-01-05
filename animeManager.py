@@ -175,7 +175,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		self.startup()
 
 	def startup(self):
-		self.getFileManager('Local')
+		self.getFileManager()
 		# TODO - Put that in settings
 
 		with self.getDatabase() as self.database:
@@ -216,7 +216,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 
 		# self.last_broadcasts = self.getBroadcast()
-		self.getTorrentManager('qBittorent')
+		self.getTorrentManager()
 		# TODO - Put that in settings
 
 		self.RPC_menu()
@@ -237,12 +237,18 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			if event.state & 0x4 != 0:
 				# Control modifier
 				force_search=True
+			else:
+				# Maybe return?
+				pass
+
 		terms = self.searchTerms.get()
 		if len(terms) > 2 or force_search:
 			if not force_search:
 				animeList = self.searchDb(terms)
+
 			if not force_search and animeList is not False:
 				self.animeList.set(animeList)
+
 			else:
 				self.stopSearch = False
 				self.loading()
@@ -613,6 +619,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			
 			elif hash is not None:
 				# Should already be in database
+				# TODO - hash is sometimes the anime title??
 				database = self.getDatabase()
 				data = database.sql('SELECT name, trackers FROM torrents WHERE hash=?', (hash,))[0]
 				torrent = Torrent(hash=hash, name=data[0], trackers=data[1])
@@ -637,15 +644,15 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				path = self.getFolder(id)
 
 				# Get anime folder
-				if not os.path.isdir(path):
+				if not self.fm.exists(path):
 					try:
-						os.mkdir(path)
+						self.fm.mkdir(path)
 					except FileExistsError:
 						pass
 
 				# Start downloading
 				try:
-					self.tm.add(torrent.to_magnet(), path=path)
+					self.tm.add([torrent.to_magnet()], path=path)
 
 					# Try to move torrents to anime folder					
 					self.tm.move(path=path, hashes=[torrent.hash])
@@ -685,6 +692,32 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 		except torrent_managers.TorrentException as e:
 			self.log('NETWORK', f"[ERROR] - {str(e)}")
+
+	def search_torrent(self, id, parent=None):
+		def callback(var, id):
+			text = var.get()
+			self.textPopupWindow.exit()
+
+			web_reg = re.compile(r"^(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)$")
+			mag_reg = re.compile(r"^magnet:\?xt=urn:\S+$")
+			if re.match(web_reg, text):
+				# Web url
+				self.downloadFile(id, url=text)
+			elif re.match(mag_reg, text):
+				# Magnet url
+				self.downloadFile(id, url=text)
+			else:
+				# Torrent title
+				self.addSearchTerms(id, text)
+				fetcher = search_engines.search([text])
+				self.drawDdlWindow(id, fetcher, parent=self.torrentFilesWindow)
+
+		self.drawTextPopupWindow(
+			parent or self.root,
+			"Search torrents with name:",
+			lambda var,
+			id=id: callback(var, id),
+			fentype="TEXT")
 
 	def bluetoothConnect(self):
 		pass

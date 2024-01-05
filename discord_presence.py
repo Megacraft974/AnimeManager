@@ -7,6 +7,7 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
 
 from pypresence import Presence
 from pypresence import exceptions as pp_exceptions
@@ -75,6 +76,15 @@ class DiscordPresence:
             )
         except pp_exceptions.InvalidID:
             pass
+        except ConnectionResetError:
+            pass
+        except Exception as e:
+            # TODO - Handle error:
+            # Exception has occurred: ConnectionResetError
+            # [WinError 995] The I/O operation has been aborted because of either a thread exit or an application request
+            
+            print("Unknown error on RPC: ")
+            traceback.print_exc()
 
         if not self.RPC.watching and not self.closing:
             if self.RPC.timer is not None and self.RPC.timer.is_alive():
@@ -102,12 +112,15 @@ class DiscordPresence:
             kwargs["party_size"] = kwargs.pop("eps")
         kwargs = {k: v for k, v in kwargs.items() if v is not None}
 
-        self.RPC.update(
-            large_image="icon_rounded",
-            details="Watching an anime:",
-            state=title,
-            **kwargs
-        )
+        try:
+            self.RPC.update(
+                large_image="icon_rounded",
+                details="Watching an anime:",
+                state=title,
+                **kwargs
+            )
+        except Exception as e:
+            pass
 
     def RPC_stop_watching(self):
         if self.RPC is None:

@@ -238,8 +238,8 @@ class JikanMoeWrapper(APIUtils):
 		if 'external' in a.keys():
 			mapped = []
 			for external in a['external']:
-				if external['name'] in self.mapped_external:
-					ext_data = self.mapped_external[external['name']]
+				ext_data = self.mapped_external.get(external['name'], None)
+				if ext_data:
 					match = re.match(ext_data['regex'], external['url'])
 					if match:
 						mapped.append({
@@ -247,7 +247,8 @@ class JikanMoeWrapper(APIUtils):
 							'api_id': match.group(1)
 						})
 
-			self.save_mapped(int(a["mal_id"]), mapped)
+			if mapped:
+				self.save_mapped(int(a["mal_id"]), mapped)
 
 		return out
 
@@ -295,5 +296,6 @@ if __name__ == "__main__":
 	appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
 	dbPath = os.path.join(appdata, "animeData.db")
 	api = JikanMoeWrapper(dbPath)
-	out = api.anime(2)
-	pass
+	out = api.schedule()
+	for a in out:
+		print(a)

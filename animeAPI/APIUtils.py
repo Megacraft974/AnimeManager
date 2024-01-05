@@ -152,6 +152,7 @@ class APIUtils(Logger, Getters):
 		# mapped must be a list of dicts, each containing two fields: 'api_key' and 'api_id'
 		if len(mapped) == 0:
 			return
+
 		with self.database.get_lock():
 			for m in mapped:  # Iterate over each external anime
 				api_key, api_ip = m['api_key'], m['api_id']
@@ -189,19 +190,30 @@ class APIUtils(Logger, Getters):
 			saved_pics = self.getAnimePictures(id)
 			saved_pics = {p['size']: p for p in saved_pics}
 
-			for pic in pictures:
+			pic_update = []
+			pic_insert = []
+
+			for pic in pictures:   
+				pic['id'] = id
+    
 				if pic['size'] not in valid_sizes or pic['url'] is None:
+					# Ignore
 					continue
 
 				elif pic['size'] in saved_pics:
-					sql = "UPDATE pictures SET url=:url WHERE id=:id AND size=:size"
+					pic_update.append(pic)
 
 				else:
-					sql = "INSERT INTO pictures(id, url, size) VALUES (:id, :url, :size)"
+					pic_insert.append(pic)
 
-				pic['id'] = id
+			if pic_update:
+				sql = "UPDATE pictures SET url=:url WHERE id=:id AND size=:size"
+				self.database.executemany(sql, pic_update)
 
-				self.database.sql(sql, pic, get_output=False)
+			if pic_insert:
+				sql = "INSERT INTO pictures(id, url, size) VALUES (:id, :url, :size)"
+
+				self.database.executemany(sql, pic_insert)
 
 			self.database.save(get_output=False)
 

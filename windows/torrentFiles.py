@@ -1,13 +1,9 @@
-import json
 import os
 import queue
-import re
 import threading
 
-from operator import itemgetter
 from tkinter.filedialog import askopenfilenames
 from tkinter import *
-import search_engines
 import torrent_managers
 
 import utils
@@ -23,7 +19,7 @@ class TorrentFiles:
                 filepaths = askopenfilenames(
                     parent=self.root,
                     title="Select torrents",
-                    initialdir=self.dataPath,
+                    initialdir=self.animePath,
                     initialfile=default,
                     filetypes=[
                         ("Torrents files",
@@ -39,32 +35,6 @@ class TorrentFiles:
                         database.save()                        
 
                 self.drawTorrentFilesWindow(id)
-
-            def search_torrent(id):
-                def callback(var, id):
-                    text = var.get()
-                    self.textPopupWindow.exit()
-
-                    web_reg = re.compile(r"^(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)$")
-                    mag_reg = re.compile(r"^magnet:\?xt=urn:\S+$")
-                    if re.match(web_reg, text):
-                        # Web url
-                        self.downloadFile(id, url=text)
-                    elif re.match(mag_reg, text):
-                        # Magnet url
-                        self.downloadFile(id, url=text)
-                    else:
-                        # Torrent title
-                        self.addSearchTerms(id, text)
-                        fetcher = search_engines.search([text])
-                        self.drawDdlWindow(id, fetcher, parent=self.torrentFilesWindow)
-
-                self.drawTextPopupWindow(
-                    self.torrentFilesWindow,
-                    "Search torrents with name:",
-                    lambda var,
-                    id=id: callback(var, id),
-                    fentype="TEXT")
 
             def getTorrents(id):
                 return self.database.get_metadata(id, "torrents")
@@ -225,10 +195,6 @@ class TorrentFiles:
                             database.sql("DELETE FROM torrentsIndex WHERE id=? AND value=?", (id, t_hash))
                             database.save()
 
-                    # if state != "NOT_FOUND":
-                    #     if os.path.exists(path):
-                    #         os.remove(path)
-
                 self.drawTorrentFilesWindow(id)
 
         # Main window
@@ -260,7 +226,7 @@ class TorrentFiles:
                 activeforeground=self.colors['Gray3'],
                 bg=self.colors['Gray3'],
                 fg=self.colors['White'],
-                command=lambda id=id: search_torrent(id)
+                command=lambda id=id: self.search_torrent(id, self.torrentFilesWindow)
             ).grid(
                 row=0,
                 column=0,
