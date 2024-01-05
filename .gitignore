@@ -1,7 +1,11 @@
 build/
 dist/
 venv/
+<<<<<<< HEAD
 installer/
+=======
+.vscode/
+>>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26
 **/__pycache__/
 
 .pem
@@ -11,4 +15,10 @@ icons/app_icon/*/
 lib/upx-3.96-win64/
 *.lnk
 *.code-workspace
+<<<<<<< HEAD
 test.py
+=======
+*.log
+test.py
+icons/Thumbs.db
+>>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26

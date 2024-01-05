@@ -19,16 +19,16 @@ class Parser(ParserUtils):
         super().__init__() 
 
     def search(self, terms, results=50):
-        data = [{'filename': 'firstMatch.mkv',
-                 'torrent_url': 'https://somewebsite.com/torrent_file_url',
+        data = [{'name': 'firstMatch.mkv',
+                 'link': 'https://somewebsite.com/torrent_file_url',
                  'seeds': 0,
-                 'leechs': 0,
-                 'file_size': 0},
-                {'filename': 'secondMatch.mkv',
-                 'torrent_url': 'https://somewebsite.com/other_torrent_file_url',
+                 'leech': 0,
+                 'size': 0},
+                {'name': 'secondMatch.mkv',
+                 'link': 'https://somewebsite.com/other_torrent_file_url',
                  'seeds': 0,
-                 'leechs': 0,
-                 'file_size': 0}]
+                 'leech': 0,
+                 'size': 0}]
         return data
 
 """

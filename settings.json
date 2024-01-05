@@ -58,6 +58,7 @@
         "apiHost": "kitsu.io",
         "hideRated": true,
         "maxTimeout": 30,
+        "scheduleTimeout": 120,
         "maxTrendingAnime": 100,
         "topPublishers": [
             "SubsPlease",
@@ -87,13 +88,31 @@
         "maxLogsSize": 50000
     },
     "paths": {
-        "animePath": "",
         "cache": "",
         "dbPath": "",
-        "filesFolder": "",
         "iconPath": "",
-        "logsPath": "",
-        "torrentPath": ""
+        "logsPath": ""
+    },
+    "file_managers":{
+        "last_fm_used": "Local",
+        "Local": {
+            "dataPath": ""
+        },
+        "FTP": {
+            "url": "",
+            "login": "",
+            "password": "",
+            "dataPath": ""
+        }
+    },
+    "torrent_managers": {
+        "qBittorrent": {
+            "url": "",
+            "login": "",
+            "password": "",
+            "qb_settings": {}
+        },
+        "Transmission": {}
     },
     "phoneSyncServer": {
         "enableServer": false,
@@ -127,25 +146,16 @@
                 "Left": "playlistBack",
                 "Right": "playlistNext"
             }
-        }
-    },
-    "qb_settings": {
-        "qb_settings": {
-            "auto_tmm_enabled": true,
-            "incomplete_files_ext": true,
-            "save_path": "E:/Animes/",
-            "save_path_changed_tmm_enabled": true,
-            "start_paused_enabled": false
-        }
-    },
-    "torrentApi": {
-        "torrentApiAddress": "http://192.168.0.2:8080",
-        "torrentApiLogin": "admin",
-        "torrentApiPassword": "123456"
+        },
+        "playerOrder": [
+            "mpv_player", 
+            "vlc_player", 
+            "ff_player"
+        ]
     },
     "windows": {
-        "characterInfoWindowMinHeight": 300,
-        "characterInfoWindowMinWidth": 300,
+        "characterWindowWindowMinHeight": 300,
+        "characterWindowWindowMinWidth": 300,
         "characterListWindowMinHeight": 500,
         "characterListWindowMinWidth": 1000,
         "diskWindowMinHeight": 300,
@@ -159,8 +169,8 @@
         "publisherDDLWindowMinWidth": 250,
         "searchTermsWindowMinHeight": 750,
         "searchTermsWindowMinWidth": 1000,
-        "seasonChooserMinHeight": 750,
-        "seasonChooserMinWidth": 750,
+        "seasonSelectorMinHeight": 750,
+        "seasonSelectorMinWidth": 750,
         "settingsWindowMinHeight": 400,
         "settingsWindowMinWidth": 600,
         "torrentDDLWindowMinHeight": 500,

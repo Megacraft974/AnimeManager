@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 from datetime import datetime
 from jsonapi_client import Filter, Inclusion, Modifier, Session, relationships
+=======
+from jsonapi_client import Filter, Inclusion, Modifier, Session, relationships, exceptions
+>>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26
 
 try:
     from .APIUtils import Anime, APIUtils, Character
@@ -40,7 +44,7 @@ class KitsuIoWrapper(APIUtils):
             'anime/{}/characters'.format(str(kitsu_id)), modifier)
         for c in characters:
             yield self._convertCharacter(c, id)
-
+            
     def animePictures(self, id):
         modifier = Filter(id=id)
         rep = self.s.get('anime', modifier).resources
@@ -61,27 +65,75 @@ class KitsuIoWrapper(APIUtils):
                 continue
             yield data
 
-    def schedule(self, limit=100):
+    def schedule(self, limit=50):
         def getSchedule():
-            modifier = Inclusion("genres", "mediaRelationships",
-                                 "mediaRelationships.destination", "mappings")
+            modifier = Inclusion(
+                "genres", "mediaRelationships", "mediaRelationships.destination", "mappings"
+            ) + Modifier(
+                "page[limit]=20"
+            )
             trending = self.s.iterate('trending/anime', modifier)
+
             for a in trending:
                 yield a
+
             modifier += Modifier("sort=-startDate,-endDate")
+
             r_modifier = modifier + Filter(status="current")
             recent = self.s.iterate('anime', r_modifier)
+
             u_modifier = modifier + Filter(status="upcoming")
             upcoming = self.s.iterate('anime', u_modifier)
-            r_anime, u_anime = next(recent, None), next(upcoming, None)
+            
+            try:
+                r_anime = next(recent, None)
+            except exceptions.DocumentError as e:
+                r_anime = None
+                if e.errors['status_code'] == 500:
+                    # Internal server error
+                    # Happens while using filter, might be fixed one day?
+                    pass
+                else:
+                    raise
+            
+            try:
+                u_anime = next(upcoming, None)
+            except exceptions.DocumentError as e:
+                u_anime = None
+                if e.errors['status_code'] == 500:
+                    # Internal server error
+                    # Happens while using filter, might be fixed one day?
+                    pass
+                else:
+                    raise
+
             while r_anime is not None or u_anime is not None:
                 if r_anime is not None:
                     yield r_anime
+                    
+                    try:
+                        r_anime = next(recent, None)
+                    except exceptions.DocumentError as e:
+                        if e.errors['status_code'] == 500:
+                            # Internal server error
+                            # Happens while using filter, might be fixed one day?
+                            pass
+                        else:
+                            raise
+
                 if u_anime is not None:
                     yield u_anime
-                r_anime, u_anime = next(recent, None), next(upcoming, None)
+                    
+                    try:
+                        u_anime = next(upcoming, None)
+                    except exceptions.DocumentError as e:
+                        if e.errors['status_code'] == 500:
+                            # Internal server error
+                            # Happens while using filter, might be fixed one day?
+                            pass
+                        else:
+                            raise
 
-        out = []
         schedule = getSchedule()
 
         for c, a in enumerate(schedule):
@@ -124,7 +176,8 @@ class KitsuIoWrapper(APIUtils):
         if not force and a.subtype not in self.subtypes:
             return None
 
-        id = self.database.getId("kitsu_id", int(a.id))
+        with self.database.get_lock():
+            id = self.database.getId("kitsu_id", int(a.id))
 
         data = Anime()
         # data['kitsu_id'] = int(a.id)
@@ -216,6 +269,8 @@ class KitsuIoWrapper(APIUtils):
                         'api_key': api_key,
                         'api_id': api_id
                     })
+                else:
+                    pass
 
             self.save_mapped(int(a.id), mapped)
 
@@ -267,4 +322,9 @@ class KitsuIoWrapper(APIUtils):
 if __name__ == "__main__":
     from APIUtils import ApiTester
 
+<<<<<<< HEAD
     ApiTester(KitsuIoWrapper)
+=======
+    t = ApiTester(KitsuIoWrapper)
+    t.test_all()
+>>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26

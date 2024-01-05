@@ -1,7 +1,8 @@
 import base64
 import codecs
-import hashlib
+from collections.abc import Iterable
 import io
+import json
 import os
 import queue
 import re
@@ -11,16 +12,21 @@ import time
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta, timezone
 
-import bencoding
-import qbittorrentapi.exceptions
 import requests
 from PIL import Image, ImageTk
-from qbittorrentapi import Client
 
+<<<<<<< HEAD
 from .constants import Constants
 from .classes import Anime, RegroupList, ReturnThread
 from .dbManager import thread_safe_db
 from .utils import Timer
+=======
+from constants import Constants
+from classes import Anime, RegroupList, ReturnThread, Torrent
+from dbManager import thread_safe_db
+import file_managers
+import torrent_managers
+>>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26
 
 if 'database_threads' not in globals().keys():
     globals()['database_threads'] = {}
@@ -48,56 +54,57 @@ class Getters:
                 globals()['database_threads'][t] = database
                 return database
 
-    def getQB(self, use_thread=False, reconnect=False, update=True):
-        if use_thread:
-            threading.Thread(target=self.getQB, args=(False, reconnect), daemon=True).start()
-            return
+    def getFileManager(self, manager=None, update=False):
+        if manager is None:
+            manager = self.settings['file_managers']['last_fm_used']
+            
+        fm = file_managers.managers.get(manager, None)
+        if fm is None:
+            raise ModuleNotFoundError(f'File manager {manager} was not found')
+
+        args = self.settings['file_managers'].get(manager, {})
         try:
-            if update and reconnect and self.qb is not None:
-                self.qb.auth_log_out()
-                self.log("MAIN_STATE",
-                         "Logged off from qBittorrent client")
-            if self.qb is None or not self.qb.is_logged_in:
-                if update:
-                    self.qb = Client(self.torrentApiAddress, REQUESTS_ARGS={'timeout': 2})
-                    self.qb.auth_log_in(self.torrentApiLogin,
-                                        self.torrentApiPassword)
-                if self.qb is None or not self.qb.is_logged_in:
-                    self.log(
-                        'MAIN_STATE',
-                        '[ERROR] - Invalid credentials for the torrent client!')
-                    self.qb = None
-                    state = "CREDENTIALS"
-                else:
-                    if update:
-                        self.qb.app_set_preferences(self.qb_settings)
-                    self.log(
-                        'MAIN_STATE',
-                        'Qbittorrent version:',
-                        self.qb.app_version(),
-                        "- web API version:",
-                        self.qb.app_web_api_version())
-                    # self.log('MAIN_STATE','Connected to torrent client')
-                    state = "OK"
-            else:
-                state = "OK"
-        except qbittorrentapi.exceptions.NotFound404Error as e:
-            self.qb = None
-            self.log('MAIN_STATE',
-                     '[ERROR] - Error 404 while connecting to torrent client')
-            state = "ADDRESS"
-        except qbittorrentapi.exceptions.APIConnectionError as e:
-            self.qb = None
-            self.log('MAIN_STATE',
-                     '[ERROR] - Error while connecting to torrent client')
-            state = "ADDRESS"
-        return state
+            self.fm = fm(args, update)
+        except ConnectionAbortedError:
+            # Login was cancelled
+            return
+
+        if not hasattr(self.fm, 'settings'):
+            raise AttributeError('All file managers should have a "settings" attribute')
+        
+        args = self.fm.settings
+        self.setSettings({manager: args, 'last_fm_used': manager})
+        
+        dataPath = args.get('dataPath', None)
+        if dataPath is None:
+            # Wrong config, maybe relog?
+            raise ValueError()
+
+        self.animePath = dataPath + "/Animes"
+        if not self.fm.exists(self.animePath):
+            self.fm.mkdir(self.animePath)
+
+    def getTorrentManager(self, manager=None, update=False):
+        if manager is None:
+            manager = self.settings['torrent_managers']['last_tm_used']
+        
+        tm = torrent_managers.managers.get(manager, None)
+        if tm is None:
+            raise ModuleNotFoundError(f'Torrent manager {manager} was not found')
+
+        args = self.settings['torrent_managers'].get(manager, {})
+        self.tm = tm(args, update)
+        if not hasattr(self.tm, 'settings'):
+            raise AttributeError('All torrent managers should have a "settings" attribute')
+        
+        args = self.tm.settings
+        self.setSettings({manager: args, 'last_tm_used': manager})
 
     def getImage(self, path, size=None):
         if (isinstance(path, str) and os.path.isfile(path)) or isinstance(path, io.IOBase):
             img = Image.open(path)
             if size is not None:
-                img = img.resize(size, Image.ANTIALIAS)
+                img = img.resize(size, Image.LANCZOS)
         else:
             img = Image.new('RGB', (10, 10) if size is None else size, self.colors['Gray'])
         return ImageTk.PhotoImage(img, master=self.root)
@@ -128,21 +135,19 @@ class Getters:
         return status
 
     def getTorrentName(self, file):
-        with open(file, 'rb') as f:
+        with self.fm.open(file, 'rb') as f:
             m = re.findall(rb"name\d+:(.*?)\d+:piece length", f.read())
         if len(m) != 0:
             return m[0].decode()
         else:
             return None
 
-    @staticmethod
-    def getTorrentHash(path):
-        objTorrentFile = open(path, "rb")
+    def getTorrentHash(self, path):
+        objTorrentFile = self.fm.open(path, "rb")
 
-        decodedDict = bencoding.bdecode(objTorrentFile.read())
+        t = torrent_managers.Torrent.from_torrent(objTorrentFile)
+        info_hash = t.hash
 
-        info_hash = hashlib.sha1(bencoding.bencode(
-            decodedDict[b"info"])).hexdigest()
         return info_hash
 
     @staticmethod
@@ -158,6 +163,7 @@ class Getters:
             raise ValueError("Hash not found for magnet link:", url)
 
     def getTorrentColor(self, title):
+        # ANY modification on this function must match what is in downloadFilList.download_cb()
         def fileFormat(f):
             # Format filename to increase matches
             return f.rsplit(".torrent", 1)[0].replace(' ','').lower()
@@ -185,8 +191,12 @@ class Getters:
             files = self.formattedTorrentFiles[1]
         else:
             files = set()
-            for f in os.listdir(self.torrentPath):
-                formatted = fileFormat(f)
+            torrents = self.getTorrents()
+            for torrent in torrents:
+                if torrent.name is None:
+                    continue
+
+                formatted = fileFormat(torrent.name)
                 if len(formatted) > 5: # Ignore names that are too short
                     files.add(formatted)
             self.formattedTorrentFiles = (timeNow, files)
@@ -239,6 +249,35 @@ class Getters:
 
         return fg
 
+    def getTorrents(self, id=None):
+        database = self.getDatabase()
+        
+        keys = ('hash', 'name', 'trackers')
+        formatted = ', t.'.join(keys)
+        if id is not None:
+            condition = 'WHERE i.id=?;'
+            args = (id, )
+        else:
+            condition, args = '', []
+        torrents = database.sql(f'SELECT t.{formatted} FROM torrents as t JOIN torrentsIndex as i ON i.value = t.hash {condition}', args)
+        out = list(map(lambda t: Torrent(**{keys[i]: t[i] for i in range(len(keys))}), torrents))
+        return out
+
+    def saveTorrent(self, id, torrent, save=False):
+        database = self.getDatabase()
+        hash = torrent.hash
+        with database.get_lock():
+            exists = bool(database.sql("SELECT EXISTS(SELECT 1 FROM torrentsIndex WHERE id=? AND value=?);", (id, hash))[0][0])
+            if not exists:
+                database.execute("INSERT INTO torrentsIndex(id, value) VALUES (?,?)", (id, hash))
+            
+            exists = bool(database.sql("SELECT EXISTS(SELECT 1 FROM torrents WHERE hash=?);", (hash, ))[0][0])
+            if not exists:
+                database.execute(f"INSERT INTO torrents(hash, name, trackers) VALUES (?,?,?)", (hash, torrent.name, json.dumps(torrent.trackers)))
+
+            if save:
+                database.save()
+
     @staticmethod
     def getFolderFormat(title):
         chars = []
@@ -258,7 +297,7 @@ class Getters:
                 raise Exception("Id required!")
             database = self.getDatabase()
             anime = database(id=id, table="anime")
-            self.animeFolder = os.listdir(self.animePath)
+            self.animeFolder = self.fm.list(self.animePath)
         else:
             if not isinstance(anime, Anime):
                 anime = Anime(anime)
@@ -266,7 +305,7 @@ class Getters:
                 id = anime.id
 
         for f in self.animeFolder:
-            if not os.path.isdir(os.path.normpath(os.path.join(self.animePath, f))):
+            if not self.fm.isdir(self.animePath + '/' + f):
                 continue
 
             try:
@@ -275,22 +314,22 @@ class Getters:
                 pass
             else:
                 if f_id == id:
-                    folder = os.path.normpath(os.path.join(self.animePath, f))
+                    folder = self.animePath + '/' + f
                     return folder
         folderFormat = self.getFolderFormat(anime.title)
         folderName = "{} - {}".format(folderFormat, id)
-        folder = os.path.normpath(os.path.join(self.animePath, folderName))
+        folder = self.animePath + '/' + folderName
         return folder
 
     def getEpisodes(self, folder):
         def folderLister(folder):
-            if folder in {"", None} or not os.path.isdir(folder):
+            if folder in {"", None} or not self.fm.exists(folder):
                 return []
             files = []
             folders = []
-            for f in os.listdir(folder):
-                path = os.path.join(folder, f)
-                if os.path.isdir(path):
+            for f in self.fm.list(folder):
+                path = folder + '/' + f
+                if self.fm.isdir(path):
                     folders.append(path)
                 else:
                     files.append(path)
@@ -303,12 +342,11 @@ class Getters:
         videoSuffixes = ("mkv", "mp4", "avi")
         blacklist = ("Specials", "Extras")
 
-        if folder == "" or folder is None or not os.path.isdir(
-                os.path.join(self.animePath, folder)):
+        if folder == "" or folder is None or not self.fm.exists(folder):
             return {}
 
         folder = folder + "/"
-        folders = folderLister(os.path.join(self.animePath, folder))
+        folders = folderLister(folder)
 
         publisherPattern = re.compile(r'^\[(.*?)\]')
 
@@ -327,7 +365,7 @@ class Getters:
         for files in folders:
             eps = []
             for file in files:
-                if os.path.isfile(file) and file.split(
+                if self.fm.isfile(file) and file.split(
                         ".")[-1] in videoSuffixes:
                     filename = os.path.basename(file)
 
@@ -498,10 +536,29 @@ class Getters:
         return
 
     def getAnimePictures(self, id):
-        data = self.database.sql("SELECT url, size FROM pictures WHERE id=?", (id,), to_dict=True)
-        # url = self.database.sql("SELECT picture FROM anime WHERE id=?", (id,))[0][0]
-        # data = [{'url': url}]
+        if 'animePicturesCache' in globals():
+            animePicturesCache = globals()['animePicturesCache']
+        else:
+            globals()['animePicturesCache'] = animePicturesCache = {}
+
+        data = animePicturesCache.get(id,None)
+        
+        if not data:
+            # Cache wasn't initialized
+            data = self.database.sql("SELECT url, size FROM pictures WHERE id=?", (id,), to_dict=True)
+            animePicturesCache[id] = data
+
         return data
+
+
+    def getAnimePicturesCache(self, ids):
+        globals()['animePicturesCache'] = {}
+        data = self.database.sql("SELECT id, url, size FROM pictures WHERE id IN (" + ', '.join(map(str, ids)) + ')', to_dict=True)
+        for a in data:
+            if a['id'] not in animePicturesCache:
+                animePicturesCache[a['id']] = [a]
+            else:
+                animePicturesCache[a['id']].append(a)
 
     def get_relations(self, id, **filters):
         data = self.database.sql("SELECT * FROM animeRelations WHERE id=?", (id,), to_dict=True)

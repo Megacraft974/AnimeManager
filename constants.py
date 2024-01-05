@@ -28,27 +28,25 @@ class Constants:
             os.mkdir(appdata)
         self.qbCache = os.path.join(os.path.expanduser("~"), "AppData\\Local\\qBittorrent\\BT_backup")
 
-        filesData = os.path.expanduser('~\\Documents\\AnimeManager')
-        if not os.path.exists(filesData):
-            os.mkdir(filesData)
-        self.animePath = os.path.join(filesData, "Animes")
-        self.torrentPath = os.path.join(filesData, "Torrents")
+        # self.dataPath = os.path.expanduser('~\\Documents\\AnimeManager')
+        # if not os.path.exists(self.dataPath):
+        #     os.mkdir(self.dataPath)
+        # self.animePath = os.path.join(self.dataPath, "Animes")
+        self.animePath = None
 
         self.hideRated = True
         self.enableServer = True
         self.server = None
+        self.fm = None
+        self.tm = None
 
         self.hostName = "0.0.0.0"
         self.serverPort = 8081
 
-        self.torrentApiAddress = 'http://' + \
-            str(socket.gethostbyname(socket.gethostname())) + ":8080"
-        self.torrentApiLogin = 'admin'
-        self.torrentApiPassword = ''.join(map(str, range(1, 7)))
+        # TODO - Move to settings file
+        self.players_order = ['mpv_player', 'vlc_player', 'ff_player']
 
-        self.player_name = "mpv_player"  # TODO - Choose different player
-
-        self.RPC_client_id = '930139147803459695'  # TODO - Put somewhere else?
+        self.RPC_client_id = '930139147803459695'  # TODO - Put somewhere else? I'm pretty sure it's mostly safe but well...
 
         self.allLogs = [
             'ANIME_LIST',
@@ -71,7 +69,6 @@ class Constants:
             'THREAD',
             'TIME']
         self.pathSettings = [
-            "animePath", "torrentPath",
             "iconPath", "cache",
             "dbPath", "logsPath"]
         self.websitesViewUrls = {
@@ -124,11 +121,26 @@ class Constants:
         if not os.path.exists(self.settingsPath):
             shutil.copyfile("settings.json", self.settingsPath)
         with open(self.settingsPath, 'r') as f:
-            self.settings = json.load(f)
+            try:
+                self.settings = json.load(f)
+            except json.JSONDecodeError:
+                # Settings file is corrupted
+                self.log('MAIN_STATE', "[ERROR] - Can't open settings file, archiving it and recreating a new one")
+                newpath = os.path.join(os.path.dirname(self.settingsPath), 'settings.json.old')
+                try:
+                    shutil.move(self.settingsPath, newpath)
+                except Exception as e:
+                    self.log('MAIN_STATE', f"[ERROR] - Can't archive settings file, overwriting it\n  - Error: {str(e)}")
+                
+
+                # Infinite loop if settings template is corrupted, but whatever
+                return self.checkSettings()
+
         update = False
         for cat, values in self.settings.items():
             for var, value in values.items():
                 if var in self.pathSettings:
+                    # Check if path exists
                     if value == "" or not os.path.exists(value):
                         value = getattr(self, var)
                         # updatedSettings[var] = value

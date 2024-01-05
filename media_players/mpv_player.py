@@ -1,3 +1,4 @@
+from tkinter import TclError
 from .base_player import BasePlayer
 import os
 import time
@@ -35,7 +36,7 @@ class MpvPlayer(BasePlayer):
 
         self.initWindow()
 
-        event = self.getPlaylist(url, playlist)
+        event = self.getPlaylist(playlist)
         # Wait for playlist data to be processed
         self.condition_waiter(event.is_set, lambda url=url: self.start_after(url))
 
@@ -57,9 +58,6 @@ class MpvPlayer(BasePlayer):
 
         self.volume = 100
         self.volumeUp()
-
-        self.videoSize = (self.videopanel.winfo_width(),
-                          self.videopanel.winfo_height())
 
         self.log("Playing", self.titles[self.index])
 
@@ -178,8 +176,6 @@ class MpvPlayer(BasePlayer):
 
         self.player.play(self.playlist[self.index])
 
-        self.videoSize = (self.videopanel.winfo_width(),
-                          self.videopanel.winfo_height())
         time.sleep(2)
         self.updateDb()
 
@@ -249,8 +245,6 @@ class MpvPlayer(BasePlayer):
     def toggleFullscreen(self):
         self.fullscreen = not self.fullscreen
         self.parent.attributes("-fullscreen", self.fullscreen)
-        self.videoSize = (self.videopanel.winfo_width(),
-                          self.videopanel.winfo_height())
 
     def showTitle(self, animations=True):
         def animate(start, stop, time, fps=60, p=0):
@@ -326,28 +320,15 @@ class MpvPlayer(BasePlayer):
         except Exception:
             pass
 
-        # cursor = vlc.libvlc_video_get_cursor(self.player,0)[1]
         try:
             cursorX, cursorY = self.queryMousePosition()
         except Exception:
             cursorX, cursorY = 0, 0
-        cursorX, cursorY = cursorX - self.videopanel.winfo_rootx(), cursorY - \
-            self.videopanel.winfo_rooty()
-        # self.log(cursor)
-
-        if 0.95 < cursorY / \
-                self.videoSize[1] < 1 and 0 < cursorX < self.videoSize[0]:
-            if self.hidden:
-                self.updateSubLbl()
-                self.updateAudioLbl()
-                self.hidingFrame.place(
-                    anchor="s", relx=0.5, rely=1, width=500, relheight=0.08)
-                self.hidden = False
-                self.showTitle()
-        else:
-            if not self.hidden:
-                self.hidingFrame.place_forget()
-                self.hidden = True
+        try:
+            cursorX, cursorY = cursorX - self.videopanel.winfo_rootx(), cursorY - self.videopanel.winfo_rooty()
+        except TclError:
+            # Window was closed
+            return
 
         self.parent.after(100, self.OnTick)
 

@@ -55,11 +55,11 @@ class Parser(ParserUtils):
                         lambda e: e.text, stats.find_all("span")[:2])
 
                     out = {
-                        'filename': filename,
-                        'torrent_url': torrent_url,
+                        'name': filename,
+                        'link': torrent_url,
                         'seeds': seeds,
-                        'leechs': leechs,
-                        'file_size': file_size}
+                        'leech': leechs,
+                        'size': file_size}
                     yield out
                 except Exception as e:
                     self.log("Tokyotosho - error:", traceback.format_exc())

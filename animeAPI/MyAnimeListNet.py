@@ -1,6 +1,10 @@
+from _socket import _RetAddress
 import json
 import os
 import secrets
+from socketserver import _RequestType, BaseServer
+import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -210,10 +214,18 @@ class MyAnimeListNetWrapper(APIUtils):
         # self.log(f">>> Greetings {user['name']}! <<<")
         return True
 
-    def getNewToken(self):
+    def getNewToken(self, threaded=False):
+        if threaded is False:
+            threading.Thread(target=self.getNewToken).start()
+            return
+
         log = self.log
 
         class AuthServer(BaseHTTPRequestHandler):
+            def __init__(self, request: _RequestType, client_address: _RetAddress, server: BaseServer) -> None:
+                super().__init__(request, client_address, server)
+                self.timeout = 50
+
             def do_GET(self):
                 log(
                     "SERVER - Received GET request from address {}".format(self.client_address))
@@ -239,11 +251,17 @@ class MyAnimeListNetWrapper(APIUtils):
         webbrowser.open(url)
 
         authServ = HTTPServer((self.hostName, self.serverPort), AuthServer)
-        while True:
+        authorisation_code = None
+        start = time.time()
+        while time.time() < start + 10*60:
             authServ.handle_request()
             if 'Auth_Code' in globals().keys():
                 authorisation_code = globals()['Auth_Code']
                 break
+
+        if authorisation_code is None:
+            # Timed out
+            return
 
         url = 'https://myanimelist.net/v1/oauth2/token'
         data = {
@@ -297,6 +315,7 @@ class MyAnimeListNetWrapper(APIUtils):
         if os.path.isfile(self.tokenPath):
             with open(self.tokenPath, 'r') as file:
                 token = json.load(file)
+
             if not self.check_validity(token['access_token']):
                 token = self.refresh_token(token['refresh_token'])
         else:

@@ -20,35 +20,41 @@ class Parser(ParserUtils):
         searchterms = urllib.parse.quote_plus(terms)
 
         tree = None
-        url = "https://nyaa.si/?page=rss&q={}&c=1_0&f=0".format(searchterms)
-        try:
-            r = self.get(url, timeout=10)
-        except exceptions.ConnectionError:
-            self.log("Nyaasi - No internet connection!")
-            yield False
-        except exceptions.ReadTimeout:
-            self.log("Nyaasi - Timed out!")
-            yield False
-        else:
+        for url in ("https://nyaa.si/?page=rss&q={}&c=1_0&f=0", "https://nyaa.si/?page=rss&q={}&c=1_0&f=0&s=seeders&o=desc"):
+            url = "https://nyaa.si/?page=rss&q={}&c=1_0&f=0".format(searchterms)
             try:
-                tree = etree.parse(io.BytesIO(r.content))
-            except etree.XMLSyntaxError as e:
-                self.log("Nyaasi - Error:", e, tree)
-                return
-            for child in tree.getroot().find('channel'):
+                r = self.get(url, timeout=10)
+            except exceptions.ConnectionError:
+                self.log("Nyaasi - No internet connection!")
+                yield False
+            except exceptions.ReadTimeout:
+                self.log("Nyaasi - Timed out!")
+                yield False
+            else:
                 try:
-                    if child.tag == 'item':
-                        filename = child.find('title').text
-                        torrent_url = child.find('link').text
-                        seeds = child.find(
-                            '{https://nyaa.si/xmlns/nyaa}seeders').text
-                        leechs = child.find(
-                            '{https://nyaa.si/xmlns/nyaa}leechers').text
-                        file_size = child.find(
-                            "{https://nyaa.si/xmlns/nyaa}size").text
-                        yield {'filename': filename, 'torrent_url': torrent_url, 'seeds': seeds, 'leechs': leechs, 'file_size': file_size}
-                except Exception as e:
-                    self.log("Nyaasi - error:", e)
+                    tree = etree.parse(io.BytesIO(r.content))
+                except etree.XMLSyntaxError as e:
+                    self.log("Nyaasi - Error:", e, tree)
+                    continue
+                for child in tree.getroot().find('channel'):
+                    try:
+                        if child.tag == 'item':
+                            filename = child.find('title').text
+                            torrent_url = child.find('link').text
+                            seeds = child.find(
+                                '{https://nyaa.si/xmlns/nyaa}seeders').text
+                            leechs = child.find(
+                                '{https://nyaa.si/xmlns/nyaa}leechers').text
+                            file_size = child.find(
+                                "{https://nyaa.si/xmlns/nyaa}size").text
+                            yield {
+                                'name': filename, 
+                                'link': torrent_url, 
+                                'seeds': seeds, 
+                                'leech': leechs, 
+                                'size': file_size}
+                    except Exception as e:
+                        self.log("Nyaasi - error:", e)
 
 
 if __name__ == "__main__":

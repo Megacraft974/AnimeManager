@@ -15,19 +15,19 @@ added_files = [
     ('icons/*.*', 'icons'),
     ('lib/mpv-1.dll', 'lib'),
     ('media_players/*.py', 'media_players'),
-    ('search_engines/*.py', 'search_engines'),
+    ('search_engines/**/*.py', 'search_engines'),
     ('windows/*.py', 'windows'),
 ]
 
-for f in os.listdir('icons'):
-    path = os.path.join('icons', f)
-    if os.path.isfile(path):
-        added_files.append((path, path))
+# for f in os.listdir('icons'):
+#     path = os.path.join('icons', f)
+#     if os.path.isfile(path):
+#         added_files.append((path, path))
 
-for f in os.listdir('icons/app_icon'):
-    path = os.path.join('icons/app_icon', f)
-    if os.path.isdir(path) and f != "full_size":
-        added_files.append((path, path))
+# for f in os.listdir('icons/app_icon'):
+#     path = os.path.join('icons/app_icon', f)
+#     if os.path.isdir(path) and f != "full_size":
+#         added_files.append((path, path))
 
 added_libs = ('certifi', 'jsonschema', 'mpv', 'ffpyplayer')
 for name in added_libs:
@@ -42,8 +42,8 @@ for name in bin_names:
 
 print("\n-- bins:", '\nb-'.join(map(str, binaries)))
 
-modules = ['lxml._elementpath', 'thefuzz', 'bs4', 'mobile_server', 'tkinter.ttk', 'tkinter.filedialog',
-           'pytube', 'jikanpy', 'jsonapi_client', 'vlc', 'mpv', 'ffpyplayer.player', 'pypresence']
+modules = ['lxml._elementpath', 'thefuzz', 'mobile_server', 'tkinter.ttk', 'tkinter.filedialog',
+           'jikanpy', 'jsonapi_client', 'vlc', 'mpv', 'ffpyplayer.player', 'pypresence', '.search_engines.nova3.engines', '.search_engines.nova3.novaprinter']
 
 # excluded = ['_gtkagg', '_tkagg', 'bsddb', 'curses', 'pywin.debugger', 'pywin.debugger.dbgcon', 'pywin.dialogs', 'tcl', 'Tkconstants', 'Tkinter']
 # excluded = ['django', 'pyqt5', 'scipy']
@@ -71,13 +71,13 @@ exe = EXE(pyz,
           a.datas,
           [],
           name='animeManager',
-          debug=False,
+        #   debug=False,
           bootloader_ignore_signals=False,
           strip=False,
-          upx=True,
+        #   upx=True,
           upx_exclude=[],
           runtime_tmpdir=None,
-          console=False,
+        #   console=False,
           disable_windowed_traceback=False,
           target_arch=None,
           codesign_identity=None,

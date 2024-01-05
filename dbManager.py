@@ -16,87 +16,35 @@ class db():
     def __init__(self, path, force_new=False):
         if not force_new and 'database_main_thread' in globals() and not isinstance(globals()['database_main_thread'], threading.Event):
             raise Exception("Another db instance already exists!")
+        
         self.path = path
         self.remote_lock = threading.RLock()
+        self.alltable_keys = {}
+        self.log_commands = False
+        self.last_op = "None"
+        
         if not os.path.exists(self.path):
             self.createNewDb()
+        
         self.con = sqlite3.connect(path)
         # self.con.row_factory = sqlite3.Row
         sqlite3.register_adapter(bool, int)
         sqlite3.register_converter("BOOLEAN", lambda v: bool(int(v)))
         self.cur = self.con.cursor()
-        self.alltable_keys = {}
-        self.log_commands = False
-        self.last_op = "None"
-
+        
     def createNewDb(self):
         open(self.path, "w")
         self.con = sqlite3.connect(self.path)
         # self.con.row_factory = sqlite3.Row
         self.cur = self.con.cursor()
-        commands = ('''CREATE TABLE "anime" (
-                        "id"    INTEGER NOT NULL UNIQUE,
-                        "title" TEXT,
-                        "picture"   TEXT,
-                        "date_from" TEXT,
-                        "date_to"   TEXT,
-                        "synopsis"  TEXT,
-                        "episodes"  INTEGER,
-                        "duration"  INTEGER,
-                        "rating"    TEXT,
-                        "status"    TEXT,
-                        "broadcast" TEXT,
-                        "last_seen" INTEGER,
-                        "trailer"   TEXT,
-                        "like"  INTEGER,
-                        "tag"   TEXT,
-                        PRIMARY KEY("id")
-                    )''',
-                    '''CREATE TABLE "indexList" (
-                        "id"    INTEGER NOT NULL UNIQUE,
-                        "mal_id"    INTEGER UNIQUE,
-                        "kitsu_id"    INTEGER UNIQUE,
-                        "anilist_id"    INTEGER UNIQUE,
-                        "anidb_id"    INTEGER UNIQUE,
-                        PRIMARY KEY("id" AUTOINCREMENT)
-                    )''',
-                    '''CREATE TABLE "charactersIndex" (
-                        "id"    INTEGER NOT NULL UNIQUE,
-                        "mal_id"    INTEGER UNIQUE,
-                        "kitsu_id"    INTEGER UNIQUE,
-                        PRIMARY KEY("id" AUTOINCREMENT)
-                    )''',
-                    '''CREATE TABLE "genresIndex" (
-                        "id"    INTEGER NOT NULL UNIQUE,
-                        "mal_id"    INTEGER,
-                        "kitsu_id"  INTEGER,
-                        "name"  INTEGER,
-                        PRIMARY KEY("id" AUTOINCREMENT)
-                    )''',
-                    '''CREATE TABLE "characters" (
-                        "id"    INTEGER NOT NULL,
-                        "anime_id"    INTEGER NOT NULL,
-                        "name"    TEXT NOT NULL,
-                        "role"    TEXT,
-                        "picture"    TEXT,
-                        "desc"    TEXT,
-                        "like"    INTEGER
-                    )''',
-                    '''CREATE TABLE "genres" (
-                        "id"    INTEGER NOT NULL,
-                        "value" INTEGER NOT NULL
-                    )''',
-                    '''CREATE TABLE "title_synonyms" (
-                        "id"    INTEGER NOT NULL,
-                        "value" TEXT NOT NULL
-                    )''',
-                    '''CREATE TABLE "torrents" (
-                        "id"    INTEGER NOT NULL,
-                        "value" TEXT NOT NULL
-                    )''')
+
+        with open('db_model.sql') as f:
+            script = f.read()
+
         with self.get_lock():
-            for c in commands:
-                self.cur.execute(c)
+            self.cur.executescript(script)
+            # for c in commands:
+            #     self.cur.execute(c)
             self.save()
 
     def close(self):
@@ -299,31 +247,65 @@ class db():
             return
         keys = []
         values = []
+        misc_table = table not in ("anime", "characters")
         with self.get_lock():
             self.updateKeys(table)
+            tablekeys = set(self.tablekeys)
+
             if isinstance(data, Item):
                 data, meta = data.save_format()
             else:
                 meta = []
+
+            out = {}
             for k, v in data.items():
-                if (table not in ("anime", "characters") or k in self.tablekeys):
+                if (misc_table or k in tablekeys):
+                    if not misc_table:
+                        # Then k is in tablekeys
+                        tablekeys.remove(k)
+
                     if type(v) in (dict, list):
                         meta[k] = v
                     else:
-                        keys.append(k)
-                        values.append(v)
+                        out[k] = v
 
-            if self.exists(data["id"], table, "id"):
-                sql = "UPDATE " + table + " SET " + \
-                    ",".join(["{} = ?"] * len(keys)) + " WHERE {} = ?;"
-                sql = sql.format(*keys, "id")
-                self.execute(sql, (*values, data["id"]))
-            else:
-                sql = "INSERT INTO " + table + \
-                    "(" + ",".join(["{}"] * len(keys)) + \
-                      ") VALUES(" + ",".join("?" * len(keys)) + ");"
-                sql = sql.format(*keys)
-                self.execute(sql, (*values,))
+            f_keys = ",".join(self.tablekeys)
+            keys = []
+            values = []
+            for key in self.tablekeys:
+                # Here, we will try to determine for each key if we should overwrite it or if we should get the current value
+                if key in out and data.get(key, None) is not None:
+                    # Can't use "if key in data:" here, because it might be a meta key
+                    keys.append(key)
+                    value = '?'
+                    # value = str(data[k]) # -> not really secure, it's better to use a ? instead
+                else:
+                    # Let's just hope that the pk is the first key, AND that you always have at least the pk set
+                    value = f'(SELECT {key} FROM {table} WHERE {self.tablekeys[0]}={out[self.tablekeys[0]]})'
+                    if data.get(key, None) is None:
+                        pass
+
+                values.append(value)
+            f_values = ",".join(values)
+
+            sql = f"INSERT OR REPLACE INTO {table}({f_keys}) VALUES ({f_values})"
+            self.execute(
+                sql, 
+                tuple(map(lambda k: str(data[k]) if k in data and data[k] is not None else None, keys))
+            )
+            # if self.exists(data["id"], table, "id"):
+            #     f_keys = ",".join(map(lambda k: f"{k} = ?"))
+            #     sql = f"UPDATE {table} SET {f_keys} WHERE id = ?;"
+            #     self.execute(sql, (*values, data["id"]))
+            # else:
+            #     f_keys = ",".join(keys)
+            #     f_values = ",".join("?" * len(keys))
+            #     sql = f"INSERT INTO {table}({keys}) VALUES({f_values});"
+            #     sql2 = "INSERT INTO " + table + \
+            #         "(" + ",".join(["{}"] * len(keys)) + \
+            #           ") VALUES(" + ",".join("?" * len(keys)) + ");"
+            #     sql2 = sql2.format(*keys)
+            #     self.execute(sql, (*values,))
 
             self.save_metadata(data["id"], meta)
             if save:
@@ -353,7 +335,7 @@ class db():
                 sql = """
                     DELETE FROM anime WHERE id={id};
                     DELETE FROM title_synonyms WHERE id={id};
-                    DELETE FROM torrents WHERE id={id};
+                    DELETE FROM torrentsIndex WHERE id={id};
                     DELETE FROM genres WHERE id={id};
                     DELETE FROM indexList WHERE id={id};
                     DELETE FROM characters WHERE anime_id={id};
@@ -499,6 +481,7 @@ class thread_safe_db(Logger):
             self.lock = main.lock
             self.tasks = main.tasks
             self.db_thread = main.db_thread
+            
         else:
             self.ready_flag = threading.Event()
             release_flag = threading.Event()
@@ -521,6 +504,7 @@ class thread_safe_db(Logger):
             try:
                 out = getattr(self.db, name)(*args, **kwargs)
             except Exception as e:
+                self.log('DB_MAIN', f"[ERROR]: On db.{name}(*{args}, **{kwargs}: {str(e)}")
                 output.put(e)
             else:
                 output.put(out)
@@ -590,10 +574,19 @@ class thread_safe_db(Logger):
                 ))
             if not self.db_thread.is_alive():
                 self.__init__(self.path)
+
+            start = time.time()
+            self.log("DB_ACCESS", f"ID: {str(start)[-5:]}, {name}({args=}, {kwargs=})")
+
             self.tasks.put((output, name, args, kwargs))
+
             if get_output:
                 out = output.get()
+
                 if isinstance(out, Exception):
+                    self.log("DB_ACCESS", f"ID: {str(start)[-5:]}, done in {round(time.time()-start, 3)}s, error occured: {str(out)}")
                     raise out
+
                 else:
+                    self.log("DB_ACCESS", f"ID: {str(start)[-5:]}, done in {round(time.time()-start, 3)}s, OK")
                     return out
