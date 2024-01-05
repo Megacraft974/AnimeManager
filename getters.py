@@ -15,18 +15,13 @@ from datetime import date, datetime, timedelta, timezone
 import requests
 from PIL import Image, ImageTk
 
-<<<<<<< HEAD
+from . import file_managers
+from . import torrent_managers
+
 from .constants import Constants
-from .classes import Anime, RegroupList, ReturnThread
+from .classes import Anime, RegroupList, ReturnThread, Torrent
 from .dbManager import thread_safe_db
 from .utils import Timer
-=======
-from constants import Constants
-from classes import Anime, RegroupList, ReturnThread, Torrent
-from dbManager import thread_safe_db
-import file_managers
-import torrent_managers
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26
 
 if 'database_threads' not in globals().keys():
     globals()['database_threads'] = {}
@@ -552,7 +547,7 @@ class Getters:
 
 
     def getAnimePicturesCache(self, ids):
-        globals()['animePicturesCache'] = {}
+        globals()['animePicturesCache'] = animePicturesCache = {}
         data = self.database.sql("SELECT id, url, size FROM pictures WHERE id IN (" + ', '.join(map(str, ids)) + ')', to_dict=True)
         for a in data:
             if a['id'] not in animePicturesCache:

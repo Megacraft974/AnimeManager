@@ -1,8 +1,6 @@
-<<<<<<< HEAD
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-=======
 import json
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26
 import multiprocessing
 import os
 import queue
@@ -65,13 +63,13 @@ except ModuleNotFoundError as e:
 # globals()['auto_launch_initialized'] = True
 
 try:
-<<<<<<< HEAD
 	from . import animeAPI
 	from . import search_engines
 	from . import utils
 	from . import windows
-	from .classes import (Anime, AnimeList, Character, SortedDict, SortedList,
-						 TorrentList)
+	from . import mobile_server
+	from .classes import (Anime, AnimeList, Character, Magnet, SortedDict,
+						 SortedList, TorrentList, DefaultDict)
 	from .constants import Constants
 	from .dbManager import db
 	from .discord_presence import DiscordPresence
@@ -79,28 +77,12 @@ try:
 	from .logger import Logger
 	from .media_players import MediaPlayers
 	from .update_utils import UpdateUtils
+	from .file_managers import LocalFileManager, FTPFileManager
+ 
 except ImportError:
     sys.path.append(os.path.abspath("../"))
     from AnimeManager.animeManager import Manager
     Manager()
-=======
-	import animeAPI
-	import search_engines
-	import utils
-	import mobile_server
-	import windows
-	from classes import (Anime, AnimeList, Character, Magnet, SortedDict,
-						 SortedList, TorrentList)
-	from constants import Constants
-	from dbManager import db
-	from discord_presence import DiscordPresence
-	from getters import Getters
-	from logger import Logger
-	from media_players import MediaPlayers
-	from update_utils import UpdateUtils
-	from classes import DefaultDict
-	from file_managers import LocalFileManager, FTPFileManager
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26
 except ModuleNotFoundError as e:
 	print(f"Please verify your app installation!\n{traceback.format_exc()}")
 	import sys
@@ -199,14 +181,10 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		self.startup()
 
 	def startup(self):
-<<<<<<< HEAD
-		with self.getDatabase(remote=self.remote) as self.database:
-=======
 		self.getFileManager()
 		# TODO - Put that in settings
 
-		with self.getDatabase() as self.database:
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26
+		with self.getDatabase(remote=self.remote) as self.database:
 			if not os.path.exists(self.dbPath):
 				self.checkSettings()
 				self.reloadAll()
@@ -214,7 +192,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			else:
 				self.checkSettings()
 
-<<<<<<< HEAD
 			self.api = animeAPI.AnimeAPI('all', self.dbPath)
 			self.player = self.media_players[self.player_name]
 			# self.last_broadcasts = self.getBroadcast()
@@ -224,8 +201,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				# No need for Discord RPC if we're in remote mode
 				self.RPC_menu()
 
-=======
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26
 			if not self.remote:
 				try:
 					self.drawInitWindow()
@@ -450,7 +425,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		else:
 			return False
 
-<<<<<<< HEAD
 	def searchNgrams(self, terms):  # TODO
 		def ngrams(string, n=3):
 			string = [l for l in string.lower() if l.isalnum() or l == " "]
@@ -562,8 +536,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		return get_next(args)
 		
 
-=======
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26
 	# ___Clean up___
 	def clearLogs(self):
 		for f in os.listdir(self.logsPath):
