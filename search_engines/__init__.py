@@ -3,7 +3,7 @@ import queue
 import re
 import threading
 
-from logger import log
+from ..logger import log
 
 IGNORE = ['template.py', '__init__.py', 'parserUtils.py']
 PARSERS = []

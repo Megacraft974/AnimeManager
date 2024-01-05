@@ -1,6 +1,3 @@
-if __name__ == "__main__":
-    import auto_launch
-
 import ctypes
 import os
 import socket

@@ -56,4 +56,4 @@ if __name__ == "__main__":
 
     r = p.search("meikyuu")
     for m in r:
-        print(m)
+        pass

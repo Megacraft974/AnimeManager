@@ -1,6 +1,3 @@
-if __name__ == "__main__":
-    import auto_launch
-
 import sqlite3
 import json
 import os
@@ -9,8 +6,8 @@ import traceback
 import threading
 import queue
 import time
-from classes import Anime, Character, NoneDict, AnimeList, Item, LockWrapper
-from logger import log, Logger
+from .classes import Anime, Character, NoneDict, AnimeList, Item, LockWrapper
+from .logger import log, Logger
 
 
 class db():
@@ -489,9 +486,10 @@ class db():
 
 
 class thread_safe_db(Logger):
-    def __init__(self, path):
+    def __init__(self, path, remote=False):
         Logger.__init__(self)
         self.path = path
+        self.remote = remote
         if 'database_main_thread' in globals().keys():
             main = globals()['database_main_thread']
             if isinstance(main, threading.Event):
@@ -556,7 +554,8 @@ class thread_safe_db(Logger):
         return self
 
     def __exit__(self, *_):
-        self.close()
+        if not self.remote:
+            self.close()
         return False
 
     def get_lock(self):

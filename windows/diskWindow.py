@@ -2,7 +2,7 @@ import shutil
 import os
 from tkinter import *
 
-import utils
+from .. import utils
 
 
 class diskWindow:

@@ -1,16 +1,8 @@
-from operator import itemgetter
 import os
-import queue
-import re
-import threading
-import time
 
 from tkinter import *
-from turtle import pu
-from classes import SortedDict, SortedList, TorrentList
-import search_engines
 
-import utils
+from .. import utils
 
 
 class searchTermsWindow:

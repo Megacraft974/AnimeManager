@@ -1,21 +1,16 @@
 import os
-import json
 import threading
-import re
 import subprocess
-import traceback
-import queue
 import time
 
 from operator import itemgetter
-from datetime import date, datetime, timedelta, time as datetime_time
-from sqlite3 import OperationalError
+from datetime import date, datetime, timedelta, time as datetime_time, timezone
 from tkinter import *
 from tkinter.ttk import Progressbar
 
 import qbittorrentapi.exceptions
 
-import utils
+from .. import utils
 
 
 class optionsWindow:
@@ -200,66 +195,6 @@ class optionsWindow:
 					self.log('MAIN_STATE', "Watching trailer for anime",
 							 anime.title, "url", trailer)
 					self.player((trailer,), 0, url=True)
-
-			def getDateText(datefrom, dateto, broadcast):
-				today = date.today()
-				delta = today - datefrom  # - timedelta(days=1)
-				if status == 'FINISHED':
-					if dateto is None:
-						datetext = "Published on {}".format(
-							datefrom.strftime("%d %b %Y"))
-					else:
-						datetext = "From {} to {} ({} days)".format(
-							datefrom.strftime("%d %b %Y"), dateto.strftime("%d %b %Y"), delta.days)
-				elif status == 'AIRING':
-					datetext = "Since {} ({} days)".format(
-						datefrom.strftime("%d %b %Y"), delta.days)
-					if broadcast is not None:
-						weekday, hour, minute = map(int, broadcast.split("-"))
-
-						daysLeft = (weekday - today.weekday()) % 7
-						dateObj = datetime.today() + timedelta(days=daysLeft)
-
-						# Depends on timezone - TODO
-						hourDateObj = timedelta(hours=hour - 5, minutes=minute)
-						dateObj = datetime.combine(
-							dateObj.date(), datetime_time.min) + hourDateObj
-						text = dateObj.strftime(
-							"Next episode on %a %d at %H:%M")
-						datetext += "\n{}".format(text)
-
-						daysSince = (today.weekday() - weekday) % 7
-						text = "Last episode: {}"
-						if daysSince == 0:
-							text = text.format("Today")
-						elif daysSince == 1:
-							text = text.format("Yesterday")
-						elif daysSince > 1:
-							text = text.format(str(daysSince) + " days ago")
-						else:
-							text = text.format("uhh?")
-						datetext += "\n{}".format(text)
-					else:
-						daysSince = ((delta.days - 1) % 7)
-						dateObj = date.today() - timedelta(days=daysSince)
-						text = dateObj.strftime("Last episode on %a %d ({})")
-						if daysSince == 0:
-							text = text.format("Today")
-						elif daysSince == 1:
-							text = text.format("Yesterday")
-						elif daysSince > 1:
-							text = text.format(str(daysSince) + " days ago")
-						else:
-							text = text.format("uhh?")
-						datetext += "\n" + text
-
-				elif status == 'UPCOMING':
-					datetext = "On {} ({} days left)".format(
-						datefrom.strftime("%d %b %Y"), -delta.days)
-				else:
-					datetext = ''
-
-				return datetext
 
 			def switch(id, titles=None):
 				if titles is not None:
@@ -789,9 +724,9 @@ class optionsWindow:
 			state = Frame(self.optionsWindow, bg=self.colors['Gray2'])
 			datefrom, dateto = anime.date_from, anime.date_to
 			if datefrom is not None:
-				datefrom = date.fromisoformat(datefrom)
+				datefrom = datetime.utcfromtimestamp(datefrom)
 			if dateto is not None:
-				dateto = date.fromisoformat(dateto)
+				dateto = datetime.utcfromtimestamp(dateto)
 
 			status = self.getStatus(anime)
 			Label(
@@ -819,8 +754,8 @@ class optionsWindow:
 							font=("Source Code Pro Medium",
 								  13))
 			if status != 'UNKNOWN' and datefrom is not None:
-				dateLbl['text'] = getDateText(
-					datefrom, dateto, anime.broadcast)
+				dateLbl['text'] = self.getDateText(
+					datefrom, dateto, anime.broadcast, status)
 				dateLbl.grid(row=1, column=0, columnspan=2)
 			state.grid(row=8, column=0)
 
@@ -1031,3 +966,64 @@ class optionsWindow:
 			self.log("DISK_ERROR", "Folder path doesn't exist:", path)
 		self.log("DB_UPDATE", "Deleted all files")
 		self.reload(id, False)
+
+	def getDateText(self, datefrom, dateto, broadcast, status):
+		tz = timezone.utc
+		today = datetime.now(tz)
+		delta = today - datefrom.astimezone(tz)  # - timedelta(days=1)
+		if status == 'FINISHED':
+			if dateto is None:
+				datetext = "Published on {}".format(
+					datefrom.strftime("%d %b %Y"))
+			else:
+				datetext = "From {} to {} ({} days)".format(
+					datefrom.strftime("%d %b %Y"), dateto.strftime("%d %b %Y"), delta.days)
+		elif status == 'AIRING':
+			datetext = "Since {} ({} days)".format(
+				datefrom.strftime("%d %b %Y"), delta.days)
+			if broadcast is not None:
+				weekday, hour, minute = map(int, broadcast.split("-"))
+
+				daysLeft = (weekday - today.weekday()) % 7
+				dateObj = datetime.today() + timedelta(days=daysLeft)
+
+				# Depends on timezone - TODO
+				hourDateObj = timedelta(hours=hour - 5, minutes=minute)
+				dateObj = datetime.combine(
+					dateObj.date(), datetime_time.min) + hourDateObj
+				text = dateObj.strftime(
+					"Next episode on %a %d at %H:%M")
+				datetext += "\n{}".format(text)
+
+				daysSince = (today.weekday() - weekday) % 7
+				text = "Last episode: {}"
+				if daysSince == 0:
+					text = text.format("Today")
+				elif daysSince == 1:
+					text = text.format("Yesterday")
+				elif daysSince > 1:
+					text = text.format(str(daysSince) + " days ago")
+				else:
+					text = text.format("uhh?")
+				datetext += "\n{}".format(text)
+			else:
+				daysSince = ((delta.days - 1) % 7)
+				dateObj = date.today() - timedelta(days=daysSince)
+				text = dateObj.strftime("Last episode on %a %d ({})")
+				if daysSince == 0:
+					text = text.format("Today")
+				elif daysSince == 1:
+					text = text.format("Yesterday")
+				elif daysSince > 1:
+					text = text.format(str(daysSince) + " days ago")
+				else:
+					text = text.format("uhh?")
+				datetext += "\n" + text
+
+		elif status == 'UPCOMING':
+			datetext = "On {} ({} days left)".format(
+				datefrom.strftime("%d %b %Y"), -delta.days)
+		else:
+			datetext = ''
+
+		return datetext

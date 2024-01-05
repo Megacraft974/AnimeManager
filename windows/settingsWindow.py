@@ -2,11 +2,11 @@ import time
 import os
 import json
 import socket
-import mobile_server
+from .. import mobile_server
 from tkinter.filedialog import askopenfilename, askdirectory
 from tkinter import *
 
-import utils
+from .. import utils
 
 # TODO - Froze when not connected to torrent client
 

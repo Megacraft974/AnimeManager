@@ -1,6 +1,6 @@
 from tkinter import *
 
-import utils
+from .. import utils
 
 
 class textPopupWindow:

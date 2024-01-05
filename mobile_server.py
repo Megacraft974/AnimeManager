@@ -1,15 +1,12 @@
-if __name__ == "__main__":
-    import auto_launch
-
 import threading
 import json
 import ssl
 import os
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from dbManager import db
-from logger import log
-from getters import Getters
+from .dbManager import db
+from .logger import log
+from .getters import Getters
 
 
 def startServer(hostName, serverPort, dbPath, manager):

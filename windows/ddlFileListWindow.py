@@ -1,7 +1,7 @@
 import time
 from tkinter import *
 
-import utils
+from .. import utils
 
 
 class ddlFileListWindow:

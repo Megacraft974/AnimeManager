@@ -1,7 +1,7 @@
 from datetime import date
 from tkinter import *
 
-import utils
+from .. import utils
 
 
 class seasonSelector:

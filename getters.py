@@ -1,6 +1,3 @@
-if __name__ == "__main__":
-    import auto_launch
-
 import base64
 import codecs
 import hashlib
@@ -20,17 +17,17 @@ import requests
 from PIL import Image, ImageTk
 from qbittorrentapi import Client
 
-from constants import Constants
-from classes import Anime, RegroupList, ReturnThread
-from dbManager import thread_safe_db
-from utils import Timer
+from .constants import Constants
+from .classes import Anime, RegroupList, ReturnThread
+from .dbManager import thread_safe_db
+from .utils import Timer
 
 if 'database_threads' not in globals().keys():
     globals()['database_threads'] = {}
 
 
 class Getters:
-    def getDatabase(self=None):
+    def getDatabase(self=None, remote=False):
         if self is None:
             self = type('EmptyObject', (), {})()
         if threading.main_thread() == threading.current_thread() and hasattr(self, "database") and isinstance(self.database, thread_safe_db):
@@ -47,7 +44,7 @@ class Getters:
                 if not hasattr(self, 'dbPath'):
                     appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
                     self.dbPath = os.path.join(appdata, "animeData.db")
-                database = thread_safe_db(self.dbPath)
+                database = thread_safe_db(self.dbPath, remote=remote)
                 globals()['database_threads'][t] = database
                 return database
 
@@ -115,7 +112,7 @@ class Getters:
         if anime.date_from is None:
             status = 'UNKNOWN'
         else:
-            if date.fromisoformat(anime.date_from) > date.today():
+            if datetime.utcfromtimestamp(anime.date_from) > datetime.now():
                 status = 'UPCOMING'
             else:
                 if anime.date_to is None:
@@ -124,7 +121,7 @@ class Getters:
                     else:
                         status = 'AIRING'
                 else:
-                    if date.fromisoformat(anime.date_to) > date.today():
+                    if datetime.utcfromtimestamp(anime.date_to) > datetime.now():
                         status = 'AIRING'
                     else:
                         status = 'FINISHED'

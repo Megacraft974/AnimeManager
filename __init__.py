@@ -1,0 +1,1 @@
+from .animeManager import Manager

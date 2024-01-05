@@ -7,7 +7,7 @@ from PIL import Image, ImageTk
 
 import requests
 
-import utils
+from .. import utils
 
 
 class characterWindow:

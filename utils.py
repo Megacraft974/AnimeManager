@@ -6,10 +6,10 @@ import re
 from operator import itemgetter
 from datetime import datetime, timedelta, timezone
 
-from classes import AnimeList, DefaultDict
+from .classes import AnimeList, DefaultDict
 
 # from ctypes import windll, Structure, c_long, byref
-from logger import log
+from .logger import log
 from tkinter import *
 from PIL import Image, ImageTk, ImageDraw
 
@@ -630,7 +630,6 @@ class AnimeListFrame(ScrollableFrame):
     def __init__(self, root, parent, rows_per_page=50, **kwargs):
         self.root = root
         self.parent = parent
-        self.database = self.parent.database
         self.animePerRow = self.parent.animePerRow
         self.animePerPage = self.parent.animePerPage
         self.log = self.parent.log
@@ -668,81 +667,7 @@ class AnimeListFrame(ScrollableFrame):
         self.createList()
 
     def from_filter(self, criteria, listrange=(0, 50)):
-        if criteria == "DEFAULT":
-            table = 'anime'
-            filter = "anime.status != 'UPCOMING' AND anime.status != 'UNKNOWN'"
-            if self.parent.hideRated:
-                filter += " AND (rating NOT IN('R+','Rx') OR rating IS null)"
-            sort = "DESC"
-            order = "anime.date_from"
-        else:
-            # \nAND rating NOT IN('R+','Rx')"
-            table = 'anime'
-            commonFilter = "\nAND status != 'UPCOMING'"
-            order = "date_from"
-            sort = "DESC"
-            if self.parent.hideRated:
-                commonFilter += " \nAND (rating NOT IN('R+','Rx') OR rating IS null)"
-
-            if criteria == 'LIKED':
-                filter = "like = 1" + commonFilter
-
-            elif criteria == 'NONE':
-                filter = "tag IS null OR tag = 'NONE'" + commonFilter
-
-            elif criteria in ['UPCOMING', 'FINISHED', 'AIRING']:
-                if criteria == 'UPCOMING':
-                    commonFilter = "\nAND (rating NOT IN('R+','Rx') OR rating IS null)" if self.parent.hideRated else ""
-                    sort = "ASC"
-                filter = "status = '{}'".format(criteria) + commonFilter
-
-            elif criteria == 'RATED':
-                filter = "rating IN('R+','Rx')\nAND status != 'UPCOMING'"
-
-            elif criteria == "RANDOM":
-                order = "RANDOM()"
-                filter = "anime.picture is not null"
-
-            else:
-                if criteria == 'WATCHING':
-                    commonFilter = "\nAND status != 'UPCOMING'"
-                    table = 'anime LEFT JOIN broadcasts ON anime.id = broadcasts.id'
-                    order = """
-                        CASE WHEN anime.status = "AIRING" AND broadcasts.weekday IS NOT NULL
-                            THEN (
-                                ({}-broadcasts.weekday)%7*24*60
-                                +({}-broadcasts.hour)*60
-                                +({}-broadcasts.minute)
-                                +86400
-                            )%86400
-                            ELSE "9"
-                        END ASC,
-                        date_from
-                    """
-                    tz = timezone(timedelta(hours=9))
-                    sort_date = datetime.now(tz)
-                    order = order.format(
-                        sort_date.weekday(), sort_date.hour, sort_date.minute)
-                    # Depend on timezone - TODO
-                filter = "tag = '{}'".format(criteria) + commonFilter
-
-        args = {'table': table, 'sort': sort,
-                'range': listrange, 'order': order, 'filter': filter}
-
-        def get_next(args):
-            listrange = args['range']
-            new_list = self.database.filter(**args)
-            if not new_list.empty():
-                next_range = (listrange[1], listrange[1] +
-                              listrange[1] - listrange[0])
-                next_args = args.copy()
-                next_args['range'] = next_range
-                def next_list(args=next_args): return get_next(args)
-            else:
-                next_list = None
-            return new_list, next_list
-
-        self.list, self.next_list = get_next(args)
+        self.list, self.next_list = self.parent.getAnimelist(criteria, listrange)
 
         self.update_scrollzone() # Necessary?
         self.createList()
@@ -827,10 +752,10 @@ class AnimeListFrame(ScrollableFrame):
                     return
                 try:
                     if ids:
-                        with self.database.get_lock():
+                        with self.parent.database.get_lock():
                             sql = 'UPDATE anime SET status="UPDATE" WHERE id IN (' + ', '.join(
                                 str(i) for i in ids) + ')'
-                            self.database.sql(sql, get_output=False)
+                            self.parent.database.sql(sql, get_output=False)
 
                     if not self.list.empty():
                         self.load_more_button(i - len(row) + 1)
@@ -895,8 +820,6 @@ class AnimeListFrame(ScrollableFrame):
             queue.put((filename, url, img_can))
             out = None
         else:
-            # with self.database.get_lock():
-            #     self.database.sql('UPDATE anime SET status="UPDATE" WHERE id=?', (anime.id,), get_output=False)
             out = anime.id
         self.list_timer.stop()
         return out
@@ -1131,7 +1054,7 @@ def project_modules(root="./"):
     return dict(sorted(modules.items()))
 
 
-def project_stats(root="./"):
+def project_stats(root="./", isroot=False):
     def pp_bytes(size):
         units = ('o', 'Ko', 'Mo', 'Go', 'To')
         i = 0
@@ -1150,23 +1073,65 @@ def project_stats(root="./"):
             size += os.path.getsize(path)
             if end == "py":
                 files += 1
-                with open(path, encoding="utf-8") as file:
-                    lines += len(file.readlines()) + 1
+                try:
+                    with open(path, encoding="utf-8") as file:
+                        lines += len(file.readlines()) + 1
+                except Exception as e:
+                    pass
         elif os.path.isdir(path):
             t_lines, t_files, t_folders, t_size = project_stats(path)
             lines += t_lines
             files += t_files
             folders += t_folders + 1
             size += t_size
-    if root == "./":
+    if isroot:
         log("{} lines in the project, {} files, {} folders, total size: {}".format(
             lines, files, folders, pp_bytes(size)))
     return lines, files, folders, size
 
 
 if __name__ == "__main__":
-    for k, v in project_modules().items():
-        log(k, ":")
-        for p in v:
-            log('   File "{}", line {}'.format(*p))
-    project_stats()
+    import shutil, os
+
+    libs = [
+        'C:\\Users\\willi\\AppData\\Local\\Programs\\Python\\Python310\\lib', 
+        'C:\\Users\\willi\\AppData\\Local\\Programs\\Python\\Python310', 
+        'E:\\Anime Manager\\venv\\lib\\site-packages'
+    ]
+    root = os.path.normpath('E:/Anime Manager/installer/Lib')
+
+    ignore = [f.rsplit('.', 1)[0] for f in os.listdir()]
+
+    if False:
+
+        for k, v in project_modules().items():
+            if k.startswith('.') or k in ignore:
+                continue
+            log(k, ":")
+            try:
+                exec(f'import {k}')
+                path = eval(f'{k}.__file__')
+                dirname = os.path.dirname(path)
+                for libs_root in libs:
+                    try:
+                        rel_path = os.path.relpath(path, libs_root)
+                    except ValueError:
+                        continue
+                    else:
+                        if rel_path.startswith(os.pardir):
+                            continue
+                        name = rel_path.split('\\', 1)[0]
+                        path = os.path.join(libs_root, name)
+                        break
+                else:
+                    # No root found??
+                    # Just keep current path
+                    name = os.path.basename(path)
+
+                dest = os.path.join(root, name)
+                shutil.copyfile(path, dest)
+            except Exception as e:
+                log(f'Error: {e}')
+            # for p in v:
+            #     log('   File "{}", line {}'.format(*p))
+    project_stats(os.path.abspath(r'D:\willi\Documents\Python'), True)

@@ -7,8 +7,8 @@ import io
 from tkinter import *
 from PIL import Image, ImageTk
 
-import utils
-from classes import CharacterList, Character
+from .. import utils
+from ..classes import CharacterList, Character
 
 
 class characterListWindow:

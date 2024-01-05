@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Module",
+            "type": "python",
+            "request": "launch",
+            "module": "launch",
+            "justMyCode": true
+        },
+        {
             "name": "Python : fichier actif",
             "type": "python",
             "request": "launch",

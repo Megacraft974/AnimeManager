@@ -1,15 +1,13 @@
-import json
 import os
 import queue
 import re
 import threading
 
-from operator import itemgetter
 from tkinter.filedialog import askopenfilenames
 from tkinter import *
-import search_engines
+from .. import search_engines
 
-import utils
+from .. import utils
 
 
 class torrentFilesWindow:

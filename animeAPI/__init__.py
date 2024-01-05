@@ -8,10 +8,10 @@ import traceback
 
 import requests
 try:
-    from logger import Logger, log
-    from classes import (Anime, AnimeList, Character, CharacterList, ItemList,
+    from ..logger import Logger, log
+    from ..classes import (Anime, AnimeList, Character, CharacterList, ItemList,
                         NoIdFound)
-    from getters import Getters
+    from ..getters import Getters
 except ImportError:
     import sys
     sys.path.append(os.path.abspath("."))
@@ -51,7 +51,7 @@ class AnimeAPI(Getters, Logger):
 
         for name in api_names:
             try:
-                exec('from {n} import {n}Wrapper'.format(n=name))
+                exec(f'from .{name} import {name}Wrapper')
             except ImportError as e:
                 self.log("ANIME_SEARCH", name, e)
             else:

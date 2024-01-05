@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 import multiprocessing
 import os
 import queue
@@ -57,22 +58,26 @@ except ModuleNotFoundError as e:
 
 	sys.exit()
 
-globals()['auto_launch_initialized'] = True
+# globals()['auto_launch_initialized'] = True
 
 try:
-	import animeAPI
-	import search_engines
-	import utils
-	import windows
-	from classes import (Anime, AnimeList, Character, SortedDict, SortedList,
-	                     TorrentList)
-	from constants import Constants
-	from dbManager import db
-	from discord_presence import DiscordPresence
-	from getters import Getters
-	from logger import Logger
-	from media_players import MediaPlayers
-	from update_utils import UpdateUtils
+	from . import animeAPI
+	from . import search_engines
+	from . import utils
+	from . import windows
+	from .classes import (Anime, AnimeList, Character, SortedDict, SortedList,
+						 TorrentList)
+	from .constants import Constants
+	from .dbManager import db
+	from .discord_presence import DiscordPresence
+	from .getters import Getters
+	from .logger import Logger
+	from .media_players import MediaPlayers
+	from .update_utils import UpdateUtils
+except ImportError:
+    sys.path.append(os.path.abspath("../"))
+    from AnimeManager.animeManager import Manager
+    Manager()
 except ModuleNotFoundError as e:
 	print(e)
 	print(f"{e} - Please verify your app installation!")
@@ -171,7 +176,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		self.startup()
 
 	def startup(self):
-		with self.getDatabase() as self.database:
+		with self.getDatabase(remote=self.remote) as self.database:
 			if not os.path.exists(self.dbPath):
 				self.checkSettings()
 				self.reloadAll()
@@ -184,7 +189,9 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			# self.last_broadcasts = self.getBroadcast()
 			self.getQB(use_thread=True)
 
-			self.RPC_menu()
+			if not self.remote:
+				# No need for Discord RPC if we're in remote mode
+				self.RPC_menu()
 
 			if not self.remote:
 				try:
@@ -304,7 +311,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			threshold_count = int(threshold * terms_count)
 			entries = self.database.sql(sql)
 			# Make sure that there are no other calls to db while iterating
-			print(f'Anime search: {time.time()-start}s')
+			# print(f'Anime search: {time.time()-start}s')
 			for data in entries:
 				title = data[0].lower()
 
@@ -376,6 +383,87 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 					)
 				)
 			)
+
+	def getAnimelist(self, criteria, listrange=(0, 50), hideRated=None):
+		if hideRated is None:
+			hideRated = self.hideRated
+
+		if criteria == "DEFAULT":
+			table = 'anime'
+			filter = "anime.status != 'UPCOMING' AND anime.status != 'UNKNOWN'"
+			if hideRated:
+				filter += " AND (rating NOT IN('R+','Rx') OR rating IS null)"
+			sort = "DESC"
+			order = "anime.date_from"
+
+		else:
+			# \nAND rating NOT IN('R+','Rx')"
+			table = 'anime'
+			commonFilter = "\nAND status != 'UPCOMING'"
+			order = "date_from"
+			sort = "DESC"
+			if hideRated:
+				commonFilter += " \nAND (rating NOT IN('R+','Rx') OR rating IS null)"
+
+			if criteria == 'LIKED':
+				filter = "like = 1" + commonFilter
+
+			elif criteria == 'NONE':
+				filter = "tag IS null OR tag = 'NONE'" + commonFilter
+
+			elif criteria in ['UPCOMING', 'FINISHED', 'AIRING']:
+				if criteria == 'UPCOMING':
+					commonFilter = "\nAND (rating NOT IN('R+','Rx') OR rating IS null)" if hideRated else ""
+					sort = "ASC"
+				filter = "status = '{}'".format(criteria) + commonFilter
+
+			elif criteria == 'RATED':
+				filter = "rating IN('R+','Rx')\nAND status != 'UPCOMING'"
+
+			elif criteria == "RANDOM":
+				order = "RANDOM()"
+				filter = "anime.picture is not null"
+
+			else:
+				if criteria == 'WATCHING':
+					commonFilter = "\nAND status != 'UPCOMING'"
+					table = 'anime LEFT JOIN broadcasts ON anime.id = broadcasts.id'
+					order = """
+						CASE WHEN anime.status = "AIRING" AND broadcasts.weekday IS NOT NULL
+							THEN (
+								({}-broadcasts.weekday)%7*24*60
+								+({}-broadcasts.hour)*60
+								+({}-broadcasts.minute)
+								+86400
+							)%86400
+							ELSE "9"
+						END ASC,
+						date_from
+					"""
+					tz = timezone(timedelta(hours=9))
+					sort_date = datetime.now(tz)
+					order = order.format(sort_date.weekday(), sort_date.hour, sort_date.minute)
+					# Depend on timezone - TODO
+				filter = "tag = '{}'".format(criteria) + commonFilter
+
+		args = {'table': table, 'sort': sort,
+				'range': listrange, 'order': order, 'filter': filter}
+
+		def get_next(args):
+			listrange = args['range']
+			new_list = self.database.filter(**args)
+			if not new_list.empty():
+				next_range = (listrange[1], listrange[1] +
+							  listrange[1] - listrange[0])
+				next_args = args.copy()
+				next_args['range'] = next_range
+				def next_list(args=next_args): return get_next(args)
+			else:
+				next_list = None
+			return new_list, next_list
+		
+		return get_next(args)
+		
 
 	# ___Clean up___
 	def clearLogs(self):

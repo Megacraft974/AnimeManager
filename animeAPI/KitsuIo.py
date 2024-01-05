@@ -1,3 +1,4 @@
+from datetime import datetime
 from jsonapi_client import Filter, Inclusion, Modifier, Session, relationships
 
 try:
@@ -95,8 +96,9 @@ class KitsuIoWrapper(APIUtils):
     def searchAnime(self, search, limit=50):
         modifier = (
             Filter(text=search) +
-            Inclusion("genres", "mediaRelationships", "mediaRelationships.destination") +
-            Modifier("sort=-endDate")
+            Inclusion("genres", "mediaRelationships",
+                      "mediaRelationships.destination")
+            # Modifier("sort=-endDate") doesn't work for some reasons
         )
         c = 1
         for a in self.s.iterate('anime', modifier):
@@ -135,7 +137,7 @@ class KitsuIoWrapper(APIUtils):
             data['picture'] = a.posterImage.small
         except Exception:
             pass
-        
+
         pictures = []
         for size in ('small', 'medium', 'large'):
             img_url = a.posterImage.get(size)
@@ -144,12 +146,23 @@ class KitsuIoWrapper(APIUtils):
                     'url': img_url,
                     'size': size
                 })
-        
+
         self.save_pictures(id, pictures)
 
         data['title_synonyms'] = list(a.titles.values()) + [data['title']]
-        data['date_from'] = a.startDate
-        data['date_to'] = a.endDate
+        epoch = datetime(1970, 1, 1)
+        if a.startDate is None:
+            data['date_from'] = None
+        else:
+            d = datetime.fromisoformat(a.startDate)
+            data['date_from'] = int((d - epoch).total_seconds())
+            
+        if a.endDate is None:
+            data['date_to'] = None
+        else:
+            d = datetime.fromisoformat(a.endDate)
+            data['date_to'] = int((d - epoch).total_seconds())
+        
         data['synopsis'] = a.synopsis
         data['episodes'] = int(
             a.episodeCount) if a.episodeCount is not None else None
@@ -180,9 +193,9 @@ class KitsuIoWrapper(APIUtils):
             rels = []
             for f in a.mediaRelationships:
                 rel = {
-                    'type': f.destination.type, 
-                    'name': f.role, 
-                    'rel_id': f.destination.id, 
+                    'type': f.destination.type,
+                    'name': f.role,
+                    'rel_id': f.destination.id,
                     'anime': {
                         'title': f.role + " - " + data['title']
                     }
@@ -253,12 +266,5 @@ class KitsuIoWrapper(APIUtils):
 
 if __name__ == "__main__":
     from APIUtils import ApiTester
-    # appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
-    # dbPath = os.path.join(appdata, "animeData.db")
-    # wrapper = KitsuIoWrapper(dbPath)
-    # # a = wrapper.anime(2)
-    # for a in wrapper.searchAnime('arif'):
-    #     print(a['id'], a['date_to'], a['title'])
-    # pass
 
     ApiTester(KitsuIoWrapper)

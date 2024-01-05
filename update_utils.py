@@ -1,15 +1,13 @@
-if __name__ == "__main__":
-    import auto_launch
 
 from datetime import date, datetime, timedelta
 import os
-import utils
+from . import utils
 import json
 import re
 import threading
 from sqlite3 import OperationalError
 
-from classes import Anime
+from .classes import Anime
 
 
 class UpdateUtils:
@@ -171,7 +169,7 @@ class UpdateUtils:
             anime_db = database.sql('SELECT * FROM anime WHERE status="UPCOMING" AND date_from is not null ORDER BY date_from ASC;')  # , iterate=True)
             for data in anime_db:
                 anime = Anime(keys=keys, values=data)
-                delta = date.today() - date.fromisoformat(anime.date_from)
+                delta = datetime.now() - datetime.utcfromtimestamp(anime.date_from)
                 if delta >= timedelta():  # timedelta() == 0
                     statusUpdate.append(anime)
                 else:

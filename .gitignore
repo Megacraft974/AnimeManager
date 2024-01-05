@@ -1,6 +1,7 @@
 build/
 dist/
 venv/
+installer/
 **/__pycache__/
 
 .pem
@@ -8,8 +9,6 @@ venv/
 icons/app_icon/icon.pdn
 icons/app_icon/*/
 lib/upx-3.96-win64/
-*.sublime-project
-*.sublime-workspace
 *.lnk
 *.code-workspace
 test.py

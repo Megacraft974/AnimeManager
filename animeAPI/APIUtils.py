@@ -4,17 +4,16 @@ import re
 import string
 import sys
 import time
-from datetime import date
-from turtle import end_poly
+from datetime import datetime
 from types import NoneType
 
 import requests
 
 sys.path.append(os.path.abspath("../"))
 try:
-	from classes import Anime, Character, NoIdFound
-	from getters import Getters
-	from logger import Logger
+	from ..classes import Anime, Character, NoIdFound
+	from ..getters import Getters
+	from ..logger import Logger
 except ModuleNotFoundError as e:
 	print("Module not found:", e)
 
@@ -44,9 +43,9 @@ class APIUtils(Logger, Getters):
 		if data['date_from'] is None:
 			status = 'UNKNOWN'
 		else:
-			if not re.search(r'^\d{4}-(0?[1-9]|1[0-2])-(0?[1-9]|[12][0-9]|3[01])$', data['date_from']):
+			if not isinstance(data['date_from'], int):
 				status = 'UPDATE'
-			elif date.fromisoformat(data['date_from']) > date.today():
+			elif datetime.utcfromtimestamp(data['date_from']) > datetime.now():
 				status = 'UPCOMING'
 			else:
 				if data['date_to'] is None:
@@ -55,7 +54,7 @@ class APIUtils(Logger, Getters):
 					else:
 						status = 'AIRING'
 				else:
-					if date.fromisoformat(data['date_to']) > date.today():
+					if datetime.utcfromtimestamp(data['date_to']) > datetime.now():
 						status = 'AIRING'
 					else:
 						status = 'FINISHED'

@@ -4,8 +4,8 @@ import os
 
 sys.path.append(os.path.abspath("../"))
 try:
-    from logger import Logger
-    from getters import Getters
+    from ..logger import Logger
+    from ..getters import Getters
 except ModuleNotFoundError as e:
     print("Module not found:", e)
 

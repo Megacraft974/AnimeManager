@@ -338,22 +338,17 @@ class AnilistCoWrapper(APIUtils):
 		else:
 			out.synopsis = None
 
+		epoch = datetime(1970, 1, 1)
 		datefrom = a.get('startDate')
 		if None not in datefrom.values():
-			out.date_from = str(date(
-				datefrom['year'],
-				datefrom['month'],
-				datefrom['day']))
+			out.date_from = int((datetime(**datefrom)-epoch).total_seconds())
 		else:
 			out.date_from = None
 
 		dateto = a.get('endDate')
 
 		if None not in dateto.values():
-			out.date_to = str(date(
-				dateto['year'],
-				dateto['month'],
-				dateto['day']))
+			out.date_to = int((datetime(**dateto)-epoch).total_seconds())
 		else:
 			out.date_to = None
 

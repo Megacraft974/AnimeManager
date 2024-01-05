@@ -1,5 +1,5 @@
 import os
-from logger import log
+from ..logger import log
 
 
 class MediaPlayers:

@@ -1,13 +1,10 @@
-if __name__ == "__main__":
-    import auto_launch
-
 import queue
 import threading
 import time
 import traceback
 import requests
 
-from logger import log
+from .logger import log
 
 
 class Item(dict):

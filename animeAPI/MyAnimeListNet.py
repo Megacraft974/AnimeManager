@@ -319,7 +319,3 @@ if __name__ == "__main__":
 
     a = wrapper.anime(2)
     pass
-    for a in wrapper.searchAnime('arif'):
-        print(a['id'], a['date_to'], a['title'])
-        pass
-    pass

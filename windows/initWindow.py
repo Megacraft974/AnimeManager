@@ -3,8 +3,8 @@ import time
 import threading
 from tkinter import *
 
-import utils
-import mobile_server
+from .. import utils
+from .. import mobile_server
 
 
 class initWindow:

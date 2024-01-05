@@ -15,8 +15,8 @@ from multiprocessing import Process, freeze_support
 from pytube import YouTube
 import pytube.exceptions
 
-from dbManager import thread_safe_db
-from logger import log
+from ..dbManager import thread_safe_db
+from ..logger import log
 
 
 class BasePlayer:
