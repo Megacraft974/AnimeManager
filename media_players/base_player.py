@@ -9,16 +9,11 @@ from PIL import Image, ImageTk
 from ctypes import windll, Structure, c_long, byref
 from multiprocessing import Process, freeze_support
 
-<<<<<<< HEAD
 from pytube import YouTube
 import pytube.exceptions
 
 from ..dbManager import thread_safe_db
 from ..logger import log
-=======
-from dbManager import thread_safe_db
-from logger import log
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26
 
 
 class BasePlayer:

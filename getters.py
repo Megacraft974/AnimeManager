@@ -273,6 +273,96 @@ class Getters:
             if save:
                 database.save()
 
+    def getDateText(self, anime):
+        datefrom, dateto = anime.date_from, anime.date_to
+
+        status = self.getStatus(anime)
+        
+
+        if status == "UNKNOWN" or datefrom is None:
+            return []
+        
+        datefrom = datetime.utcfromtimestamp(datefrom)
+
+        if dateto is not None:
+            dateto = datetime.utcfromtimestamp(dateto)
+        
+        datetext = []
+
+        today = datetime.now()
+        delta = today - datefrom  # - timedelta(days=1)
+        if status == "FINISHED":
+            if dateto is None:
+                datetext.append("Published on {}".format(
+                    datefrom.strftime("%d %b %Y")
+                ))
+            else:
+                datetext.append("From {} to {} ({} days)".format(
+                    datefrom.strftime("%d %b %Y"),
+                    dateto.strftime("%d %b %Y"),
+                    delta.days,
+                ))
+        elif status == "AIRING":
+            if delta.days == 0:
+                datetext.append("Starts airing today!")
+            else:
+                datetext.append("Since {} ({} days)".format(
+                    datefrom.strftime("%d %b %Y"), delta.days
+                ))
+            if anime.broadcast is not None:
+                weekday, hour, minute = map(int, anime.broadcast.split("-"))
+
+                daysLeft = (weekday - today.weekday()) % 7
+                dateObj = datetime.today() + timedelta(days=daysLeft)
+
+                # Depends on timezone - TODO
+                tz = (
+                    datetime.now().astimezone().utcoffset().seconds // 3600
+                )  # Get current UTC offset in hours
+                hourDateObj = timedelta(
+                    hours=hour - 9 + tz, minutes=minute
+                )  # Compare to Japan's UTC offset (UTC+9)
+                dateObj = (
+                    datetime.combine(dateObj.date(), datetime.min.time())
+                    + hourDateObj
+                )
+                text = dateObj.strftime("Next episode on %a %d at %H:%M")
+                datetext.append(text)
+
+                daysSince = (today.weekday() - weekday) % 7
+                text = "Latest episode: {}"
+                if daysSince == 0:
+                    text = text.format("Today")
+                elif daysSince == 1:
+                    text = text.format("Yesterday")
+                elif daysSince > 1:
+                    text = text.format(str(daysSince) + " days ago")
+                else:
+                    text = text.format("uhh?")
+                datetext.append(text)
+            else:
+                daysSince = (delta.days - 1) % 7
+                dateObj = date.today() - timedelta(days=daysSince)
+                text = dateObj.strftime("Last episode on %a %d ({})")
+                if daysSince == 0:
+                    text = text.format("Today")
+                elif daysSince == 1:
+                    text = text.format("Yesterday")
+                elif daysSince > 1:
+                    text = text.format(str(daysSince) + " days ago")
+                else:
+                    text = text.format("uhh?")
+                datetext.append(text)
+
+        elif status == "UPCOMING":
+            datetext.append("On {} ({} days left)".format(
+                datefrom.strftime("%d %b %Y"), -delta.days
+            ))
+        else:
+            pass
+
+        return datetext
+
     @staticmethod
     def getFolderFormat(title):
         chars = []
@@ -493,34 +583,41 @@ class Getters:
         processes = []
         c = 0
         while args != "STOP":
-            filename, url, can = args
-            if no_internet:
-                imQueue.put(usePlaceholder(can))
+            if args:
+                filename, url, can = args
+                if no_internet:
+                    imQueue.put(usePlaceholder(can))
 
-            if os.path.exists(filename):
-                try:
-                    with Image.open(filename) as im:
-                        imQueue.put((im.copy(), can))
-                    args = que.get()
-                    continue
-                except Exception:
-                    self.log(
-                        'DISK_ERROR',
-                        "[ERROR] Image file is corrupted, deleting file",
-                        filename)
-                    os.remove(filename)
+                if os.path.exists(filename):
+                    try:
+                        with Image.open(filename) as im:
+                            imQueue.put((im.copy(), can))
+                        args = que.get()
+                        continue
+                    except Exception:
+                        self.log(
+                            'DISK_ERROR',
+                            "[ERROR] Image file is corrupted, deleting file",
+                            filename)
+                        os.remove(filename)
 
-            self.log("PICTURE", "Requesting picture for url", url)
+                self.log("PICTURE", "Requesting picture for url", url)
 
-            if url is not None:
-                p = ReturnThread(target=requests.get, args=(url,))
-                processes.append((p, filename, can))
-            else:
-                imQueue.put(usePlaceholder(can))
+                if url is not None:
+                    p = ReturnThread(target=requests.get, args=(url,))
+                    processes.append((p, filename, can))
+                else:
+                    imQueue.put(usePlaceholder(can))
 
             get_processes_data()
 
-            args = que.get()
+            try:
+                args = que.get(timeout=1)
+            except queue.Empty:
+                args = None
+                
+                if len(processes) == 0:
+                    break
 
         while len(processes) > 0:
             get_processes_data()
@@ -544,7 +641,6 @@ class Getters:
             animePicturesCache[id] = data
 
         return data
-
 
     def getAnimePicturesCache(self, ids):
         globals()['animePicturesCache'] = animePicturesCache = {}

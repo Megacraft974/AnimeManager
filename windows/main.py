@@ -3,12 +3,8 @@ import time
 import threading
 from tkinter import *
 
-<<<<<<< HEAD:windows/initWindow.py
 from .. import utils
 from .. import mobile_server
-=======
-import utils
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26:windows/main.py
 
 
 class Main:

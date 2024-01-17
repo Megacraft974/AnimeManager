@@ -1,10 +1,4 @@
-<<<<<<< HEAD
-=======
-if __name__ == "__main__":
-	import auto_launch
-
 import json
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26
 import queue
 import re
 import threading

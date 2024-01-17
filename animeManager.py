@@ -14,8 +14,6 @@ import traceback
 import urllib.parse
 import webbrowser
 from tkinter import *
-from classes import Torrent
-import torrent_managers
 
 try:
 	import sys
@@ -68,8 +66,9 @@ try:
 	from . import utils
 	from . import windows
 	from . import mobile_server
+	from . import torrent_managers
 	from .classes import (Anime, AnimeList, Character, Magnet, SortedDict,
-						 SortedList, TorrentList, DefaultDict)
+						 SortedList, Torrent, TorrentList, DefaultDict)
 	from .constants import Constants
 	from .dbManager import db
 	from .discord_presence import DiscordPresence
@@ -79,10 +78,15 @@ try:
 	from .update_utils import UpdateUtils
 	from .file_managers import LocalFileManager, FTPFileManager
  
-except ImportError:
-    sys.path.append(os.path.abspath("../"))
-    from AnimeManager.animeManager import Manager
-    Manager()
+except ImportError as e:
+	sys.path.append(os.path.abspath("../"))
+	from AnimeManager.animeManager import *
+	if __name__ == '__main__':
+		multiprocessing.freeze_support()
+		p = multiprocessing.current_process()
+		if p.name == 'MainProcess':
+			Manager()
+			sys.exit(0)
 except ModuleNotFoundError as e:
 	print(f"Please verify your app installation!\n{traceback.format_exc()}")
 	import sys
@@ -193,13 +197,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				self.checkSettings()
 
 			self.api = animeAPI.AnimeAPI('all', self.dbPath)
-			self.player = self.media_players[self.player_name]
 			# self.last_broadcasts = self.getBroadcast()
-			self.getQB(use_thread=True)
 
-			if not self.remote:
-				# No need for Discord RPC if we're in remote mode
-				self.RPC_menu()
 
 			if not self.remote:
 				try:
@@ -229,6 +228,10 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			self.player = None
 			self.log('MAIN_STATE', '[ERROR] - No media player found!')
 
+		
+		if not self.remote:
+			# No need for Discord RPC if we're in remote mode
+			self.RPC_menu()
 
 		# self.last_broadcasts = self.getBroadcast()
 		self.getTorrentManager()

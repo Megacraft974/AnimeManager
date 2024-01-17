@@ -2,14 +2,7 @@ from datetime import date, datetime
 import re
 import requests
 
-try:
-	from .APIUtils import Anime, APIUtils, Character, EnhancedSession
-except ImportError:
-	# Local testing
-	import os
-	import sys
-	sys.path.append(os.path.abspath('./'))
-	from APIUtils import Anime, APIUtils, Character, EnhancedSession
+from .APIUtils import Anime, APIUtils, Character, EnhancedSession
 
 
 class QueryObject:

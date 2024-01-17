@@ -2,13 +2,8 @@ from operator import itemgetter
 import re
 
 from tkinter import *
-<<<<<<< HEAD:windows/ddlWindow.py
 from ..classes import SortedDict, SortedList, TorrentList
 from .. import search_engines
-=======
-from classes import SortedDict, SortedList, TorrentList
-import search_engines
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26:windows/download.py
 
 from .. import utils
 

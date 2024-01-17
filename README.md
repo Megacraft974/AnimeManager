@@ -1,7 +1,6 @@
 
 # Anime Manager
 
-<<<<<<< HEAD
 This is a Python app, it handles each step to watch animes:
 - Handles multiple anime databases websites, you can search through thousands of animes in a few seconds
 - Also handles torrent search, you can search for torrents for each animes in a single click
@@ -14,7 +13,6 @@ Download the repo, and run the script animeManager.py ( or any script with an im
 
 # Or build an executable with PyInstaller
 Just run the build_pyinstaller.bat script, it's better if it's from a terminal
-=======
 This app is the product of my *very* selective lazyness.
 I like watching animes, but I don't want to pay for it, so I made 20k lines of code to watch whatever I want for free.
 I also want to change the name, but I don't have any good idea, please feel free to send me some suggestions!
@@ -34,4 +32,3 @@ You can search for animes by title.
 Click on 'Download torrents', and click on your file.
 Once it is downloaded, you can watch it using the 'Watch' button (duh).
 There are various torrents client and media player supported, I might add a tutorial about how to set it up if this app become popular. 
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26

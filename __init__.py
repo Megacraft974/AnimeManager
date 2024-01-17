@@ -1,1 +1,1 @@
-from .animeManager import Manager
+from .animeManager import *

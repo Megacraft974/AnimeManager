@@ -13,9 +13,9 @@ from sqlite3 import OperationalError
 from tkinter import *
 from tkinter.ttk import Progressbar
 
-import torrent_managers
+from .. import torrent_managers
 
-import utils
+from .. import utils
 
 
 class Options:
@@ -194,81 +194,6 @@ class Options:
                         trailer,
                     )
                     self.player((trailer,), 0, url=True)
-
-            def getDateText(datefrom, dateto, broadcast):
-                today = date.today()
-                delta = today - datefrom  # - timedelta(days=1)
-                if status == "FINISHED":
-                    if dateto is None:
-                        datetext = "Published on {}".format(
-                            datefrom.strftime("%d %b %Y")
-                        )
-                    else:
-                        datetext = "From {} to {} ({} days)".format(
-                            datefrom.strftime("%d %b %Y"),
-                            dateto.strftime("%d %b %Y"),
-                            delta.days,
-                        )
-                elif status == "AIRING":
-                    if delta.days == 0:
-                        datetext = "Starts airing today!"
-                    else:
-                        datetext = "Since {} ({} days)".format(
-                            datefrom.strftime("%d %b %Y"), delta.days
-                        )
-                    if broadcast is not None:
-                        weekday, hour, minute = map(int, broadcast.split("-"))
-
-                        daysLeft = (weekday - today.weekday()) % 7
-                        dateObj = datetime.today() + timedelta(days=daysLeft)
-
-                        # Depends on timezone - TODO
-                        tz = (
-                            datetime.now().astimezone().utcoffset().seconds // 3600
-                        )  # Get current UTC offset in hours
-                        hourDateObj = timedelta(
-                            hours=hour - 9 + tz, minutes=minute
-                        )  # Compare to Japan's UTC offset (UTC+9)
-                        dateObj = (
-                            datetime.combine(dateObj.date(), datetime_time.min)
-                            + hourDateObj
-                        )
-                        text = dateObj.strftime("Next episode on %a %d at %H:%M")
-                        datetext += "\n{}".format(text)
-
-                        daysSince = (today.weekday() - weekday) % 7
-                        text = "Latest episode: {}"
-                        if daysSince == 0:
-                            text = text.format("Today")
-                        elif daysSince == 1:
-                            text = text.format("Yesterday")
-                        elif daysSince > 1:
-                            text = text.format(str(daysSince) + " days ago")
-                        else:
-                            text = text.format("uhh?")
-                        datetext += "\n{}".format(text)
-                    else:
-                        daysSince = (delta.days - 1) % 7
-                        dateObj = date.today() - timedelta(days=daysSince)
-                        text = dateObj.strftime("Last episode on %a %d ({})")
-                        if daysSince == 0:
-                            text = text.format("Today")
-                        elif daysSince == 1:
-                            text = text.format("Yesterday")
-                        elif daysSince > 1:
-                            text = text.format(str(daysSince) + " days ago")
-                        else:
-                            text = text.format("uhh?")
-                        datetext += "\n" + text
-
-                elif status == "UPCOMING":
-                    datetext = "On {} ({} days left)".format(
-                        datefrom.strftime("%d %b %Y"), -delta.days
-                    )
-                else:
-                    datetext = ""
-
-                return datetext
 
             def switch(id, titles=None):
                 if titles is not None:
@@ -750,9 +675,9 @@ class Options:
                     f'Anime {anime.title} has "None" instead of None in dateto field',
                 )
             if datefrom is not None:
-                datefrom = date.fromisoformat(datefrom)
+                datefrom = datetime.utcfromtimestamp(datefrom)
             if dateto is not None:
-                dateto = date.fromisoformat(dateto)
+                dateto = datetime.utcfromtimestamp(dateto)
 
             status = self.getStatus(anime)
             Label(
@@ -778,7 +703,7 @@ class Options:
                 font=("Source Code Pro Medium", 13),
             )
             if status != "UNKNOWN" and datefrom is not None:
-                dateLbl["text"] = getDateText(datefrom, dateto, anime.broadcast)
+                dateLbl["text"] = '\n'.join(self.getDateText(anime))
                 dateLbl.grid(row=1, column=0, columnspan=2)
             state.grid(row=8, column=0)
 
@@ -889,8 +814,7 @@ class Options:
                     "DISK_ERROR", "Some files haven't been removed from folder", path
                 )
 
-        folder = self.getFolder(id)
-        path = (self.animePath + '/' + folder) if folder is not None else ""
+        path = self.getFolder(id) or ""
 
         if self.fm.exists(path):
             torrents = self.getTorrents(id)

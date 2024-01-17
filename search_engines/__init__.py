@@ -1,10 +1,6 @@
 from .nova3.custom_engine import search # TODO - Fix it first
 
-<<<<<<< HEAD
 from ..logger import log
-=======
-# DEPRECATED:
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26
 
 # import os
 # import queue

@@ -111,6 +111,18 @@ class APIUtils(Logger, Getters):
 			data = self.database.sql(sql, ids.keys(), to_dict=True)
 		return list(g['id'] for g in data)
 
+	def getRates(self, name):
+		with self.database.get_lock():
+			data = self.database.sql('SELECT value FROM rateLimiters WHERE id=? AND name=?', (self.apiKey, name))
+			if len(data) == 0:
+				return None
+			else:
+				return data[0][0]
+
+	def setRates(self, name, value):
+		with self.database.get_lock():
+			self.database.sql('INSERT OR REPLACE INTO rateLimiters(value) VALUES (?) WHERE id=? AND name=?', (value, self.apiKey, name), save=True) # TODO - Maybe save later?
+
 	# Anime metadata
 
 	def save_relations(self, id, rels):

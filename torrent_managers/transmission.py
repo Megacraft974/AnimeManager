@@ -2,10 +2,7 @@ import string
 from urllib.parse import urlparse
 from transmission_rpc import Client, torrent as transmission_torrent
 
-try:
-	from .base import *
-except ImportError:
-	from base import *
+from .base import *
 
 class Transmission(BaseTorrentManager):
 	name = 'Transmission'

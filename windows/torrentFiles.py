@@ -4,11 +4,7 @@ import threading
 
 from tkinter.filedialog import askopenfilenames
 from tkinter import *
-<<<<<<< HEAD:windows/torrentFilesWindow.py
 from .. import search_engines
-=======
-import torrent_managers
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26:windows/torrentFiles.py
 
 from .. import utils
 

@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 from datetime import datetime
-from jsonapi_client import Filter, Inclusion, Modifier, Session, relationships
-=======
 from jsonapi_client import Filter, Inclusion, Modifier, Session, relationships, exceptions
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26
 
 try:
     from .APIUtils import Anime, APIUtils, Character
@@ -322,9 +318,4 @@ class KitsuIoWrapper(APIUtils):
 if __name__ == "__main__":
     from APIUtils import ApiTester
 
-<<<<<<< HEAD
     ApiTester(KitsuIoWrapper)
-=======
-    t = ApiTester(KitsuIoWrapper)
-    t.test_all()
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26

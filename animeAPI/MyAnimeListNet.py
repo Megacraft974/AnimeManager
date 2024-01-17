@@ -10,14 +10,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import requests
 
-try:
-    from .APIUtils import APIUtils, Anime, Character
-except ImportError:
-    # Local testing
-    import sys
-    import os
-    sys.path.append(os.path.abspath('./'))
-    from APIUtils import APIUtils, Anime, Character
+from .APIUtils import APIUtils, Anime, Character
 
 
 class MyAnimeListNetWrapper(APIUtils):

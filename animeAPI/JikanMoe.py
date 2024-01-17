@@ -2,14 +2,7 @@ import re
 import time
 from datetime import date, datetime
 
-try:
-    from .APIUtils import Anime, APIUtils, Character, EnhancedSession
-except ImportError:
-    # Local testing
-    import os
-    import sys
-    sys.path.append(os.path.abspath('./'))
-    from APIUtils import Anime, APIUtils, Character, EnhancedSession
+from .APIUtils import Anime, APIUtils, Character, EnhancedSession
 
 
 class JikanMoeWrapper(APIUtils):
@@ -54,9 +47,22 @@ class JikanMoeWrapper(APIUtils):
 
     def schedule(self, limit=50):
         # TODO - Limit + status
+        # value = self.getRates('schedule')
+        # now = time.time()
+        # if value is not None and now - value < 60*60:
+        #     # Too quick, doesn't need to update that often
+        #     return 
         self.delay()
+        # self.setRates('schedule', now)
 
         rep = self.get('/schedules')
+
+        if rep.get('status', None) == 429:
+            # Spammed too much
+            return
+
+        if 'data' not in rep:
+            print(rep)
 
         for anime in rep['data']:
             anime = self._convertAnime(anime)
@@ -131,14 +137,14 @@ class JikanMoeWrapper(APIUtils):
 
         out['title_synonyms'] = titles
 
-<<<<<<< HEAD
         if 'aired' in a.keys():
             epoch = datetime(1970, 1, 1)
             for i in ('from', 'to'):
                 v = a['aired']['prop'].get(i, None)
-                if v:
-                    out['date_' +
-                        i] = int((datetime(**v)-epoch).total_seconds())
+                if v and not None in v.values():
+                    out['date_' + i] = int(
+                        (datetime(**v)-epoch).total_seconds()
+                    )
                 else:
                     out['date_' + i] = None
         else:
@@ -146,9 +152,6 @@ class JikanMoeWrapper(APIUtils):
             out['date_to'] = None
 
         out['picture'] = a['images']['jpg']['image_url']
-=======
-		out['picture'] = a['images']['jpg']['image_url']
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26
 
         pictures = []
 
@@ -194,36 +197,8 @@ class JikanMoeWrapper(APIUtils):
             # TODO - Should be removed
             out['broadcast'] = "{}-{}-{}".format(w, h, m)
 
-<<<<<<< HEAD
         # out['broadcast'] = a['broadcast']['day'] + '-' +  if 'broadcast' in a.keys() else None
         out['trailer'] = a['trailer_url'] if 'trailer_url' in a.keys() else None
-=======
-		
-		if 'aired' in a.keys():
-			datefrom, dateto = a['aired']['prop'].values()
-		else:
-			datefrom, dateto = {1: None}, {1: None}
-
-		if None in datefrom.values():
-			out['date_from'] = None
-			out['status'] = 'UPDATE'
-			return {}
-		else:
-			out['date_from'] = str(
-				date(
-					datefrom['year'],
-					datefrom['month'],
-					datefrom['day']))
-			
-			out['date_to'] = str(
-				date(
-					dateto['year'],
-					dateto['month'],
-					dateto['day'])) if None not in dateto.values() else None
-			
-			out['status'] = self.getStatus(
-				out) if 'status' in a.keys() else None
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26
 
         if out['date_from'] is None:
             out['status'] = 'UPDATE'
@@ -246,7 +221,6 @@ class JikanMoeWrapper(APIUtils):
             genres = []
         out['genres'] = genres
 
-<<<<<<< HEAD
         if 'relations' in a.keys():
             rels = []
             for relation in a['relations']:
@@ -274,22 +248,6 @@ class JikanMoeWrapper(APIUtils):
                             'api_key': ext_data['api_key'],
                             'api_id': match.group(1)
                         })
-=======
-		if 'external' in a.keys():
-			mapped = []
-			for external in a['external']:
-				ext_data = self.mapped_external.get(external['name'], None)
-				if ext_data:
-					match = re.match(ext_data['regex'], external['url'])
-					if match:
-						mapped.append({
-							'api_key': ext_data['api_key'],
-							'api_id': match.group(1)
-						})
-
-			if mapped:
-				self.save_mapped(int(a["mal_id"]), mapped)
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26
 
             self.save_mapped(int(a["mal_id"]), mapped)
 
@@ -336,19 +294,9 @@ class JikanMoeWrapper(APIUtils):
 
 
 if __name__ == "__main__":
-<<<<<<< HEAD
     import os
     appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
     dbPath = os.path.join(appdata, "animeData.db")
     api = JikanMoeWrapper(dbPath)
     out = api.anime(2)
     pass
-=======
-	import os
-	appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
-	dbPath = os.path.join(appdata, "animeData.db")
-	api = JikanMoeWrapper(dbPath)
-	out = api.schedule()
-	for a in out:
-		print(a)
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26

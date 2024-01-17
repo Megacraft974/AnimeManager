@@ -1,7 +1,7 @@
 from tkinter import *
-from constants import Constants
+from ..constants import Constants
 
-import utils
+from .. import utils
 
 
 class DownloadFileList:

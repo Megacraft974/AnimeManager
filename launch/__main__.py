@@ -3,4 +3,5 @@ import sys, os
 sys.path.append(os.path.abspath('../'))
 import AnimeManager
 
-AnimeManager.Manager()
+if __name__ == "__main__":
+    AnimeManager.Manager()

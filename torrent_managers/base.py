@@ -1,13 +1,7 @@
 import enum
 
-try:
-    from ..utils import LoginDialog
-    from classes import Torrent
-except ImportError:
-    import sys, os
-    sys.path.append(os.path.abspath('./'))
-    from utils import LoginDialog
-    from classes import Torrent
+from ..utils import LoginDialog
+from ..classes import Torrent
 
 class BaseTorrentManager:
     name = ''

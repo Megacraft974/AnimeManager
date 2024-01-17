@@ -1,16 +1,13 @@
 import shutil
 import time
-import os
 import json
-import socket
-from classes import ReturnThread
-import file_managers
-import mobile_server
 from tkinter.filedialog import asksaveasfilename, askdirectory
 from tkinter import *
-import torrent_managers
 
-import utils
+from .. import file_managers
+from .. import mobile_server
+from .. import torrent_managers
+from .. import utils
 
 # TODO - Froze when not connected to torrent client
 

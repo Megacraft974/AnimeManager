@@ -16,13 +16,7 @@ except ImportError:
 
 import novaprinter
 
-
-try:
-	from classes import Magnet, Torrent
-except ImportError:
-	sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-	from classes import Magnet, Torrent
-
+from ...classes import Magnet, Torrent
 
 THREADED = False
 try:

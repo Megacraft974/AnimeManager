@@ -7,18 +7,10 @@ import time
 import traceback
 
 import requests
-try:
-    from ..logger import Logger, log
-    from ..classes import (Anime, AnimeList, Character, CharacterList, ItemList,
-                        NoIdFound)
-    from ..getters import Getters
-except ImportError:
-    import sys
-    sys.path.append(os.path.abspath("."))
-    from logger import Logger, log
-    from classes import (Anime, AnimeList, Character, CharacterList, ItemList,
-                        NoIdFound)
-    from getters import Getters
+
+from ..logger import Logger, log
+from ..classes import (Anime, AnimeList, Character, CharacterList, ItemList, NoIdFound)
+from ..getters import Getters
 
 
 class AnimeAPI(Getters, Logger):

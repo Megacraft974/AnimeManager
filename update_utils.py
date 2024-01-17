@@ -1,12 +1,8 @@
 
 from datetime import date, datetime, timedelta
 import os
-<<<<<<< HEAD
-from . import utils
-=======
 import time
-import utils
->>>>>>> 43be623630f22885a05bbf6ade4c78c75cc26b26
+from . import utils
 import json
 import re
 import threading
