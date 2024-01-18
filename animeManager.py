@@ -79,14 +79,7 @@ try:
 	from .file_managers import LocalFileManager, FTPFileManager
  
 except ImportError as e:
-	sys.path.append(os.path.abspath("../"))
-	from AnimeManager.animeManager import *
-	if __name__ == '__main__':
-		multiprocessing.freeze_support()
-		p = multiprocessing.current_process()
-		if p.name == 'MainProcess':
-			Manager()
-			sys.exit(0)
+	print('This script should be run as a module!')
 except ModuleNotFoundError as e:
 	print(f"Please verify your app installation!\n{traceback.format_exc()}")
 	import sys
@@ -863,8 +856,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			mobile_server.stopServer(self.server, self)
 			self.server = None
 
-if __name__ == '__main__':
-	multiprocessing.freeze_support()
-	p = multiprocessing.current_process()
-	if p.name == 'MainProcess':
-		m = Manager()
+# if __name__ == '__main__':
+# 	multiprocessing.freeze_support()
+# 	p = multiprocessing.current_process()
+# 	if p.name == 'MainProcess':
+# 		m = Manager()
