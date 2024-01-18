@@ -4,6 +4,7 @@ import socket
 import shutil
 import locale
 import json
+import sys
 
 
 class Constants:
@@ -11,28 +12,28 @@ class Constants:
         self.logs = ['DB_ERROR', 'DB_UPDATE', 'MAIN_STATE',
                      'NETWORK', 'SERVER', 'SETTINGS', 'TIME']
 
-        appid = 'megacraft.anime.manager.1.0'
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appid)
-        locale.setlocale(locale.LC_ALL, '')
+        # locale.setlocale(locale.LC_ALL, '') # I'm not sure what the purpose of this
         # 181915 - 282923 - 373734 - F8F8C4 - 98E22B(G) - E79622(O)
 
         cwd = os.path.dirname(os.path.abspath(__file__))
         self.iconPath = os.path.join(cwd, "icons")
 
-        appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
+        if sys.platform == 'win32':
+            appid = 'com.tetrazero.anime.1.0'
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                appid)
+
+        appdata = self.getAppdata()
+
+        if not os.path.exists(appdata):
+            os.mkdir(appdata)
+
         self.dbPath = os.path.join(appdata, "animeData.db")
         self.settingsPath = os.path.join(appdata, "settings.json")
         self.cache = os.path.join(appdata, "cache")
         self.logsPath = os.path.join(appdata, "logs")
-        if not os.path.exists(appdata):
-            os.mkdir(appdata)
-        self.qbCache = os.path.join(os.path.expanduser("~"), "AppData\\Local\\qBittorrent\\BT_backup")
 
-        # self.dataPath = os.path.expanduser('~\\Documents\\AnimeManager')
-        # if not os.path.exists(self.dataPath):
-        #     os.mkdir(self.dataPath)
-        # self.animePath = os.path.join(self.dataPath, "Animes")
-        self.animePath = None
+        self.animePath = None  # Initialized by file managers
 
         self.hideRated = True
         self.enableServer = True
@@ -46,7 +47,8 @@ class Constants:
         # TODO - Move to settings file
         self.players_order = ['mpv_player', 'vlc_player', 'ff_player']
 
-        self.RPC_client_id = '930139147803459695'  # TODO - Put somewhere else? I'm pretty sure it's mostly safe but well...
+        # TODO - Put somewhere else? I'm pretty sure it's mostly safe but well...
+        self.RPC_client_id = '930139147803459695'
 
         self.allLogs = [
             'ANIME_LIST',
@@ -116,22 +118,28 @@ class Constants:
         self.checkSettings()
 
     def checkSettings(self):
-        self.initLogs()
+        # self.initLogs() # Should already be initialized
         self.log('CONFIG', "Settings:")
         if not os.path.exists(self.settingsPath):
-            shutil.copyfile("settings.json", self.settingsPath)
+            raise Exception(f'No config file in {self.settingsPath}')
+            cwd = os.path.dirname(os.path.abspath(__file__))
+            shutil.copyfile(os.path.join(
+                cwd, "settings.json"), self.settingsPath)
+
         with open(self.settingsPath, 'r') as f:
             try:
                 self.settings = json.load(f)
             except json.JSONDecodeError:
                 # Settings file is corrupted
-                self.log('MAIN_STATE', "[ERROR] - Can't open settings file, archiving it and recreating a new one")
-                newpath = os.path.join(os.path.dirname(self.settingsPath), 'settings.json.old')
+                self.log(
+                    'MAIN_STATE', "[ERROR] - Can't open settings file, archiving it and recreating a new one")
+                newpath = os.path.join(os.path.dirname(
+                    self.settingsPath), 'settings.json.old')
                 try:
                     shutil.move(self.settingsPath, newpath)
                 except Exception as e:
-                    self.log('MAIN_STATE', f"[ERROR] - Can't archive settings file, overwriting it\n  - Error: {str(e)}")
-                
+                    self.log(
+                        'MAIN_STATE', f"[ERROR] - Can't archive settings file, overwriting it\n  - Error: {str(e)}")
 
                 # Infinite loop if settings template is corrupted, but whatever
                 return self.checkSettings()
@@ -153,9 +161,20 @@ class Constants:
                         try:
                             os.mkdir(value)
                         except FileNotFoundError:
-                            self.log('CONFIG', 'Settings file corrupted: path does not exists!')
+                            self.log(
+                                'CONFIG', 'Settings file corrupted: path does not exists!')
                 setattr(self, var, value)
                 self.log('CONFIG', " ", var.ljust(30), '-', value)
         if update:
             with open(self.settingsPath, 'w') as f:
                 json.dump(self.settings, f, sort_keys=True, indent=4)
+
+    @classmethod
+    def getAppdata(cls):
+        if sys.platform == 'win32':
+            appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
+        elif sys.platform == 'linux':
+            user = os.path.expanduser('~')
+            # user = '/home/william'
+            appdata = os.path.join(user, ".Anime Manager")
+        return appdata

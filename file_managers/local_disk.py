@@ -1,4 +1,5 @@
 import os
+import sys
 from tkinter.filedialog import askdirectory
 
 try:
@@ -29,10 +30,19 @@ class LocalFileManager(BaseFileManager):
 
     def change_path(self, settings):
         root = settings.get('dataPath', None)
-        path = askdirectory(
-            title='Choose data folder',
-            initialdir=root
-        )
+
+        if sys.platform == 'linux' and 'DISPLAY' not in os.environ:
+            # Running headless
+            
+            # Actually, there most likely won't even be a terminal so why bother
+
+            raise Exception('No input folder??')
+            path = input('Please input the path of your data folder: ')
+        else:
+            path = askdirectory(
+                title='Choose data folder',
+                initialdir=root
+            )
 
         self.settings = {'dataPath': path}
 

@@ -43,7 +43,7 @@ class Getters:
                 return globals()['database_threads'][t]
             else:
                 if not hasattr(self, 'dbPath'):
-                    appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
+                    appdata = Constants.getAppdata()
                     self.dbPath = os.path.join(appdata, "animeData.db")
                 database = thread_safe_db(self.dbPath, remote=remote)
                 globals()['database_threads'][t] = database
@@ -58,6 +58,7 @@ class Getters:
             raise ModuleNotFoundError(f'File manager {manager} was not found')
 
         args = self.settings['file_managers'].get(manager, {})
+        self.log(self.settings['file_managers'])
         try:
             self.fm = fm(args, update)
         except ConnectionAbortedError:
@@ -75,6 +76,9 @@ class Getters:
             # Wrong config, maybe relog?
             raise ValueError()
 
+        if not self.fm.exists(dataPath):
+            self.fm.mkdir(dataPath)
+            
         self.animePath = dataPath + "/Animes"
         if not self.fm.exists(self.animePath):
             self.fm.mkdir(self.animePath)

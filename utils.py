@@ -1,4 +1,5 @@
 import bisect
+import sys
 import time
 import queue
 import os
@@ -1184,9 +1185,34 @@ class LoginDialog(Dialog):
 
         self.validator = validator
         
-        self.results = None
         
-        Dialog.__init__(self, parent, title)
+        self.headless = sys.platform == 'linux' and 'DISPLAY' not in os.environ
+        if self.headless:
+            # Running headless
+            self.results = {}
+            
+            print(title)
+
+            for i, (field, value) in enumerate(self.fields.items()):
+                text = f'{field}'
+                if value:
+                    text += f'({value})'
+                out = None
+                while not out:
+                    out = input(text + ': ')
+                    
+                    if not out:
+                        if value:
+                            out = value
+                    
+                    if out:
+                        self.results[field] = out
+                    
+            pass
+        else:
+            self.results = None
+
+            Dialog.__init__(self, parent, title)
 
     def body(self, master):
         self.entries = {}

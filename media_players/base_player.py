@@ -6,12 +6,16 @@ import sys
 
 from tkinter import *
 from PIL import Image, ImageTk
-from ctypes import windll, Structure, c_long, byref
+from ctypes import CDLL, c_int, c_uint, c_uint32, Structure, c_long, byref
+if sys.platform == 'win32':
+    from ctypes import windll
+
 from multiprocessing import Process, freeze_support
 
 from pytube import YouTube
 import pytube.exceptions
 
+from ..constants import Constants
 from ..dbManager import thread_safe_db
 from ..logger import log
 
@@ -62,7 +66,7 @@ class BasePlayer:
         except NameError:
             cwd = os.path.dirname(os.path.realpath(sys.argv[0]))
         self.iconPath = os.path.join(cwd, "icons")
-        appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
+        appdata = Constants.getAppdata()
         if os.path.exists(os.path.normpath("settings.json")):
             self.settingsPath = os.path.normpath("settings.json")
         else:
@@ -324,11 +328,34 @@ class BasePlayer:
                     self.hidingFrame.place_forget()
                     self.hidden = True
 
-    def queryMousePosition(self):
-        pt = POINT()
-        windll.user32.GetCursorPos(byref(pt))
-        root_x, root_y = (int(s) for s in self.parent.geometry().split("+")[1:])
-        return pt.x-root_x, pt.y-root_y
+    if sys.platform == 'win32':
+        def queryMousePosition(self):
+            pt = POINT()
+            windll.user32.GetCursorPos(byref(pt))
+            root_x, root_y = (int(s) for s in self.parent.geometry().split("+")[1:])
+            return pt.x-root_x, pt.y-root_y
+    elif sys.platform == 'linux':
+        def queryMousePosition(self):
+            # IDK if i really need this, since linux will almost always run headless, but whatever ig
+            Xlib = CDLL("libX11.so.6")
+            display = Xlib.XOpenDisplay(None)
+            if display == 0: 
+                # TODO - Will this break something or not?
+                sys.exit(2)
+                
+            w = Xlib.XRootWindow(display, c_int(0))
+            (root_id, child_id) = (c_uint32(), c_uint32())
+            (root_x, root_y, win_x, win_y) = (c_int(), c_int(), c_int(), c_int())
+            mask = c_uint()
+            ret = Xlib.XQueryPointer(display, c_uint32(w), byref(root_id), byref(child_id),
+                                    byref(root_x), byref(root_y),
+                                    byref(win_x), byref(win_y), byref(mask))
+            if ret == 0:
+                # TODO - Will this break something or not?
+                sys.exit(1)
+            print(child_id.value)
+            print(root_x, root_y)
+            pass
 
     def hideCursor(self):
         # Hide mouse cursor when it's not moving

@@ -106,6 +106,7 @@
         }
     },
     "torrent_managers": {
+        "last_tm_used": "qBittorrent",
         "qBittorrent": {
             "url": "",
             "login": "",

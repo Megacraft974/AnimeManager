@@ -1,8 +1,11 @@
+import sys
 import threading
 import time
 import os
 
 from datetime import date, datetime
+
+from .constants import Constants
 
 
 class Logger:
@@ -17,8 +20,11 @@ class Logger:
 
             globals()["logger_instance"] = self
 
-        appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
+        # TODO - Get this from constants
+        appdata = Constants.getAppdata()
+
         self.logsPath = os.path.join(appdata, "logs")  # TODO
+
         self.maxLogsSize = 50000
         self.logs = ['DB_ERROR', 'DB_UPDATE', 'MAIN_STATE',
                      'NETWORK', 'SERVER', 'SETTINGS', 'TIME']
@@ -45,8 +51,11 @@ class Logger:
             os.makedirs(self.logsPath)
 
         logsList = os.listdir(self.logsPath)
-        size = sum(os.path.getsize(os.path.join(self.logsPath, f))
-                   for f in logsList)
+        if len(logsList) == 0:
+            size = 0
+        else:
+            size = sum(os.path.getsize(os.path.join(self.logsPath, f))
+                    for f in logsList)
 
         while size >= self.maxLogsSize and len(logsList) > 1:
             try:

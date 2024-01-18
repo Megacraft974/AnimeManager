@@ -79,6 +79,7 @@ try:
 	from .file_managers import LocalFileManager, FTPFileManager
  
 except ImportError as e:
+	print(e)
 	print('This script should be run as a module!')
 except ModuleNotFoundError as e:
 	print(f"Please verify your app installation!\n{traceback.format_exc()}")
@@ -186,12 +187,15 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				self.checkSettings()
 				self.reloadAll()
 				return
-			else:
-				self.checkSettings()
+			# else:
+			# 	self.checkSettings()
 
 			self.api = animeAPI.AnimeAPI('all', self.dbPath)
 			# self.last_broadcasts = self.getBroadcast()
 
+			if sys.platform == 'linux' and 'DISPLAY' not in os.environ:
+				# Running headless
+				self.remote = True
 
 			if not self.remote:
 				try:
@@ -205,7 +209,6 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 	def late_startup(self):
 		MediaPlayers.__init__(self)
-		DiscordPresence.__init__(self)
 		
 		if not self.remote:
 			self.animeList.from_filter("DEFAULT")
@@ -224,14 +227,15 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		
 		if not self.remote:
 			# No need for Discord RPC if we're in remote mode
+			DiscordPresence.__init__(self)
 			self.RPC_menu()
 
 		# self.last_broadcasts = self.getBroadcast()
+  
 		self.getTorrentManager()
 		# TODO - Put that in settings
 
-		self.RPC_menu()
-		self.checkServer()
+		# self.checkServer() # For the mobile server
 
 		self.getSchedule(thread=True)
 
@@ -569,7 +573,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			return
 
 		self.log('MAIN_STATE', "Stopping")
-		self.root.withdraw()
+		if self.root is not None:
+			self.root.withdraw()
 
 		self.start = time.time()
 

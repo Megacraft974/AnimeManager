@@ -9,6 +9,8 @@ from types import NoneType
 
 import requests
 
+from ..constants import Constants
+
 sys.path.append(os.path.abspath("../"))
 try:
 	from ..classes import Anime, Character, NoIdFound
@@ -280,7 +282,7 @@ class EnhancedSession(requests.Session):
 class ApiTester():
 	def __init__(self, api_instance):
 	
-		appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
+		appdata = Constants.getAppdata()
 		dbPath = os.path.join(appdata, "animeData.db")
 		self.DELAY = 5
 

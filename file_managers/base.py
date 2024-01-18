@@ -1,3 +1,6 @@
+from ..logger import Logger
+
+
 try:
     from ..utils import LoginDialog
 except ImportError:
@@ -5,10 +8,12 @@ except ImportError:
     sys.path.append(os.path.abspath('./'))
     from utils import LoginDialog
 
-class BaseFileManager:
+class BaseFileManager(Logger):
     name = ''
     def __init__(self, settings={}, update=False):
         self.settings = settings
+        
+        Logger.__init__(self)
 
         if update or self.settings.get('dataPath', '') == '':
             self.change_path(settings)

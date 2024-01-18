@@ -40,20 +40,20 @@ class qBittorrent(BaseTorrentManager):
 
         except qbittorrentapi.exceptions.NotFound404Error as e:
             # 404 Not Found
-            return self.login_dialog()
+            return self.login_dialog(failed=True)
         except qbittorrentapi.exceptions.APIConnectionError as e:
             # Unknown error
-            if e.args[0].startswith('Failed to connect to qBittorrent'):
+            if isinstance(e, qbittorrentapi.LoginFailed) or e.args[0].startswith('Failed to connect to qBittorrent'):
                 self.qb = None
                 self.login_event = None
                 # Can't find client, so just ignore
                 print("Couldn't connect to qBittorrent client!")
                 return None
-            return self.login_dialog()
+            return self.login_dialog(failed=True)
         else:
             if not self.qb.is_logged_in:
                 # Probably invalid credentials
-                return self.login_dialog()
+                return self.login_dialog(failed=True)
             else:
                 args = self.settings.get('qb_settings', None)
                 if args:
@@ -61,16 +61,20 @@ class qBittorrent(BaseTorrentManager):
 
                 self.login_event.set()
 
-    def login_dialog(self):
+    def login_dialog(self, failed=False):
         fields = {}
         fields_name = {'url': 'url', 'user': 'login', 'password': 'password'}
         for field, name in fields_name.items():
             fields[name] = self.settings.get(field, None)
         validator = lambda r: 1 if r.get('url', '') != '' else "No URL provided"
 
+        title = 'Login to qBittorrent UI'
+        if failed:
+            title = 'An error occured, please try again\n' + title
+
         dialog = LoginDialog(
             fields = fields, 
-            title = 'Login to qBittorrent UI', 
+            title = title, 
             validator = validator
         )
         data = dialog.results

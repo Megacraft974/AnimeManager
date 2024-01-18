@@ -38,7 +38,8 @@ class db():
         # self.con.row_factory = sqlite3.Row
         self.cur = self.con.cursor()
 
-        with open('db_model.sql') as f:
+        cwd = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(cwd, 'db_model.sql')) as f:
             script = f.read()
 
         with self.get_lock():
