@@ -1,3 +1,4 @@
+from collections import deque
 import json
 import queue
 import re
@@ -236,7 +237,7 @@ class Character(Item):
 
 class ItemList():
 	def __init__(self, *sources):
-		self.list = []
+		self.list = deque()
 
 		self.stop = False
 		self.new_elem_event = {"enabled": False, "event": threading.Event()}
@@ -257,6 +258,7 @@ class ItemList():
 			self.addSource(s)
 
 	def __contains__(self, e):
+		raise SystemExit('NOT TESTED YET')
 		return e in self.list
 
 	def __iter__(self, timeout=None):
@@ -354,7 +356,7 @@ class ItemList():
 
 	def get(self, timeout=1, default=None):
 		if len(self.list) > 0:
-			e = self.list.pop(0)
+			e = self.list.popleft()
 			return e
 		else:
 			if self.empty():
@@ -370,7 +372,7 @@ class ItemList():
 		self.new_elem_event["enabled"] = True
 		if self.new_elem_event["event"].wait(timeout=timeout):
 			if len(self.list) > 0:
-				e = self.list.pop(0)
+				e = self.list.popleft()
 				return e
 			elif len(self.sources) == 0:
 				return default
@@ -939,6 +941,14 @@ class Magnet():
 
 	def is_magnet(self):
 		return self.pattern.match(self.url) is not None
+
+	@property
+	def __dict__(self):
+		# For JSON serialization
+		return {'url': self.url, 'engine_url': self.engine_url}
+
+	def to_json(self):
+		return json.dumps(self.__dict__)
 
 if __name__ == "__main__":
 	import random

@@ -175,7 +175,7 @@ def search(terms, engines=None):
 				if engines_pool.get(engine, 0) > 0:
 					try:
 						# print('Done:', engine, '- Error:', a.get('error'))
-						print(sum(engines_pool.values()), list(engines_pool.items())[:2])
+						# print(sum(engines_pool.values()), list(engines_pool.items())[:2])
 						engines_pool[engine] -= 1
 						if engines_pool[engine] <= 0:
 							del engines_pool[engine]

@@ -289,6 +289,9 @@ class Getters:
         datefrom = datetime.utcfromtimestamp(datefrom)
 
         if dateto is not None:
+            if isinstance(dateto, str):
+                dateto = int(dateto)
+
             dateto = datetime.utcfromtimestamp(dateto)
         
         datetext = []

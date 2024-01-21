@@ -174,7 +174,7 @@ class Constants:
         if sys.platform == 'win32':
             appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
         elif sys.platform == 'linux':
-            user = os.path.expanduser('~')
-            # user = '/home/william'
-            appdata = os.path.join(user, ".Anime Manager")
+            # user = os.path.expanduser('~') # doesn't work
+            # appdata = os.path.join(user, ".Anime Manager")
+            appdata = '/srv/Anime Manager/'
         return appdata
