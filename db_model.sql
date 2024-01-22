@@ -69,6 +69,19 @@ CREATE TABLE IF NOT EXISTS "torrents" (
 	"trackers"	TEXT,
 	PRIMARY KEY("hash")
 );
+CREATE TABLE IF NOT EXISTS "rateLimiters" (
+	"id"	TEXT NOT NULL,
+	"name"	TEXT NOT NULL,
+	"value"	INTEGER,
+	PRIMARY KEY("id","name")
+);
+CREATE TABLE IF NOT EXISTS "user_tags" (
+	"user_id"	INTEGER NOT NULL,
+	"anime_id"	INTEGER NOT NULL,
+	"tag"	TEXT,
+	"liked"	INTEGER,
+	PRIMARY KEY("user_id","anime_id")
+);
 CREATE TABLE IF NOT EXISTS "anime" (
 	"id"	INTEGER NOT NULL UNIQUE,
 	"title"	TEXT,
@@ -83,14 +96,6 @@ CREATE TABLE IF NOT EXISTS "anime" (
 	"broadcast"	TEXT,
 	"last_seen"	INTEGER,
 	"trailer"	TEXT,
-	"tag"	TEXT,
-	"like"	INTEGER,
 	PRIMARY KEY("id")
-);
-CREATE TABLE IF NOT EXISTS "rateLimiters" (
-	"id"	TEXT NOT NULL,
-	"name"	TEXT NOT NULL,
-	"value"	INTEGER,
-	PRIMARY KEY("id","name")
 );
 COMMIT;

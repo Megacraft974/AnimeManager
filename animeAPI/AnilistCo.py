@@ -453,14 +453,19 @@ class AnilistCoWrapper(APIUtils):
 		while True:
 			variables['page'] = page
 			rep = requests.post(
-				self.url, json={'query': str(query), 'variables': variables})
-			data = rep.json().get('data')
+				self.url, json={'query': str(query), 'variables': variables}).json()		
+			if rep.get('errors', None):
+				self.log(f'[ERROR] - On AnilistCo: {rep["errors"]}')
+			data = rep.get('data')
 			if not data:
 				return
 
 			page = data.get('Page', {})
-			for m in page.get('media', []):
-				yield m
+			if page is not None:
+				for m in page.get('media', []):
+					yield m
+			else:
+				pass
 			
 			pageInfo = page.get('pageInfo', {})
 			if not pageInfo.get('hasNextPage'):

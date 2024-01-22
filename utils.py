@@ -891,6 +891,7 @@ class AnimeListFrame(ScrollableFrame):
 
         if anime.like == 1:
             title += " ❤"
+        
         lbl = Label(
             self,
             text=title,

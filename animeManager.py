@@ -179,23 +179,25 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		self.startup()
 
 	def startup(self):
+		if sys.platform == 'linux' and 'DISPLAY' not in os.environ:
+			# Running headless
+			self.remote = True
+
+   
 		self.getFileManager()
 		# TODO - Put that in settings
 
 		with self.getDatabase(remote=self.remote) as self.database:
 			if not os.path.exists(self.dbPath):
+				print(f'No database found for path: {self.dbPath}')
 				self.checkSettings()
 				self.reloadAll()
 				return
 			# else:
 			# 	self.checkSettings()
 
-			self.api = animeAPI.AnimeAPI('all', self.dbPath)
+			# self.api = animeAPI.AnimeAPI('all', self.dbPath)
 			# self.last_broadcasts = self.getBroadcast()
-
-			if sys.platform == 'linux' and 'DISPLAY' not in os.environ:
-				# Running headless
-				self.remote = True
 
 			if not self.remote:
 				try:
@@ -208,33 +210,32 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				self.late_startup()
 
 	def late_startup(self):
-		MediaPlayers.__init__(self)
-		
-		if not self.remote:
-			self.animeList.from_filter("DEFAULT")
-
 		self.api = animeAPI.AnimeAPI('all', self.dbPath)
-		
-		for player_name in self.players_order:
-			if player_name in self.media_players:
-				self.player = self.media_players[player_name]
-				break
-		else:
-			# No player found
-			self.player = None
-			self.log('MAIN_STATE', '[ERROR] - No media player found!')
-
+  
+		self.getTorrentManager()
+		# TODO - Put that in settings
 		
 		if not self.remote:
+			MediaPlayers.__init__(self)
+			self.animeList.from_filter("DEFAULT")
+		
+			for player_name in self.players_order:
+				if player_name in self.media_players:
+					self.player = self.media_players[player_name]
+					break
+			else:
+				# No player found
+				self.player = None
+				self.log('MAIN_STATE', '[ERROR] - No media player found!')
+
 			# No need for Discord RPC if we're in remote mode
 			DiscordPresence.__init__(self)
 			self.RPC_menu()
 
-		# self.last_broadcasts = self.getBroadcast()
-  
-		self.getTorrentManager()
-		# TODO - Put that in settings
+		else:
+			self.player = None
 
+		# self.last_broadcasts = self.getBroadcast()
 		# self.checkServer() # For the mobile server
 
 		self.getSchedule(thread=True)
@@ -455,12 +456,15 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				)
 			)
 
-	def getAnimelist(self, criteria, listrange=(0, 50), hideRated=None):
+	def getAnimelist(self, criteria, listrange=(0, 50), hideRated=None, user_id=None):
+		if user_id is None:
+			user_id = 0
+
 		if hideRated is None:
 			hideRated = self.hideRated
 
 		if criteria == "DEFAULT":
-			table = 'anime'
+			table = f'anime LEFT JOIN user_tags ON user_tags.anime_id = anime.id AND user_id={int(user_id)}'
 			filter = "anime.status != 'UPCOMING' AND anime.status != 'UNKNOWN'"
 			if hideRated:
 				filter += " AND (rating NOT IN('R+','Rx') OR rating IS null)"
@@ -469,7 +473,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 		else:
 			# \nAND rating NOT IN('R+','Rx')"
-			table = 'anime'
+			table = f'anime LEFT JOIN user_tags ON user_tags.anime_id = anime.id AND user_id={int(user_id)}'
 			commonFilter = "\nAND status != 'UPCOMING'"
 			order = "date_from"
 			sort = "DESC"
@@ -498,7 +502,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			else:
 				if criteria == 'WATCHING':
 					commonFilter = "\nAND status != 'UPCOMING'"
-					table = 'anime LEFT JOIN broadcasts ON anime.id = broadcasts.id'
+					table = f'anime LEFT JOIN broadcasts ON anime.id = broadcasts.id LEFT JOIN user_tags ON user_tags.anime_id = anime.id AND user_id={int(user_id)}'
 					order = """
 						CASE WHEN anime.status = "AIRING" AND broadcasts.weekday IS NOT NULL
 							THEN (
@@ -534,7 +538,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			return new_list, next_list
 		
 		return get_next(args)
-		
+
 
 	# ___Clean up___
 	def clearLogs(self):
@@ -710,8 +714,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		self.timer_id = self.initWindow.after(30, self.loading, n + 1, True)  # TODO - Use a timer instead of n
 
 	# ___Networking___
-	def downloadFile(self, id, url=None, hash=None):
-		def handler(id, out, url=None, hash=None):
+	def downloadFile(self, id, url=None, hash=None, download=True, user_id=None):
+		def handler(id, out, url=None, hash=None, user_id=None):
 			# Get torrent data (url / magnet / file)
 			if url is not None:
 				if isinstance(url, Magnet):
@@ -720,11 +724,10 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 				if pattern.match(url):
 					# Magnet url
-					isMagnet = True
 					# self.log('NETWORK', 'Added magnet link:', url)
 					torrent = Torrent.from_magnet(url)
 
-				else:
+				elif download:
 					# Torrent file url
 					try:
 						# When nyaa.si blocked my ip:
@@ -743,6 +746,10 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 						return
 					
 					torrent = Torrent.from_file(req.content)
+				else:
+					# Couldn't get the torrent
+					out.put(False)
+					return 
 			
 			elif hash is not None:
 				# Should already be in database
@@ -761,9 +768,14 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			with database.get_lock():
 				self.saveTorrent(id, torrent)
 
-				if database(id=id, table='anime')['tag'] != 'WATCHING':
-					database.set({'id': id, 'tag': 'WATCHING'}, table='anime', get_output=False)
-				database.save()
+				if user_id is None:
+					user_id = 0
+
+				if user_id:
+					tag = database.sql('SELECT tag FROM user_tags WHERE anime_id=:anime_id AND user_id=:user_id', anime_id=id, user_id=user_id)
+					if tag != 'WATCHING':
+						self.set_tag(id, 'WATCHING', user_id)
+					database.save()
 
 			# Add torrent to client
 			try:
@@ -796,7 +808,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 		assert url is not None or hash is not None, "You need to specify either an url or a file path"
 		out = queue.Queue()
-		threading.Thread(target=handler, args=(id, out, url, hash), daemon=True).start()
+		threading.Thread(target=handler, args=(id, out, url, hash, user_id), daemon=True).start()
 		return out
 
 	def redownload(self, id):

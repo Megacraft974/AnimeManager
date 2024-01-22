@@ -58,7 +58,7 @@ class Getters:
             raise ModuleNotFoundError(f'File manager {manager} was not found')
 
         args = self.settings['file_managers'].get(manager, {})
-        self.log(self.settings['file_managers'])
+        # self.log(self.settings['file_managers']) # For debug
         try:
             self.fm = fm(args, update)
         except ConnectionAbortedError:

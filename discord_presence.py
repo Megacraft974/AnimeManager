@@ -164,24 +164,24 @@ class DiscordPresence:
             anime_size = sum(os.path.getsize(p) for p in list_sub_dirs(self.animePath))
             usedPrct = anime_size / total * 100
             return "{}% of the disk space is for animes!".format(str(int(usedPrct)))
-        elif cat == "cat_length":
-            tags = {
-                "LIKED": "Liked {} animes",
-                "SEEN": "Has seen {} animes",
-                "WATCHING": "Currently have {} animes to watch",
-                "WATCHLIST": "Wish to watch {} animes"
-            }
+        # elif cat == "cat_length": # TODO - Needs auth
+        #     tags = {
+        #         "LIKED": "Liked {} animes",
+        #         "SEEN": "Has seen {} animes",
+        #         "WATCHING": "Currently have {} animes to watch",
+        #         "WATCHLIST": "Wish to watch {} animes"
+        #     }
 
-            tag = random.choice(list(tags.keys()))
+        #     tag = random.choice(list(tags.keys()))
 
-            if tag == "LIKED":
-                sql = "SELECT COUNT(*) FROM anime WHERE like=1;"
-            else:
-                sql = "SELECT COUNT(*) FROM anime WHERE tag='{}';".format(tag)
+        #     if tag == "LIKED":
+        #         sql = "SELECT COUNT(*) FROM user_tags WHERE like=1;"
+        #     else:
+        #         sql = "SELECT COUNT(*) FROM anime WHERE tag='{}';".format(tag)
 
-            count = self.database.sql(sql)[0][0]
+        #     count = self.database.sql(sql)[0][0]
 
-            return tags[tag].format(str(count))
+        #     return tags[tag].format(str(count))
 
 
 def get_ipc_path(pipe=None):

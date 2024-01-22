@@ -59,6 +59,7 @@
         "hideRated": true,
         "maxTimeout": 30,
         "scheduleTimeout": 120,
+        "lastSchedule": 0,
         "maxTrendingAnime": 100,
         "topPublishers": [
             "SubsPlease",

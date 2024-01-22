@@ -461,10 +461,11 @@ class AnimeList(ItemList):
 
 class TorrentList(ItemList):
 	def __init__(self, sources):
-		self.identifier = lambda t: t.get("hash", None) or t.get("desc_link", None) or hash(t)
 		self.item_type = dict
 		super().__init__(sources)
-
+  
+	def identifier(self, t, *args, **kwargs):
+		return t.get("hash", None) or t.get("desc_link", None) or hash(t.values())
 
 class CharacterList(ItemList):
 	def __init__(self, sources):
