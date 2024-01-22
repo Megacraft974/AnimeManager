@@ -25,7 +25,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-def prettyPrinter_old(dictionary):
+def prettyPrinter(dictionary):
     dictionary['size'] = anySizeToBytes(dictionary['size'])
     outtext = "|".join((dictionary["link"], dictionary["name"].replace("|", " "),
                         str(dictionary["size"]), str(dictionary["seeds"]),
@@ -37,11 +37,11 @@ def prettyPrinter_old(dictionary):
     with open(1, 'w', encoding='utf-8', closefd=False) as utf8stdout:
         print(outtext, file=utf8stdout)
 
-def prettyPrinter(dictionnary):
-    if prettyPrinter.output is not None:
-        prettyPrinter.output(dictionnary)
+# def prettyPrinter(dictionnary):
+#     if prettyPrinter.output is not None:
+#         prettyPrinter.output(dictionnary)
 
-prettyPrinter.output = None
+# prettyPrinter.output = None
 
 def anySizeToBytes(size_string):
     """

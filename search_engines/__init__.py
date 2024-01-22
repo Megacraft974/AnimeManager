@@ -1,74 +1,55 @@
-from .nova3.custom_engine import search # TODO - Fix it first
+# from .nova3.custom_engine import search # TODO - Fix it first
 
-from ..logger import log
-
-# import os
-# import queue
-# import re
-# import threading
-
-# from logger import log
-# from classes import Magnet
-
-# IGNORE = ['template.py', '__init__.py', 'parserUtils.py']
-# PARSERS = []
+import os
+import queue
+import re
+import subprocess
+import threading
 
 
-# def get_parser_list():
-#     # DEPRECATED
-#     if PARSERS:
-#         for parser in PARSERS:
-#             yield parser
-#         return
+def search(terms):
+	# Since I'm very smart, I've decided that instead of fixing the problem between Apache, WSGI, Flask and multiprocessing.Manager wasn't worth it.
+	# So here I am, running a python script from the cmd, from another python script, specifically from a function hidden in a __init__ file that I'm
+	# DEFINITELY gonna forget about. Good luck, future me...
+	
+	keys = ['link', 'name', 'size', 'seeds', 'leech', 'engine_url', 'desc_link']
+	mag_reg = re.compile(r"^magnet:\?xt=urn:\S+$") # Only returns magnet links
+	root = os.path.dirname(__file__)
+ 
 
-#     root = os.path.dirname(__file__)
-#     for f in os.listdir(root):
-#         if f not in IGNORE and os.path.isfile(os.path.join(root, f)):
-#             f = f.split(".py")[0]
-#             exec("from . import " + f)
-#             module = globals()[f]
-#             parser = module.Parser()
-#             PARSERS.append(parser)
-#             yield parser
-
-
-# def handle_search(titles, limit, que, parser):
-#     # DEPRECATED
-#     for title in titles:
-#         title = re.sub(r"[\|]", "", title)
-#         try:
-#             for e in parser.search(title, limit):
-#                 if e is False: # Fatal error - Stop search
-#                     return
-
-#                 for key in ('seeds', 'leech'):
-#                     if not isinstance(e[key], int):
-#                         e[key] = int(e[key])
-#                 que.put(e)
-#         except Exception as e:
-#             log("FILE_SEARCH", "Error on torrent search:", e)
-
-
-# def search(titles, limit=50):
-#     # DEPRECATED
-#     parsers = get_parser_list()
-#     threads = []
-
-#     que = queue.Queue()
-#     for p in parsers:
-#         t = threading.Thread(target=handle_search,
-#                              args=(titles, limit, que, p),
-#                              daemon=True)
-#         threads.append(t)
-#         t.start()
-
-#     while any(map(lambda t: t.is_alive(), threads)) or not que.empty():
-#         try:
-#             data = que.get(block=True, timeout=1)
-#             data['link'] = Magnet(data['link'])
-#             yield data
-#         except queue.Empty:
-#             pass
-
+	def wrapper(term, que):
+		command = f'python3 -m nova3.nova2 all anime "{term}"' # Don't ask why it's named like that, idk either
+		process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True, cwd=root)
+		while True:
+			output = process.stdout.readline()
+			if output == b'' and process.poll() is not None:
+				que.put('STOP')
+				break
+			if output:
+				data = output.decode().strip()
+				if data:
+					data = data.split('|')
+					if len(data) > 1:
+						out = dict(zip(keys,data))
+						# yield out
+						if re.match(mag_reg, out['link']):
+							que.put(out)
+	
+	que = queue.Queue()
+	threads = []
+	for term in terms:
+		t = threading.Thread(target=wrapper, args=(term, que))
+		threads.append(t)
+		t.start()
+	# return process.poll()
+	while threads:
+		data = que.get()
+		if data == "STOP":
+			threads = list(filter(lambda t: t.is_alive(), threads))
+		else:
+			yield data
 # # Add serach engines:
 # # https://www.shanaproject.com/ -> Require login and following stuff: wayyyy too complicated for now
+if __name__ == "__main__":
+	for data in search(['test', 'fish']):
+		print(data)

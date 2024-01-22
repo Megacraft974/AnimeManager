@@ -16,9 +16,6 @@ import random
 import sys
 import os
 
-
-
-
 try:
     from .animeManager import Manager
     from .getters import Getters
@@ -33,34 +30,19 @@ except ImportError:
 
     sys.exit()
 
-appdata = os.path.join(os.getenv("APPDATA"), "Anime Manager")
-dbPath = os.path.join(appdata, "animeData.db")
+# appdata = os.path.join(os.getenv("APPDATA"), "Anime Manager")
+# dbPath = os.path.join(appdata, "animeData.db")
 
 # db = Getters.getDatabase()
 main = Manager(remote=True)
 db = main.getDatabase()
 
-data = db.sql('SELECT id, date_from, date_to FROM anime', save=False)
-out = []
-epoch = datetime(1970, 1, 1)
-for i, f, t in data:
-    tmp = [i]
-    for d in (f, t):
-        if d is None or d == 'None':
-            tmp.append(None)
-        elif isinstance(d, int):
-            tmp.append(d)
-        else:
-            d = datetime.fromisoformat(d)
-            tmp.append(int((d - epoch).total_seconds()))
-    out.append(tmp)
-
-db.executemany('UPDATE anime SET date_to=?, date_from=? WHERE id=?', list(map(lambda a: a[::-1], out)))
-db.save()
-
-a = main.api.anime(2)
-if a:
-    pass
+terms = 'classroom of the elite'
+data = main.api.searchAnime(terms, limit=main.animePerPage)
+while not data.empty():
+	anime = data.get()
+	if anime is not None:
+		print(anime.title)
 
 sys.exit()
 
