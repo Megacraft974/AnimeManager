@@ -6,8 +6,8 @@ from .APIUtils import Anime, APIUtils, Character, EnhancedSession
 
 
 class JikanMoeWrapper(APIUtils):
-	def __init__(self, dbPath):
-		super().__init__(dbPath)
+	def __init__(self):
+		super().__init__()
 		self.session = EnhancedSession(timeout=30)
 		self.base_url = 'https://api.jikan.moe/v4'
 		self.cooldown = 2
@@ -74,10 +74,11 @@ class JikanMoeWrapper(APIUtils):
 			# Spammed too much
 			return
 		
-		for anime in top['data']:
-			anime = self._convertAnime(anime)
-			# anime['status'] = 'UPDATE'
-			yield anime
+		if 'data' in top:
+			for anime in top['data']:
+				anime = self._convertAnime(anime)
+				# anime['status'] = 'UPDATE'
+				yield anime
 
 	def searchAnime(self, search, limit=50):
 		self.delay()
@@ -212,15 +213,10 @@ class JikanMoeWrapper(APIUtils):
 				out) if 'status' in a.keys() else None
 
 		if 'genres' in a.keys():
-			genres = self.getGenres(
-				[
-					{
-						'id': g['mal_id'],
-						'name': g['name']
-					}
+			genres = self.getGenres([
+					{'id': g['mal_id'], 'name': g['name']}
 					for g in a['genres']
-				]
-			)
+			])
 		else:
 			genres = []
 		out['genres'] = genres
@@ -257,7 +253,7 @@ class JikanMoeWrapper(APIUtils):
 
 		return out
 
-	def _convertCharacter(self, c, role=None, anime_id=None):
+	def _convertCharacter(self, c, role:str|None=None, anime_id=None):
 		c_id = self.database.getId(
 			"mal_id", int(c["mal_id"]), table="characters")
 
@@ -273,7 +269,7 @@ class JikanMoeWrapper(APIUtils):
 
 		# TODO - c.get('nicknames') / c.get('kanji')?
 
-		if anime_id is not None:
+		if anime_id is not None and role is not None:
 			animes_data = {anime_id: role.lower()}
 			self.save_animeography(c_id, animes_data)
 
@@ -298,9 +294,6 @@ class JikanMoeWrapper(APIUtils):
 
 
 if __name__ == "__main__":
-	import os
-	appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
-	dbPath = os.path.join(appdata, "animeData.db")
-	api = JikanMoeWrapper(dbPath)
+	api = JikanMoeWrapper()
 	out = api.anime(2)
 	pass

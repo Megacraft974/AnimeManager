@@ -90,7 +90,6 @@
     },
     "paths": {
         "cache": "",
-        "dbPath": "",
         "iconPath": "",
         "logsPath": ""
     },
@@ -104,6 +103,18 @@
             "login": "",
             "password": "",
             "dataPath": ""
+        }
+    },
+    "database_managers":{
+        "last_db_used": "MySQL",
+        "MySQL": {
+            "host": "", 
+            "user": "", 
+            "password": "", 
+            "database": ""
+        },
+        "SQLite": {
+            "dbPath": ""
         }
     },
     "torrent_managers": {

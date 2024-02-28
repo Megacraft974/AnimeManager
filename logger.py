@@ -30,7 +30,7 @@ class Logger:
 					 'NETWORK', 'SERVER', 'SETTINGS', 'TIME']
 		self.loggingCb = None
 
-		if hasattr(self, 'remote') and self.remote is True:
+		if hasattr(self, 'remote') and self.remote is True: # type: ignore
 			self.log_mode = "NONE"
 		elif logs in ("DEFAULT", "ALL", "NONE"):
 			self.log_mode = logs
@@ -65,15 +65,16 @@ class Logger:
 				os.remove(path)
 			except FileNotFoundError:
 				print(f'Error while clearing logs: File not found for path {path}')
-				pass
+				logsList.pop(0)
 			except PermissionError:
 				print(f'Error while clearing logs: Permission error for path {path}')
-				pass
+				logsList.pop(0)
 			else:
 				print(f'Removed log file, path: {path}')
-				logsList = os.listdir(self.logsPath)
-				size = sum(os.path.getsize(os.path.join(self.logsPath, f))
-						   for f in logsList)
+
+			logsList = os.listdir(self.logsPath)
+			size = sum(os.path.getsize(os.path.join(self.logsPath, f))
+						for f in logsList)
 
 		print('Loop done')
 
@@ -93,7 +94,7 @@ class Logger:
 			# Don't log
 			console_log = False
 
-		if (isinstance(text[0], str) and text[0].isupper()) or ('allLogs' in self.__dict__ and text[0] in self.allLogs):
+		if (isinstance(text[0], str) and text[0].isupper()) or (hasattr(self, 'allLogs') and text[0] in self.allLogs): # type: ignore
 			category, text = text[0], text[1:]
 			toLog = "[{}]".format(category.center(13)) + " - "
 			toLog += " ".join([str(t) for t in text])

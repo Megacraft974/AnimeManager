@@ -42,7 +42,7 @@ for name in bin_names:
 
 print("\n-- bins:", '\nb-'.join(map(str, binaries)))
 
-modules = ['lxml._elementpath', 'thefuzz', 'mobile_server', 'tkinter.ttk', 'tkinter.filedialog',
+modules = ['thefuzz', 'mobile_server', 'tkinter.ttk', 'tkinter.filedialog',
            'jikanpy', 'jsonapi_client', 'vlc', 'mpv', 'ffpyplayer.player', 'pypresence', '.search_engines.nova3.engines', '.search_engines.nova3.novaprinter']
 
 # excluded = ['_gtkagg', '_tkagg', 'bsddb', 'curses', 'pywin.debugger', 'pywin.debugger.dbgcon', 'pywin.dialogs', 'tcl', 'Tkconstants', 'Tkinter']

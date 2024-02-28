@@ -14,8 +14,8 @@ from .APIUtils import APIUtils, Anime, Character
 
 
 class MyAnimeListNetWrapper(APIUtils):
-    def __init__(self, dbPath, tokenPath='token.json'):
-        super().__init__(dbPath)
+    def __init__(self, tokenPath='token.json'):
+        super().__init__()
         self.CLIENT_ID = '12811732694cf9a5ce1eff0694af5dc8'
         self.CLIENT_SECRET = 'fbf4c615abc334263ac2a3c92386586bafa067619be7a4f3fb7c2f6824f2bf03'
         self.hostName = "127.0.0.1"
@@ -324,10 +324,7 @@ class MyAnimeListNetWrapper(APIUtils):
 
 
 if __name__ == "__main__":
-    import os
-    appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
-    dbPath = os.path.join(appdata, "animeData.db")
-    wrapper = MyAnimeListNetWrapper(dbPath)
+    wrapper = MyAnimeListNetWrapper()
 
     a = wrapper.anime(2)
     pass

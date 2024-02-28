@@ -11,44 +11,55 @@ import threading
 import queue
 import multiprocessing
 import json
-from qbittorrentapi import Client
 import random
 import sys
 import os
+import mysql.connector
+from mysql.connector.errors import ProgrammingError
+
+print('aaaa')
+
+from .animeManager import Manager
+from .getters import Getters
+from .utils import TableFrame
+from .animeAPI.JikanMoe import JikanMoeWrapper
+from .classes import SortedDict, Anime, AnimeList, SortedList, RegroupList
+
+
+# terms = 'classroom of the elite'
+# data = main.api.searchAnime(terms, limit=main.animePerPage)
+# while not data.empty():
+# 	anime = data.get()
+# 	if anime is not None:
+# 		print(anime.title)
+
+# main = Manager(remote=True)
 
 try:
-    from .animeManager import Manager
-    from .getters import Getters
-    from .utils import TableFrame
-    from .animeAPI.JikanMoe import JikanMoeWrapper
-    from .classes import SortedDict, Anime, AnimeList, SortedList, RegroupList
-    from . import dbManager
+	mydb = mysql.connector.connect(
+		host="localhost",
+		user="web_user",
+		password="ncFgz-mCBby/Us2g",
+		database="anime_manager"
+	)
+except ProgrammingError as e:
+	if e.errno == 1045:
+		pass
+	elif e.errno == 1049:
+		pass
+	else:
+		raise
 
-except ImportError:
-    sys.path.append(os.path.abspath("../"))
-    import AnimeManager.test
+cur = mydb.cursor()
+cur.execute('SHOW DATABASES')
+for x in cur:
+	print(x)
 
-    sys.exit()
-
-# appdata = os.path.join(os.getenv("APPDATA"), "Anime Manager")
-# dbPath = os.path.join(appdata, "animeData.db")
-
-# db = Getters.getDatabase()
-main = Manager(remote=True)
-db = main.getDatabase()
-
-terms = 'classroom of the elite'
-data = main.api.searchAnime(terms, limit=main.animePerPage)
-while not data.empty():
-	anime = data.get()
-	if anime is not None:
-		print(anime.title)
+a = JikanMoeWrapper()
 
 sys.exit()
 
-
-qb = Client("http://localhost:8080", REQUESTS_ARGS={"timeout": 2})
-qb.auth_log_in("admin", "1234567")
+db = main.getDatabase()
 
 data = db.sql("SELECT * FROM animeRelations")
 seen = set()

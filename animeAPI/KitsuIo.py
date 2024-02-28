@@ -12,8 +12,8 @@ except ImportError:
 
 
 class KitsuIoWrapper(APIUtils):
-    def __init__(self, dbPath):
-        APIUtils.__init__(self, dbPath)
+    def __init__(self):
+        APIUtils.__init__(self)
         # TODO - self.s.close() ??
         self.s = Session('https://kitsu.io/api/edge/')
         self.apiKey = "kitsu_id"

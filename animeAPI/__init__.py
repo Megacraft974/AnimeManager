@@ -22,7 +22,7 @@ class AnimeAPI(Getters, Logger):
         self.init_thread.start()
 
     def __getattr__(self, name):
-        if name in ('dbPath',):
+        if name in ('dbPath','settings',):
             return super().__getattr__(name)
 
         def f(*args, **kwargs):
@@ -171,9 +171,7 @@ class AnimeAPI(Getters, Logger):
 
 
 if __name__ == "__main__":
-    appdata = os.path.join(os.getenv('APPDATA'), "Anime Manager")
-    dbPath = os.path.join(appdata, "animeData.db")
-    api = AnimeAPI('all', dbPath)
+    api = AnimeAPI('all')
     # s = api.searchAnime("boku")
     s = api.schedule()
     c = 0

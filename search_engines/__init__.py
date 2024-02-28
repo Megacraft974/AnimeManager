@@ -21,12 +21,15 @@ def search(terms):
 		command = f'python3 -m nova3.nova2 all anime "{term}"' # Don't ask why it's named like that, idk either
 		process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True, cwd=root)
 		while True:
+			if process.stdout is None:
+				break
+
 			output = process.stdout.readline()
 			if output == b'' and process.poll() is not None:
 				que.put('STOP')
 				break
 			if output:
-				data = output.decode().strip()
+				data = output.decode(encoding='utf-8', errors='ignore').strip()
 				if data:
 					data = data.split('|')
 					if len(data) > 1:

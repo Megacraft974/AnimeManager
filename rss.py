@@ -2,7 +2,7 @@ import re
 import threading
 import requests
 
-from lxml import etree, html
+# from lxml import etree, html
 
 from classes import Torrent
 

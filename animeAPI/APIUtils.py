@@ -9,10 +9,9 @@ from types import NoneType
 
 import requests
 
-from ..constants import Constants
-
 sys.path.append(os.path.abspath("../"))
 try:
+	from ..constants import Constants
 	from ..classes import Anime, Character, NoIdFound
 	from ..getters import Getters
 	from ..logger import Logger
@@ -21,7 +20,7 @@ except ModuleNotFoundError as e:
 
 
 class APIUtils(Logger, Getters):
-	def __init__(self, dbPath):
+	def __init__(self):
 		Logger.__init__(self, logs="ALL")
 		self.states = {
 			'airing': 'AIRING',
@@ -34,7 +33,6 @@ class APIUtils(Logger, Getters):
 			'upcoming': 'UPCOMING',
 			'Not yet aired': 'UPCOMING',
 			'NONE': 'UNKNOWN'}
-		self.dbPath = dbPath
 		self.database = self.getDatabase()
 
 	@property
@@ -91,7 +89,7 @@ class APIUtils(Logger, Getters):
 
 		sql = ("SELECT * FROM genresIndex WHERE name IN(" +
 			   ",".join("?" * len(ids)) + ")")
-		data = self.database.sql(sql, ids.values(), to_dict=True)
+		data = self.database.sql(sql, list(ids.values()), to_dict=True)
 		new = set()
 		update = set()
 		for g_id, g_name in ids.items():
@@ -105,12 +103,10 @@ class APIUtils(Logger, Getters):
 
 		if new or update:
 			if new:
-				self.database.executemany("INSERT INTO genresIndex({},name) VALUES(?,?);".format(
-					self.apiKey), ((id, ids[id]) for id in new), get_output=False)
+				self.database.executemany("INSERT INTO genresIndex({},name) VALUES(?,?);".format(self.apiKey), [(id, ids[id]) for id in new])
 			if update:
-				self.database.executemany("UPDATE genresIndex SET {}=? WHERE id=?;".format(
-					self.apiKey), update, get_output=False)
-			data = self.database.sql(sql, ids.keys(), to_dict=True)
+				self.database.executemany("UPDATE genresIndex SET {}=? WHERE id=?;".format(self.apiKey), update, get_output=False)
+			data = self.database.sql(sql, list(ids.keys()), to_dict=True)
 		return list(g['id'] for g in data)
 
 	def getRates(self, name):
@@ -131,13 +127,15 @@ class APIUtils(Logger, Getters):
 		# Rels must be a list of dicts, each containing four fields: 'type', 'name', 'rel_id' and 'anime'
 		if len(rels) == 0:
 			return
+		
+		# Disabled cuz it's very dirty and getId doesn't return meta anymore
+		return 
 		with self.database.get_lock():
 			db_rels = self.get_relations(id)
 			for rel in rels:
 				if rel["type"] == "anime":
 					rel["id"] = int(id)
-					rel["rel_id"], meta = self.database.getId(
-						self.apiKey, rel["rel_id"], add_meta=True)
+					rel["rel_id"], meta = self.database.getId(self.apiKey, rel["rel_id"], add_meta=True)
 					anime = rel.pop("anime")
 
 					rel['type'] = str(rel['type']).lower().strip()
@@ -145,8 +143,7 @@ class APIUtils(Logger, Getters):
 
 					exists = any((
 						(
-							all(e[k] == rel[k]
-								for k in ('id', 'type', 'name'))
+							all(e[k] == rel[k] for k in ('id', 'type', 'name'))
 							and rel['rel_id'] in e['rel_id']
 						) for e in db_rels)
 					)
@@ -157,8 +154,7 @@ class APIUtils(Logger, Getters):
 					if not meta['exists']:
 						anime["id"] = rel["rel_id"]
 						anime["status"] = "UPDATE"
-						self.database.set(
-							anime, table="anime", get_output=False)
+						self.database.set(anime, table="anime", get_output=False)
 			self.database.save(get_output=False)
 
 	def save_mapped(self, org_id, mapped):
@@ -283,10 +279,9 @@ class ApiTester():
 	def __init__(self, api_instance):
 	
 		appdata = Constants.getAppdata()
-		dbPath = os.path.join(appdata, "animeData.db")
 		self.DELAY = 5
 
-		self.api = api_instance(dbPath)
+		self.api = api_instance()
 
 	def test_all(self):
 		self.test_anime()

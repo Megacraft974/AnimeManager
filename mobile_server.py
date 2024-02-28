@@ -4,18 +4,17 @@ import ssl
 import os
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from .dbManager import db
 from .logger import log
 from .getters import Getters
 
 
-def startServer(hostName, serverPort, dbPath, manager):
+def startServer(hostName, serverPort, manager):
     def serve_thread(webServer):
         try:
             webServer.serve_forever()
         except OSError:
             pass
-    handler = GetHandler(dbPath, manager)
+    handler = GetHandler(manager)
     httpd = HTTPServer((hostName, serverPort), handler)
     keyFile, certFile = "./key.pem", "./cert.pem"
     usessl = os.path.exists(keyFile) and os.path.exists(certFile)
@@ -39,7 +38,7 @@ def stopServer(webServer, manager):
     manager.log("SERVER", "Server stopped.")
 
 
-def GetHandler(dbPath, manager):
+def GetHandler(manager):
     class DbServer(BaseHTTPRequestHandler, Getters):
         def do_GET(self):
             code = 200

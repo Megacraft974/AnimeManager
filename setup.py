@@ -10,13 +10,6 @@ setup(
         'bundle_files': 1,
         'compressed': True,
         'packages': [
-            "lxml",
-            "qbittorrentapi",
-            "bs4"
-        ],
-        'includes': [
-            "lxml._elementpath",
-            "lxml.etree",
         ],
         'excludes': [
             'pkg_resources', 'doctest', 'pdb', 'calendar', 'optparse', 'jsonschema', 'tornado', 'setuptools', 'distutils', 'matplotlib', 'zmq'

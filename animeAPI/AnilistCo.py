@@ -60,8 +60,8 @@ class QueryObject:
 
 
 class AnilistCoWrapper(APIUtils):
-	def __init__(self, dbPath):
-		super().__init__(dbPath)
+	def __init__(self):
+		super().__init__()
 		self.session = EnhancedSession(timeout=30)
 		self.url = 'https://graphql.anilist.co'
 		self.apiKey = "anilist_id"

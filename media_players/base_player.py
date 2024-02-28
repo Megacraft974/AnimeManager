@@ -16,7 +16,7 @@ from pytube import YouTube
 import pytube.exceptions
 
 from ..constants import Constants
-from ..dbManager import thread_safe_db
+from ..db_manager import db
 from ..logger import log
 
 
@@ -374,7 +374,7 @@ class BasePlayer:
         def handler(self):
             if self.id is not None and self.database is not None:
                 filename = self.playlist[self.index]
-                thread_safe_db(self.database).set({
+                db(self.database).set({
                     'id': self.id,
                     'last_seen': str(filename)
                 },

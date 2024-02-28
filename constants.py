@@ -121,29 +121,37 @@ class Constants:
 
 	def checkSettings(self):
 		# self.initLogs() # Should already be initialized
-		self.log('CONFIG', "Settings:")
 		if not os.path.exists(self.settingsPath):
 			raise Exception(f'No config file in {self.settingsPath}')
-			cwd = os.path.dirname(os.path.abspath(__file__))
-			shutil.copyfile(os.path.join(
-				cwd, "settings.json"), self.settingsPath)
+			# cwd = os.path.dirname(os.path.abspath(__file__))
+			# shutil.copyfile(os.path.join(
+			# 	cwd, "settings.json"), self.settingsPath)
 
-		with open(self.settingsPath, 'r') as f:
+		with open(self.settingsPath, 'r', encoding='utf-8') as f:
 			try:
 				self.settings = json.load(f)
-			except json.JSONDecodeError:
-				# Settings file is corrupted
-				self.log(
-					'MAIN_STATE', "[ERROR] - Can't open settings file, archiving it and recreating a new one")
-				newpath = os.path.join(os.path.dirname(self.settingsPath), 'settings.json.old')
-				try:
-					shutil.move(self.settingsPath, newpath)
-				except Exception as e:
-					self.log(
-						'MAIN_STATE', f"[ERROR] - Can't archive settings file, overwriting it\n  - Error: {str(e)}")
+			except json.JSONDecodeError as e:
+				# Used to trigger when the file was corrupted, but i don't know why anymore, so just try to load the file data in memory
 
-				# Infinite loop if settings template is corrupted, but whatever
-				return self.checkSettings()
+				f.seek(0)
+				data = f.read()
+				self.settings = json.loads(data)
+				
+				# If this fails then whatever
+
+				if False: # Disabled
+					# Settings file is corrupted
+					self.log(
+						'MAIN_STATE', "[ERROR] - Can't open settings file, archiving it and recreating a new one")
+					newpath = os.path.join(os.path.dirname(self.settingsPath), 'settings.json.old')
+					try:
+						shutil.move(self.settingsPath, newpath)
+					except Exception as e:
+						self.log(
+							'MAIN_STATE', f"[ERROR] - Can't archive settings file, overwriting it\n  - Error: {str(e)}")
+
+					# Infinite loop if settings template is corrupted, but whatever
+					return self.checkSettings()
 
 		update = False
 		for cat, values in self.settings.items():
@@ -162,8 +170,7 @@ class Constants:
 						try:
 							os.mkdir(value)
 						except FileNotFoundError:
-							self.log(
-								'CONFIG', 'Settings file corrupted: path does not exists!')
+							self.log('CONFIG', 'Settings file corrupted: path does not exists!')
 				setattr(self, var, value)
 				self.log('CONFIG', " ", var.ljust(30), '-', value)
 		if update:
@@ -179,3 +186,10 @@ class Constants:
 			# appdata = os.path.join(user, ".Anime Manager")
 			appdata = '/srv/Anime Manager/'
 		return appdata
+
+	def log(self, *args, **kwargs):
+		if hasattr(super(), 'log'):
+			return super().log(*args, **kwargs)
+		else:
+			pass
+			# print('[No logger found]', *args, **kwargs)

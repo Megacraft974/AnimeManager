@@ -6,15 +6,23 @@ import traceback
 import threading
 import queue
 import time
-from .classes import Anime, Character, NoneDict, AnimeList, Item, LockWrapper
-from .logger import log, Logger
+from ..classes import Anime, Character, NoneDict, AnimeList, Item, LockWrapper
+from ..logger import log, Logger
 
 
-class db():
+def db(*args, **kwargs):
+	'''Return the correct sqlite database instance depending on the current thread'''
+	already_created = 'database_main_thread' in globals() and not isinstance(globals()['database_main_thread'], threading.Event)
+	if not already_created: # and threading.main_thread() != threading.current_thread():
+		return db_instance(*args, **kwargs)
+	
+	return thread_safe_db(*args, **kwargs)
+
+class db_instance():
 	'''Database manager using sqlite3'''
 
-	def __init__(self, path, force_new=False):
-		if not force_new and 'database_main_thread' in globals() and not isinstance(globals()['database_main_thread'], threading.Event):
+	def __init__(self, path):
+		if 'database_main_thread' in globals() and not isinstance(globals()['database_main_thread'], threading.Event):
 			raise Exception("Another db instance already exists!")
 		
 		self.path = path
@@ -48,15 +56,11 @@ class db():
 			#     self.cur.execute(c)
 			self.save()
 
-	def close(self):
-		with self.get_lock():
-			self.save()
-			self.con.close()
-
 	def updateKeys(self, table):
 		if table not in self.alltable_keys:
-			self.tablekeys = list(d[1] for d in self.sql(
-				"PRAGMA table_info({});".format(table)))
+			data = self.sql("PRAGMA table_info({});".format(table))
+			if data is not None:
+				self.tablekeys = list(d[1] for d in data)
 			self.alltable_keys[table] = self.tablekeys
 		else:
 			self.tablekeys = self.alltable_keys[table]
@@ -65,8 +69,8 @@ class db():
 	def __call__(self, id=None, table=None):
 		return self.get(id, table)
 
-	def __setitem__(self, key, data):
-		self.update(key, data)
+	# def __setitem__(self, key, data):
+	# 	self.update(key, data)
 
 	def __len__(self):
 		return len(self.__repr__())
@@ -100,7 +104,7 @@ class db():
 
 	def items(self, table):
 		self.updateKeys(table)
-		return [(self.tablekeys[i], v) for i, v in enumerate(self.values())]
+		return [(self.tablekeys[i], v) for i, v in enumerate(self.values(table))]
 
 	def exists(self, id, table, key='id'):
 		with self.get_lock():
@@ -117,7 +121,7 @@ class db():
 			log("", "\nError on id:", id,
 				"- table:", table, "- sql:", sql)
 			raise
-		if len(rows) == 0:
+		if rows is None or len(rows) == 0:
 			out = {}  # Not found
 		else:
 			out = rows[0]
@@ -140,7 +144,7 @@ class db():
 
 		sql = "SELECT id FROM {} WHERE {}=?;".format(index, apiKey)
 		ids = self.sql(sql, (apiId,))
-		if len(ids) > 0:
+		if ids is not None and len(ids) > 0:
 			if add_meta:
 				out = ids[0][0], {"exists": True}
 			else:
@@ -388,12 +392,13 @@ class db():
 
 		sql = re.sub(' +', ' ', sql.strip())
 		with self.get_lock():
-			self.updateKeys("anime")
-			keys = list(self.tablekeys)
+			# self.updateKeys("anime")
+			# keys = list(self.tablekeys)
 
 			self.execute(sql)
 			data_list = self.cur.fetchall()
-		pass
+			keys = [e[0] for e in self.cur.description]
+
 		return AnimeList([self.get_all_metadata(Anime(keys=keys, values=data)) for data in data_list])
 		# return (Anime(keys=keys, values=data) for data in data_list)
 
@@ -401,6 +406,7 @@ class db():
 		if not isinstance(values, dict):
 			values = list(values)  # dict_keys type raise a ValueError
 
+		breakpoint()
 		with self.get_lock():
 			try:
 				self.execute(sql, values)
@@ -437,13 +443,14 @@ class db():
 
 	def get_all_metadata(self, item):
 		for key in item.metadata_keys:
-			item[key] = lambda path=self.path, id=item.id, key=key: thread_safe_db(path).get_metadata(id, key)
+			item[key] = lambda path=self.path, id=item.id, key=key: db(path).get_metadata(id, key)
 
 		return item
 
 	def get_metadata(self, id, key):
 		data = self.sql("SELECT value FROM {} WHERE id=?;".format(key), (id,))
-		return [e[0] for e in data]
+		if data is not None:
+			return [e[0] for e in data]
 
 	def save_metadata(self, id, meta):
 		if not meta:
@@ -453,7 +460,9 @@ class db():
 			for key, values in meta.items():
 				if type(values) not in {list, set, tuple}:
 					raise TypeError("Values must be of type list, not", type(values))
-				db_values = [e[0] for e in self.sql("SELECT value FROM {} WHERE id=?".format(key), (id,))]
+				data = self.sql("SELECT value FROM {} WHERE id=?".format(key), (id,))
+				db_values = [e[0] for e in data or []]
+				
 				toUpdate = []
 				for v in values:
 					if v:
@@ -469,10 +478,10 @@ class db():
 
 
 class thread_safe_db(Logger):
-	def __init__(self, path, remote=False):
+	def __init__(self, path):
 		Logger.__init__(self)
 		self.path = path
-		self.remote = remote
+		# self.remote = remote
 		if 'database_main_thread' in globals().keys():
 			main = globals()['database_main_thread']
 			if isinstance(main, threading.Event):
@@ -488,15 +497,15 @@ class thread_safe_db(Logger):
 			release_flag = threading.Event()
 			globals()['database_main_thread'] = release_flag
 			self.tasks = queue.LifoQueue()
-			self.db_thread = threading.Thread(target=self.db_thread, args=(path,), daemon=True)
+			self.db_thread = threading.Thread(target=self.db_thread_handler, args=(path,), daemon=True)
 			self.db_thread.start()
 			self.ready_flag.wait()
 			globals()['database_main_thread'] = self
 			release_flag.set()
 			self.log("DB_MAIN", "Started db thread")
 
-	def db_thread(self, path):
-		self.db = db(path)
+	def db_thread_handler(self, path):
+		self.db = db_instance(path)
 		self.ready_flag.set()
 		stopped = False
 		task = self.tasks.get()
@@ -539,8 +548,8 @@ class thread_safe_db(Logger):
 		return self
 
 	def __exit__(self, *_):
-		if not self.remote:
-			self.close()
+		# if not self.remote:
+		# 	self.close()
 		return False
 
 	def get_lock(self):
