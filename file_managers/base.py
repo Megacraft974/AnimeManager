@@ -1,3 +1,4 @@
+import shutil
 from ..logger import Logger
 
 
@@ -51,7 +52,7 @@ class BaseFileManager(Logger):
 
     def delete(self, path):
         """Delete a file or folder"""
-        raise NotImplementedError()
+        shutil.rmtree(path)
     
     def change_path(self, root):
         """Update cwd, and sometimes login infos as well"""

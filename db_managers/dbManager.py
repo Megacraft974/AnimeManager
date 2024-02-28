@@ -21,11 +21,16 @@ def db(*args, **kwargs):
 class db_instance():
 	'''Database manager using sqlite3'''
 
-	def __init__(self, path):
+	def __init__(self, settings):
 		if 'database_main_thread' in globals() and not isinstance(globals()['database_main_thread'], threading.Event):
 			raise Exception("Another db instance already exists!")
 		
-		self.path = path
+		if isinstance(settings, dict):
+			self.path = settings['dbPath']
+		else:
+			# With media players
+			self.path = settings
+
 		self.remote_lock = threading.RLock()
 		self.alltable_keys = {}
 		self.log_commands = False
@@ -34,7 +39,7 @@ class db_instance():
 		if not os.path.exists(self.path):
 			self.createNewDb()
 		
-		self.con = sqlite3.connect(path)
+		self.con = sqlite3.connect(self.path)
 		# self.con.row_factory = sqlite3.Row
 		sqlite3.register_adapter(bool, int)
 		sqlite3.register_converter("BOOLEAN", lambda v: bool(int(v)))
@@ -406,7 +411,6 @@ class db_instance():
 		if not isinstance(values, dict):
 			values = list(values)  # dict_keys type raise a ValueError
 
-		breakpoint()
 		with self.get_lock():
 			try:
 				self.execute(sql, values)

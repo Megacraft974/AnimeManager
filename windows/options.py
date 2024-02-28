@@ -195,11 +195,11 @@ class Options:
 		# Window init - Fancy corners - Main frame
 		if True:
 			if user_id is None:
-				user_id = 0
+				user_id = 4
 
 			with self.database:
 				anime = self.database(id=id, table="anime")
-				data = self.database.sql('SELECT tag, liked from user_tags WHERE anime_id=:anime_id, user_id=:user_id', {'anime_id': id, 'user_id': user_id})
+				data = self.database.sql('SELECT tag, liked from user_tags WHERE anime_id=:anime_id AND user_id=:user_id', {'anime_id': id, 'user_id': user_id})
 				if data:
 					anime.tag, anime.like = data[0]
 
@@ -567,7 +567,11 @@ class Options:
 					# TODO - Only do a single call to db
 					titles = dict(self.database.sql(sql, rel_ids))
 					text = relation["name"].capitalize().replace("_", " ")
-					rel_tag = self.database.sql('SELECT tag FROM user_tags WHERE user_id=:user_id AND anime_id=:anime_id', {'user_id': user_id, 'anime_id': rel_id})
+					rel_tag = self.database.sql('SELECT tag FROM user_tags WHERE user_id=:user_id AND anime_id=:anime_id', {'user_id': user_id, 'anime_id': rel_ids[0]})
+					if len(rel_tag) == 0:
+						rel_tag = 'NONE'
+					else:
+						rel_tag = rel_tag[0][0]
 					if len(titles) == 1:
 						Button(
 							relationsFrame,
@@ -620,7 +624,7 @@ class Options:
 							relList["menu"].entryconfig(
 								i,
 								foreground=self.colors[
-									self.tagcolors[rel_id]
+									self.tagcolors[rel_tag] # TODO - Really rel_tag or not?
 								],
 							)
 					else:

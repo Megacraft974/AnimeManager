@@ -115,8 +115,6 @@ class Constants:
 			'No tag': {'color': 'White', 'filter': 'NONE'},
 		}
 
-
-		print('Got default settings')
 		self.checkSettings()
 
 	def checkSettings(self):

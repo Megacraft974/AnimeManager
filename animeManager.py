@@ -468,7 +468,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 	def getAnimelist(self, criteria, listrange=(0, 50), hideRated=None, user_id=None):
 		if user_id is None:
-			user_id = 0
+			user_id = 4
 
 		if hideRated is None:
 			hideRated = self.hideRated
@@ -524,7 +524,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 							ELSE "9"
 						END ASC,
 						date_from
-					"""
+					""".strip()
 					tz = timezone(timedelta(hours=9))
 					sort_date = datetime.now(tz)
 					order = order.format(

@@ -16,7 +16,7 @@ from pytube import YouTube
 import pytube.exceptions
 
 from ..constants import Constants
-from ..db_manager import db
+from ..db_managers import thread_safe_db as db
 from ..logger import log
 
 
