@@ -126,6 +126,7 @@ class db_instance():
 			log("", "\nError on id:", id,
 				"- table:", table, "- sql:", sql)
 			raise
+
 		if rows is None or len(rows) == 0:
 			out = {}  # Not found
 		else:

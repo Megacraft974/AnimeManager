@@ -105,7 +105,7 @@ class APIUtils(Logger, Getters):
 			if new:
 				self.database.executemany("INSERT INTO genresIndex({},name) VALUES(?,?);".format(self.apiKey), [(id, ids[id]) for id in new])
 			if update:
-				self.database.executemany("UPDATE genresIndex SET {}=? WHERE id=?;".format(self.apiKey), update, get_output=False)
+				self.database.executemany("UPDATE genresIndex SET {}=? WHERE id=?;".format(self.apiKey), update)
 			data = self.database.sql(sql, list(ids.keys()), to_dict=True)
 		return list(g['id'] for g in data)
 

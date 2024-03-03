@@ -365,20 +365,20 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 		def match_enumerator(terms):
 			sql = """
-				SELECT value, anime.*
-				FROM title_synonyms
-				JOIN anime using(id)
-				GROUP BY anime.id
-				ORDER BY anime.date_from DESC
+				SELECT DISTINCT(anime.id), value, anime.* 
+				FROM title_synonyms 
+				JOIN anime using(id) 
+				ORDER BY anime.date_from DESC 
 				LIMIT 0, 1000;
-			"""
+			""".replace('\n', '').replace('\t', '')
 
 			start = time.time()
 
-			keys = list(self.database.keys(table="anime"))
-			date_key_idx = keys.index('date_from')
-			match = SortedList(
-				keys=[(lambda e: e[1], True), (lambda e: e[0][date_key_idx] or '0', True)])
+			# keys = list(self.database.keys(table="anime"))
+			keys = []
+			# date_key_idx = keys.index('date_from')
+			# match = SortedList(
+			# 	keys=[(lambda e: e[1], True), (lambda e: e[0][date_key_idx] or '0', True)])
 
 			threshold = 0.5  # Min fraction of the terms must match
 			max_matchs = 50  # Maximum amount of animes to return
@@ -390,11 +390,11 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			count = 0
 
 			threshold_count = int(threshold * terms_count)
-			entries = self.database.sql(sql)
+			entries = self.database.sql(sql, to_dict=True)
 			# Make sure that there are no other calls to db while iterating
 			# print(f'Anime search: {time.time()-start}s')
 			for data in entries:
-				title = data[0].lower()
+				title = data.pop('value').lower()
 
 				matchs = 0
 				for term in terms:
@@ -408,7 +408,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 						yield True
 						marked = True
 
-					anime = Anime(keys=keys, values=data[1:])
+					anime = Anime(**data)
 					yield anime
 
 					count += 1
@@ -418,7 +418,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 					# match.append((data[1:], matchs))
 
-			if not marked and len(match) == 0:
+			if not marked: # and len(match) == 0:
 				# No data found
 				yield False
 				return

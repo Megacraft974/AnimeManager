@@ -1,6 +1,9 @@
 import os
+import re
 import mysql.connector
 from mysql.connector.errors import ProgrammingError
+
+from ..classes import Anime, AnimeList, Character, NoneDict
 
 from .base import BaseDB
 
@@ -60,7 +63,10 @@ class MySQL(BaseDB):
 	def execute(self, sql, *args):
 		""" Run the sql command directly
 		"""
-		return super().execute(sql.replace('?', '%s'), *args)
+		pat = r'\?|:(\w+)'
+		replace = lambda match: f'%({match.group(1)})s' if match.group(1) else '%s'
+		formatted = re.sub(pat, replace, sql)
+		return super().execute(formatted, *args)
 
 	def executemany(self, sql, *args):
 		""" Run sql commands as a batch, should be faster than execute()
@@ -71,6 +77,9 @@ class MySQL(BaseDB):
 		""" Save the current transaction
 		"""
 		self.db.commit()
+
+	def keys(self, *args, **kwargs):
+		pass
 
 	@BaseDB.id_wrapper # type: ignore
 	def exists(self, id, table):
@@ -86,12 +95,26 @@ class MySQL(BaseDB):
 	def get(self, id, table):
 		""" Get the first row that match the id in table. Id can be either a single value, a list of values or a dict of key, value pairs.
 		"""
+		if not isinstance(id, dict):
+			id = {'id': id}
 
 		arg = ' AND '.join(map(lambda e: f'{e}=:{e}', id.keys()))
-		sql = "SELECT * FROM " + table + f" WHERE {arg});"
+		sql = "SELECT * FROM " + table + f" WHERE {arg};"
 		self.execute(sql, id)
 		# TODO - Format output?
-		return self.cur.fetchone()
+		data = self.cur.fetchone()
+		
+		if data is None or len(data) == 0:
+			data = {}  # Not found
+
+		desc = [e[0] for e in self.cur.description]
+
+		if table == "anime":
+			return self.get_all_metadata(Anime(keys=desc, values=data))
+		elif table == "characters":
+			return self.get_all_metadata(Character(keys=desc, values=data))
+		else:
+			return NoneDict(keys=desc, values=data)
 
 	def getId(self, apiKey, apiId, table="anime"):
 		if table == "anime":
@@ -102,7 +125,6 @@ class MySQL(BaseDB):
 		apiId = int(apiId)
 
 		sql = "SELECT id FROM {} WHERE {}=?;".format(index, apiKey)
-		print(sql, apiId)
 		ids = self.sql(sql, (apiId,))
 		if ids is not None and len(ids) > 0:
 			# Already exists
@@ -183,12 +205,65 @@ class MySQL(BaseDB):
 
 		self.execute(sql, id)
 
+	def filter(self, table=None, sort=None, range=(0, 50), order=None, filter=None):
+
+		if table is None:
+			table = 'anime'
+		else:
+			table = table
+
+
+		if range is not None:
+			limit = "\nLIMIT {start},{stop}".format(
+				start=range[0],
+				stop=range[1])
+		else:
+			limit = ""
+
+		if filter is not None:
+			filter = "\nWHERE {filter}".format(filter=filter)
+		else:
+			filter = ""
+
+		if order is None:
+			if sort is None:
+				sort = "DESC"
+			order = "anime.date_from"
+
+		sql = """
+			SELECT *
+			FROM {table}
+			{filter}
+			ORDER BY {order}
+			{sort} {limit};
+		""".format(
+			table=table,
+			filter=filter,
+			order=order,
+			sort=sort,
+			limit=limit)
+
+		sql = re.sub(' +', ' ', sql.strip())
+		with self.get_lock():
+			# self.updateKeys("anime")
+			# keys = list(self.tablekeys)
+
+			self.execute(sql)
+			data_list = self.cur.fetchall()
+			keys = [e[0] for e in self.cur.description]
+
+		return AnimeList([self.get_all_metadata(Anime(keys=keys, values=data)) for data in data_list])
+		# return (Anime(keys=keys, values=data) for data in data_list)
+
 	def get_metadata(self, id, key):
 		""" Get metadata for a specific id and key. Should not return a generator.
 		"""
 
+		if not isinstance(id, dict):
+			id = {'id': id}
+
 		arg = ' AND '.join(map(lambda e: f'{e}=:{e}', id.keys()))
-		data = self.sql(f"SELECT value FROM {key} WHERE {arg};", (id,))
+		data = self.sql(f"SELECT value FROM {key} WHERE {arg};", id)
 		return [e[0] for e in data or []]
 
 	def save_metadata(self, id, metadata):

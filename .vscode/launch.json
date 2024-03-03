@@ -9,7 +9,7 @@
             "type": "python",
             "request": "launch",
             "module": "launch",
-            "justMyCode": true
+            "justMyCode": false
         },
         {
             "name": "Python : fichier actif",

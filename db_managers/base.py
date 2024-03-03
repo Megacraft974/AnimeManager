@@ -158,7 +158,7 @@ class BaseDB():
 			@wraps(func)
 			def wrapper(self, *args, **kwargs):
 				if 'id' in kwargs:
-					ids = kwargs['id']
+					ids = kwargs.pop('id')
 				elif not args:
 					# No id provided?
 					raise ValueError('No id was provided!')
@@ -173,8 +173,7 @@ class BaseDB():
 
 					for id in iter:
 						try:
-							args = [id, *args]
-							output = func(*args, **kwargs)
+							output = func(self, id['id'], *args, **kwargs)
 						except Exception as e:
 							# TODO - Maybe handle some exceptions, like disconnection etc
 							raise e

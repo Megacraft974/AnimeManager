@@ -17,14 +17,14 @@ import os
 import mysql.connector
 from mysql.connector.errors import ProgrammingError
 
-print('aaaa')
 
+from .constants import Constants
 from .animeManager import Manager
 from .getters import Getters
 from .utils import TableFrame
 from .animeAPI.JikanMoe import JikanMoeWrapper
 from .classes import SortedDict, Anime, AnimeList, SortedList, RegroupList
-
+from .db_managers.dbManager import db_instance
 
 # terms = 'classroom of the elite'
 # data = main.api.searchAnime(terms, limit=main.animePerPage)
@@ -33,29 +33,41 @@ from .classes import SortedDict, Anime, AnimeList, SortedList, RegroupList
 # 	if anime is not None:
 # 		print(anime.title)
 
-# main = Manager(remote=True)
+main = Manager(remote=True)
 
-try:
-	mydb = mysql.connector.connect(
-		host="localhost",
-		user="web_user",
-		password="ncFgz-mCBby/Us2g",
-		database="anime_manager"
-	)
-except ProgrammingError as e:
-	if e.errno == 1045:
+mydb = main.getDatabase()
+
+if not hasattr(main, 'dbPath'):
+	appdata = Constants.getAppdata()
+	main.dbPath = os.path.join(appdata, "animeData.db") # type: ignore
+db = db_instance(main.dbPath) # type: ignore
+
+mydb.execute('DROP DATABASE anime_manager;')
+mydb.save()
+
+is_none = lambda e: e is None or e == 'None'
+
+mydb = main.getDatabase()
+mydb.execute('SHOW TABLES')
+for x in mydb.cur.fetchall():
+	print(x[0])
+	db.execute(f'SELECT * FROM {x[0]}')
+	desc = [e[0].replace('desc', 'description') for e in db.cur.description]
+	while True:
+		data = db.cur.fetchone()
+		if data is None:
+			break
+		desc_tmp = list(map(lambda e: e[1], filter(lambda e: not is_none(data[e[0]]), enumerate(desc))))
+		keys = ', '.join(desc_tmp)
+		values = ('%s, ' * len(desc_tmp))[:-2]
+		sql = f'INSERT INTO {x[0]}({keys}) VALUES ({values})'
+		data = list(filter(lambda e: not is_none(e), data))
+		try:
+			mydb.execute(sql, data)
+		except Exception as e:
+			pass
 		pass
-	elif e.errno == 1049:
-		pass
-	else:
-		raise
-
-cur = mydb.cursor()
-cur.execute('SHOW DATABASES')
-for x in cur:
-	print(x)
-
-a = JikanMoeWrapper()
+	mydb.save()
 
 sys.exit()
 

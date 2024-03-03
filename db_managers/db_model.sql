@@ -12,5 +12,5 @@ CREATE TABLE genresIndex ( id INTEGER NOT NULL UNIQUE AUTO_INCREMENT PRIMARY KEY
 CREATE TABLE charactersIndex ( id INTEGER NOT NULL UNIQUE AUTO_INCREMENT PRIMARY KEY, mal_id INTEGER UNIQUE, kitsu_id INTEGER UNIQUE, anilist_id INTEGER);
 CREATE TABLE torrents ( hash VARCHAR(40) NOT NULL UNIQUE PRIMARY KEY, name TEXT, trackers TEXT);
 CREATE TABLE user_tags ( user_id INTEGER NOT NULL, anime_id INTEGER NOT NULL, tag TEXT, liked INTEGER);
-CREATE TABLE anime ( id INTEGER NOT NULL UNIQUE PRIMARY KEY, title TEXT, picture TEXT, date_from INTEGER, date_to INTEGER, synopsis TEXT, episodes INTEGER, duration INTEGER, rating TEXT, status TEXT, broadcast TEXT, last_seen INTEGER, trailer TEXT);
+CREATE TABLE anime ( id INTEGER NOT NULL UNIQUE PRIMARY KEY, title TEXT, picture TEXT, date_from INTEGER, date_to INTEGER, synopsis TEXT, episodes INTEGER, duration INTEGER, rating TEXT, status TEXT, broadcast TEXT, last_seen TEXT, trailer TEXT);
 COMMIT

@@ -2,7 +2,7 @@ build/
 dist/
 venv/
 installer/
-.vscode/
+.vscode/**
 **/__pycache__/
 
 .pem

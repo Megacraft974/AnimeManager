@@ -287,7 +287,9 @@ class Getters:
 			args = (id, )
 		else:
 			condition, args = '', []
-		torrents = database.sql(f'SELECT t.{formatted} FROM torrents as t JOIN torrentsIndex as i ON i.value = t.hash {condition}', args)
+
+		sql = f'SELECT t.{formatted} FROM torrents as t JOIN torrentsIndex as i ON i.value = t.hash {condition}'
+		torrents = database.sql(sql, args)
 		out = list(map(lambda t: Torrent(**{keys[i]: t[i] for i in range(len(keys))}), torrents))
 		return out
 
@@ -417,7 +419,7 @@ class Getters:
 			if id is None:
 				raise Exception("Id required!")
 			database = self.getDatabase()
-			anime = database(id=id, table="anime")
+			anime = database.get(id=id, table="anime")
 			self.animeFolder = self.fm.list(self.animePath)
 		else:
 			if not isinstance(anime, Anime):
