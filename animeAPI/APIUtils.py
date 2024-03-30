@@ -89,7 +89,8 @@ class APIUtils(Logger, Getters):
 
 		sql = ("SELECT * FROM genresIndex WHERE name IN(" +
 			   ",".join("?" * len(ids)) + ")")
-		data = self.database.sql(sql, list(ids.values()), to_dict=True)
+		with self.database.get_lock():
+			data = self.database.sql(sql, list(ids.values()), to_dict=True)
 		new = set()
 		update = set()
 		for g_id, g_name in ids.items():
@@ -97,7 +98,8 @@ class APIUtils(Logger, Getters):
 			if matches:
 				match = matches[0]
 				if match[self.apiKey] is None:
-					update.add((g_id, match['id']))
+					if g_id is not None:
+						update.add((g_id, match['id']))
 			else:
 				new.add(g_id)
 
@@ -224,7 +226,7 @@ class APIUtils(Logger, Getters):
 
 				self.database.executemany(sql, pic_insert)
 
-			self.database.save(get_output=False)
+			self.database.save()
 
 	def save_broadcast(self, id, w, h, m):
 		with self.database.get_lock():
@@ -233,7 +235,7 @@ class APIUtils(Logger, Getters):
 			if len(data) == 0:
 				# Entry does not exists, inserting
 				sql = "INSERT INTO broadcasts(id, weekday, hour, minute) VALUES (?, ?, ?, ?)"
-				self.database.sql(sql, (id, w, h, m), get_output=False)
+				self.database.sql(sql, (id, w, h, m))
 				return
 
 			data = data[0]

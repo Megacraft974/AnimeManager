@@ -1,7 +1,7 @@
 import os
 import re
 import mysql.connector
-from mysql.connector.errors import ProgrammingError
+from mysql.connector.errors import ProgrammingError, OperationalError
 
 from ..classes import Anime, AnimeList, Character, NoneDict
 
@@ -14,6 +14,7 @@ class MySQL(BaseDB):
 	def __init__(self, settings) -> None:
 		super().__init__()
 		
+		self.settings = settings
 		if not {'host', 'user', 'password', 'database'} <= set(settings.keys()):
 			# Missing some keys
 			raise ValueError('Some keys are missing from configuration!')
@@ -60,18 +61,52 @@ class MySQL(BaseDB):
 				self.execute(line.strip())
 			# Should save from within the script
 
-	def execute(self, sql, *args):
+	def execute(self, sql, *args, loops=0):
 		""" Run the sql command directly
 		"""
 		pat = r'\?|:(\w+)'
 		replace = lambda match: f'%({match.group(1)})s' if match.group(1) else '%s'
 		formatted = re.sub(pat, replace, sql)
-		return super().execute(formatted, *args)
+		try:
+			out = super().execute(formatted, *args)
+		except mysql.connector.errors.DatabaseError as e:
+			if e.errno == 1205: # Lock wait timeout exceeded; try restarting transaction
+				if loops < 5:
+					return self.execute(sql, *args, loops=loops+1)
+				else:
+					if loops == 5:
+						self.db.reconnect()
+						return self.execute(sql, *args, loops=loops)
+					else:
+						raise
+			elif e.errno == 4031: # The client was disconnected by the server because of inactivity. See wait_timeout and interactive_timeout for configuring this behavior.
+				self.__init__(self.settings)
+				return self.execute(sql, *args, loops=loops)
+			elif e.errno == 1040: # Too many connections
+				# Wrong server configuration, I'm not rlly sure what's the best thing to do here
+				raise
+			elif e.errno == 2055: # Cursor is not connected
+				try:
+					self.cur = self.db.cursor()
+				except OperationalError:
+					self.__init__(self.settings)
+
+				return self.execute(sql, *args) # TODO - This *could* results in an endless loop
+			else:
+				raise
+		else:
+			return out
 
 	def executemany(self, sql, *args):
 		""" Run sql commands as a batch, should be faster than execute()
 		"""
-		return super().executemany(sql.replace('?', '%s'), *args)
+		pat = r'\?|:(\w+)'
+		replace = lambda match: f'%({match.group(1)})s' if match.group(1) else '%s'
+		formatted = re.sub(pat, replace, sql)
+		try:
+			return super().executemany(formatted, *args)
+		except mysql.connector.errors.DatabaseError as e:
+			raise
 
 	def save(self):
 		""" Save the current transaction
@@ -156,11 +191,10 @@ class MySQL(BaseDB):
 	def set(self, id, data, table):
 		""" Either insert or update, depending on if id exists. Id can be either a single value, a list of values or a dict of key, value pairs.
 		"""
+
+		# Kinda messy, I would rather not reimplement this method
 		raise NotImplementedError()
 
-		ids = next(self._iterate_ids(id))
-		sql = f"INSERT OR REPLACE INTO {table}({f_keys}) VALUES ({f_values})"
-		# TODO - This thing makes no sense
 
 	def insert(self, data, table):
 		""" Insert data in a table

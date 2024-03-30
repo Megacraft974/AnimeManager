@@ -19,7 +19,7 @@ def search(terms):
 
 	def wrapper(term, que):
 		command = f'python3 -m nova3.nova2 all anime "{term}"' # Don't ask why it's named like that, idk either
-		process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True, cwd=root)
+		process = subprocess.Popen(command.encode('utf-8'), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True, cwd=root)
 		while True:
 			if process.stdout is None:
 				break

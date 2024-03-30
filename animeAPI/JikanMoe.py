@@ -64,10 +64,15 @@ class JikanMoeWrapper(APIUtils):
 		if 'data' not in rep:
 			print(rep)
 
-		for anime in rep['data']:
-			anime = self._convertAnime(anime)
-			# anime['status'] = 'UPDATE'
-			yield anime
+		if rep.get('data', None):
+			for anime in rep['data']:
+				anime = self._convertAnime(anime)
+				# anime['status'] = 'UPDATE'
+				yield anime
+		else:
+			if rep.get('status', None) == 429:
+				# Spammed too much
+				return
 
 		top = self.get('/top/anime')
 		if top.get('status', None) == 429:

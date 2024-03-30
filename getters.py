@@ -29,26 +29,6 @@ if 'database_threads' not in globals().keys():
 
 class Getters:
 	def getDatabase(self=None, db_name=None):
-		if False: # Old stuff
-			if self is None:
-				self = type('EmptyObject', (), {})()
-			if threading.main_thread() == threading.current_thread() and hasattr(self, "database"):
-				return self.database # type: ignore
-			else:
-				for db_t in list(globals()['database_threads'].keys()):
-					if not db_t.is_alive():
-						del globals()['database_threads'][db_t]
-
-				t = threading.current_thread()
-				if t in globals()['database_threads'].keys():
-					return globals()['database_threads'][t]
-				else:
-					if not hasattr(self, 'dbPath'):
-						appdata = Constants.getAppdata()
-						self.dbPath = os.path.join(appdata, "animeData.db") # type: ignore
-					database = db(self.dbPath) # type: ignore
-					globals()['database_threads'][t] = database
-					return database
 		
 		if self is None or not hasattr(self, 'settings'):
 			self = Constants()

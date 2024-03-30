@@ -22,6 +22,7 @@ class BaseDB():
 		return self.get_lock()
 	
 	def get_lock(self):
+		
 		return self
 
 	def __exit__(self, *_):
@@ -29,7 +30,9 @@ class BaseDB():
 		"""
 		if not self.THREAD_SAFE:
 			self.lock.release()
-		return True
+		self.close()
+		
+		# return True
 
 	def createNewDb(self):
 		""" Create a new database
@@ -63,7 +66,16 @@ class BaseDB():
 				return out
 
 			else:
-				return self.cur.fetchall()
+				try:
+					return self.cur.fetchall()
+				except TypeError as e:
+					if e.args[0] == "'NoneType' object is not subscriptable":
+						# Sql request didn't return rows, ignore
+						pass
+					else:
+						raise
+				except Exception as e:
+					raise
 
 	def execute(self, sql, *args):
 		""" Run the sql command directly

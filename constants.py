@@ -170,7 +170,7 @@ class Constants:
 						except FileNotFoundError:
 							self.log('CONFIG', 'Settings file corrupted: path does not exists!')
 				setattr(self, var, value)
-				self.log('CONFIG', " ", var.ljust(30), '-', value)
+				#self.log('CONFIG', " ", var.ljust(30), '-', value)
 		if update:
 			with open(self.settingsPath, 'w') as f:
 				json.dump(self.settings, f, sort_keys=True, indent=4)

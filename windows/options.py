@@ -789,10 +789,20 @@ class Options:
 		if user_id is None:
 			# Local user is user 0, cuz why not
 			user_id = 0
+			
 		with self.database.get_lock():
-			self.database.set(
-				{"user_id": user_id, "anime_id": id, "tag": tag}, table="user_tags", get_output=False
-			)
+			sql = 'SELECT EXISTS(SELECT 1 FROM user_tags WHERE user_id = :user_id AND anime_id = :anime_id)'
+			exists = bool(self.database.sql(sql, {'user_id': user_id, 'anime_id': id})[0][0])
+			if exists:
+				sql = 'UPDATE user_tags SET tag=:tag WHERE user_id = :user_id AND anime_id = :anime_id'
+			else:
+				sql = 'INSERT INTO user_tags(user_id, anime_id, tag) VALUES (:user_id, :anime_id, :tag)'
+
+			self.database.sql(sql, {"user_id": user_id, "anime_id": id, "tag": tag}, save=True)
+			# self.database.set(
+			# 	{"user_id": user_id, "anime_id": id, "tag": tag}, table="user_tags", get_output=False
+			# )
+		pass
 
 	def set_like(self, id, liked, user_id=None):
 		if user_id is None:

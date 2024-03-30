@@ -23,7 +23,7 @@ try:
 	import requests
 	from PIL import Image, ImageTk
 	from pypresence import Presence
-	from thefuzz import fuzz
+	# from thefuzz import fuzz
 	if getattr(sys, 'frozen', None):
 		basedir = sys._MEIPASS # type: ignore
 		os.environ['REQUESTS_CA_BUNDLE'] = os.path.join(
@@ -55,7 +55,7 @@ except ModuleNotFoundError as e:
 		# os.execv(sys.executable, ['python'] + sys.argv) # Restart the app
 	time.sleep(20)
 
-	sys.exit()
+	# sys.exit()
 
 # globals()['auto_launch_initialized'] = True
 
@@ -182,7 +182,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		self.startup()
 
 	def startup(self):
-		if sys.platform == 'linux' and 'DISPLAY' not in os.environ:
+		if self.remote is False and sys.platform == 'linux' and 'DISPLAY' not in os.environ:
 			# Running headless
 			self.remote = True
 
