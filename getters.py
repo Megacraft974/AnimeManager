@@ -47,17 +47,6 @@ class Getters:
 		
 		return instance
 
-		# if not hasattr(self.fm, 'settings'):
-		# 	raise AttributeError('All database managers should have a "settings" attribute')
-		
-		# args = self.fm.settings
-		# self.setSettings({manager: args, 'last_fm_used': manager})
-		
-		# dataPath = args.get('dataPath', None)
-		# if dataPath is None:
-		# 	# Wrong config, maybe relog?
-		# 	raise ValueError()
-
 	def getFileManager(self, manager=None, update=False):
 		if manager is None:
 			manager = self.settings['file_managers']['last_fm_used']

@@ -1,4 +1,6 @@
+from collections import deque
 import os
+import queue
 import random
 import re
 import string
@@ -33,6 +35,9 @@ class APIUtils(Logger, Getters):
 			'upcoming': 'UPCOMING',
 			'Not yet aired': 'UPCOMING',
 			'NONE': 'UNKNOWN'}
+
+		# self.real_database = self.getDatabase()
+		# self.database = DummyDB(self.real_database)
 		self.database = self.getDatabase()
 
 	@property
@@ -107,7 +112,7 @@ class APIUtils(Logger, Getters):
 			if new:
 				self.database.executemany("INSERT INTO genresIndex({},name) VALUES(?,?);".format(self.apiKey), [(id, ids[id]) for id in new])
 			if update:
-				self.database.executemany("UPDATE genresIndex SET {}=? WHERE id=?;".format(self.apiKey), update)
+				self.database.executemany("UPDATE genresIndex SET {}=? WHERE id=?;".format(self.apiKey), list(update))
 			data = self.database.sql(sql, list(ids.keys()), to_dict=True)
 		return list(g['id'] for g in data)
 
@@ -196,6 +201,7 @@ class APIUtils(Logger, Getters):
 
 	def save_pictures(self, id, pictures):
 		# pictures must be a list of dicts, each containing three fields: 'url', 'size'
+		return # TODO - Put all that stuff in a queue and process everything at once
 		valid_sizes = ('small', 'medium', 'large', 'original')
 		with self.database.get_lock():
 			saved_pics = self.getAnimePictures(id)
@@ -204,9 +210,9 @@ class APIUtils(Logger, Getters):
 			pic_update = []
 			pic_insert = []
 
-			for pic in pictures:   
+			for pic in pictures:
 				pic['id'] = id
-    
+
 				if pic['size'] not in valid_sizes or pic['url'] is None:
 					# Ignore
 					continue
@@ -276,6 +282,24 @@ class EnhancedSession(requests.Session):
 		if "timeout" not in kwargs:
 			kwargs["timeout"] = self.timeout
 		return super().request(method, url, **kwargs)
+
+class DummyDB:
+	""" Fake db to cache requests. Will only run SELECT comands """
+	
+	def __init__(self, db) -> NoneType:
+		self.db = db
+		self.cache = deque()
+ 
+	def sql(self, sql, *args, **kwargs):
+		if sql.startswith('SELECT '):
+			return self.db.sql(sql, *args, **kwargs)
+		else:
+			self.cache.append((sql, args, kwargs))
+
+	def __getattr__(self, name):
+		if name in ('getId','get_lock',):
+			return self.db.__getattribute__(name)
+		# return super().__getattr__(name)
 
 class ApiTester():
 	def __init__(self, api_instance):

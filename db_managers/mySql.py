@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import mysql.connector
 from mysql.connector.errors import ProgrammingError, OperationalError
 
@@ -33,7 +34,7 @@ class MySQL(BaseDB):
 				raise Exception('Invalid database credentials')
 			elif e.errno == 1049:
 				# Database doesn't exist
-    
+
 				self.db = mysql.connector.connect(
 					host=settings['host'],
 					user=settings['user'],
@@ -41,72 +42,148 @@ class MySQL(BaseDB):
 					buffered=True
 				)
 
-				self.cur = self.db.cursor()
+				self.get_cursor()
 				self.createNewDb(settings['database'])
 			else:
 				raise
 
-		self.cur = self.db.cursor()
+		self.get_cursor()
+  
+		out = self.sql("SELECT table_name FROM information_schema.tables WHERE table_type='BASE TABLE' AND table_schema = 'anime_manager'")
+		if len(out) == 0:
+			self.createNewDb()
 
 	def createNewDb(self, database=None):
 		""" Create a new database
 		"""
+
 		if database is not None:
 			self.execute(f'CREATE DATABASE {database};')
 			self.execute(f'USE {database};')
 
 		cwd = os.path.dirname(os.path.abspath(__file__))
 		with open(os.path.join(cwd, 'db_model.sql')) as f:
-			for line in f.readlines():
-				self.execute(line.strip())
-			# Should save from within the script
+			try:
+				buf = ''
+				for line in f.readlines():
+					if line.strip(): # Not an empty line
+						buf += line
+					else:
+						self.execute(buf)
+						buf = ''
+					try:
+						self.cur.nextset()
+					except Exception as e:
+						pass
+				# Should save from within the script
+			except Exception as e:
+				raise
 
-	def execute(self, sql, *args, loops=0):
+	def handle_sql_error(func):
+		def wrapper(self, *args, loops=0, **kwargs):
+			try:
+				return func(self, *args, **kwargs)
+			except mysql.connector.errors.DatabaseError as e:
+				if e.errno == 1205: # Lock wait timeout exceeded; try restarting transaction
+					if loops < 5:
+						return wrapper(self, *args, loops=loops+1, **kwargs)
+					else:
+						if loops == 5:
+							self.db.reconnect()
+							return wrapper(self, *args, loops=loops, **kwargs)
+						else:
+							raise
+
+				elif e.errno == 4031: # The client was disconnected by the server because of inactivity. See wait_timeout and interactive_timeout for configuring this behavior.
+					self.__init__(self.settings)
+					return wrapper(self, *args, loops=loops, **kwargs)
+
+				elif e.errno == 1040: # Too many connections
+					# Wrong server configuration, I'm not rlly sure what's the best thing to do here
+					raise
+
+				elif e.errno == 2055 or e.msg == 'Cursor is not connected': # Cursor is not connected
+					try:
+						if self.cur is not None:
+							try:
+								self.cur.nextset()
+							except Exception as e:
+								pass
+							self.cur.close()
+						self.get_cursor()
+					except OperationalError:
+						self.__init__(self.settings)
+					
+					if loops < 5:
+						return wrapper(self, *args, loops=loops+1, **kwargs)
+					else:
+						raise
+
+				elif e.errno == 2014 or e.errno == 2013 or e.msg == 'Unread result found': # Commands out of sync / Lost connection to MySQL server during query
+					self.cur.close()
+					try:
+						self.get_cursor()
+					except OperationalError:
+						self.__init__(self.settings)
+					else:
+						raise
+
+					if loops < 5:
+						return wrapper(self, *args, loops=loops+1, **kwargs)
+					else:
+						raise
+				else:
+					raise
+			except AttributeError as e:
+				if e.args[0] == "'NoneType' object has no attribute 'get_warnings'":
+					# Stupid library
+					# Is most likely because the cursor disconnected
+					try:
+						if self.cur is not None:
+							try:
+								self.cur.nextset()
+							except Exception as e:
+								pass
+							self.cur.close()
+						self.get_cursor()
+					except OperationalError:
+						self.__init__(self.settings)
+					
+					if loops < 5:
+						return wrapper(self, *args, loops=loops+1, **kwargs)
+					else:
+						raise
+
+			except Exception as e:
+				print('Error')
+				time.sleep(100)
+				raise
+
+		return wrapper
+
+	def get_cursor(self):
+		self.cur = self.db.cursor(buffered=True)
+		return self.cur
+
+	@handle_sql_error
+	def execute(self, sql, *args):
 		""" Run the sql command directly
 		"""
 		pat = r'\?|:(\w+)'
 		replace = lambda match: f'%({match.group(1)})s' if match.group(1) else '%s'
 		formatted = re.sub(pat, replace, sql)
-		try:
-			out = super().execute(formatted, *args)
-		except mysql.connector.errors.DatabaseError as e:
-			if e.errno == 1205: # Lock wait timeout exceeded; try restarting transaction
-				if loops < 5:
-					return self.execute(sql, *args, loops=loops+1)
-				else:
-					if loops == 5:
-						self.db.reconnect()
-						return self.execute(sql, *args, loops=loops)
-					else:
-						raise
-			elif e.errno == 4031: # The client was disconnected by the server because of inactivity. See wait_timeout and interactive_timeout for configuring this behavior.
-				self.__init__(self.settings)
-				return self.execute(sql, *args, loops=loops)
-			elif e.errno == 1040: # Too many connections
-				# Wrong server configuration, I'm not rlly sure what's the best thing to do here
-				raise
-			elif e.errno == 2055: # Cursor is not connected
-				try:
-					self.cur = self.db.cursor()
-				except OperationalError:
-					self.__init__(self.settings)
+		
+		return super().execute(formatted, *args)
 
-				return self.execute(sql, *args) # TODO - This *could* results in an endless loop
-			else:
-				raise
-		else:
-			return out
-
+	@handle_sql_error
 	def executemany(self, sql, *args):
 		""" Run sql commands as a batch, should be faster than execute()
 		"""
 		pat = r'\?|:(\w+)'
 		replace = lambda match: f'%({match.group(1)})s' if match.group(1) else '%s'
 		formatted = re.sub(pat, replace, sql)
-		try:
-			return super().executemany(formatted, *args)
-		except mysql.connector.errors.DatabaseError as e:
-			raise
+  
+		return super().executemany(formatted, *args)
 
 	def save(self):
 		""" Save the current transaction
@@ -195,7 +272,6 @@ class MySQL(BaseDB):
 		# Kinda messy, I would rather not reimplement this method
 		raise NotImplementedError()
 
-
 	def insert(self, data, table):
 		""" Insert data in a table
 		"""
@@ -215,11 +291,18 @@ class MySQL(BaseDB):
 	def update(self, id, data, table):
 		""" Update data for the given id. Id can be either a single value, a list of values or a dict of key, value pairs.
 		"""
-		arg = ' AND '.join(map(lambda e: f'{e}=:{e}', id.keys()))
-		sets = ', '.join(map(lambda e: f'{e} = :{e}', data.keys()))
-		sql = "UPDATE " + table + f" SET {sets} WHERE {arg}"
 
-		self.cur.execute(sql, (data | id, ))
+		args = {}
+		for k, v in data.items():
+			if not isinstance(v, (list, tuple)):
+				args[k] = v
+    
+		sets = ', '.join(map(lambda e: f'{e} = %({e})s', args.keys()))
+		sql = "UPDATE " + table + f" SET {sets} WHERE id=%(id)s"
+
+		args['id'] = id
+
+		self.cur.execute(sql, args)
 
 	@BaseDB.id_wrapper # type: ignore
 	def remove(self, id, table):

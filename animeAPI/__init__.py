@@ -152,22 +152,35 @@ class AnimeAPI(Getters, Logger):
 		database = self.getDatabase()
 		if not data:
 			return
+
 		elif isinstance(data, Anime):
-			table = "anime"
-			if data.status == "UPDATE" and bool(database.sql("SELECT EXISTS(SELECT 1 FROM anime WHERE id=?);", (data.id,))[0][0]):
-				# Anime already have data, avoid overwriting
-				return
+			exists = bool(database.sql("SELECT EXISTS(SELECT 1 FROM anime WHERE id=?);", (data.id,))[0][0])
+			if exists:
+				if data.status == "UPDATE":
+					# Anime already have data, avoid overwriting
+					return
+				else:
+					# Update
+					database.update(data['id'], data, table="anime")
+			else:
+				# Insert
+				database.insert(data, table="anime")
+
+			# database.save()
+
 		elif isinstance(data, Character):
 			table = "characters"
+			raise NotImplementedError()
+
 		elif isinstance(data, ItemList):
 			data.add_callback(self.save)
 			return
 		else:
 			raise TypeError("{} is an invalid type!".format(str(type(data))))
 
-		with database.get_lock():
-			database.set(data, table=table, get_output=False)
-			database.save()
+		# with database.get_lock():
+		# 	database.set(data['id'], data, table=table)
+		# 	database.save()
 
 # TODO - Add more APIs:
 # nautiljon.com

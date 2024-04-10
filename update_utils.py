@@ -216,16 +216,18 @@ class UpdateUtils:
 		else:
 			self.log('DB_UPDATE', "No tags to update.")
 
-	def getSchedule(self, thread=False):
+	def getSchedule(self, thread=False, force=False):
 		if thread is True:
 			threading.Thread(target=self.getSchedule, daemon=True).start()
 			return
 		# timer = utils.Timer("schedule")
 
 		now = time.time()
-		if now - self.lastSchedule < 3600: # 1 hours / 60*60
+		if force is False and now - self.lastSchedule < 3600: # 1 hours / 60*60
 			# Too fast, don't spam it
 			return
+
+		self.lastSchedule = now
 
 		self.setSettings({'lastSchedule': int(now)})
 
@@ -254,5 +256,6 @@ class UpdateUtils:
 			for anime in queue:
 				database.set(anime, table="anime", get_output=False, save=False)
 			database.save()
+
 
 		self.log('SCHEDULE', f"Done: {round(time.time()-start, 3)} sec")

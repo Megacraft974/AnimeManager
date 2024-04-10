@@ -67,7 +67,7 @@ class BaseDB():
 
 			else:
 				try:
-					return self.cur.fetchall()
+					data = self.cur.fetchall()
 				except TypeError as e:
 					if e.args[0] == "'NoneType' object is not subscriptable":
 						# Sql request didn't return rows, ignore
@@ -76,6 +76,9 @@ class BaseDB():
 						raise
 				except Exception as e:
 					raise
+				else:
+					return data
+
 
 	def execute(self, sql, *args):
 		""" Run the sql command directly

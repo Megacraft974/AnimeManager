@@ -70,6 +70,7 @@ class KitsuIoWrapper(APIUtils):
 			)
 			trending = self.s.iterate('trending/anime', modifier)
 
+
 			for a in trending:
 				yield a
 
@@ -91,7 +92,7 @@ class KitsuIoWrapper(APIUtils):
 					pass
 				else:
 					raise
-			
+
 			try:
 				u_anime = next(upcoming, None)
 			except exceptions.DocumentError as e:
@@ -133,7 +134,12 @@ class KitsuIoWrapper(APIUtils):
 		schedule = getSchedule()
 
 		for c, a in enumerate(schedule):
-			data = self._convertAnime(a)
+			try:
+				data = self._convertAnime(a)
+			except Exception as e:
+				print(f'An error occured: {e}')
+				continue
+
 			if data is None:
 				continue
 

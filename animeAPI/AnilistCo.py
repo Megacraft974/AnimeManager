@@ -286,7 +286,7 @@ class AnilistCoWrapper(APIUtils):
 		count = 0
 		for a in self.iterate(query, variables):
 			data = self._convertAnime(a)
-			if len(data) != 0:
+			if data and len(data) != 0:
 				yield data
 				count += 1
 				if count >= limit:
@@ -464,13 +464,15 @@ class AnilistCoWrapper(APIUtils):
 			if page is not None:
 				for m in page.get('media', []):
 					yield m
+     
+				pageInfo = page.get('pageInfo', {})
+				if not pageInfo.get('hasNextPage'):
+					return
+				page = pageInfo.get('currentPage', page) + 1
+
 			else:
 				pass
 			
-			pageInfo = page.get('pageInfo', {})
-			if not pageInfo.get('hasNextPage'):
-				return
-			page = pageInfo.get('currentPage', page) + 1
 			
 
 if __name__ == '__main__':

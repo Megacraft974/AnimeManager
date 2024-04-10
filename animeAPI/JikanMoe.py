@@ -64,11 +64,16 @@ class JikanMoeWrapper(APIUtils):
 		if 'data' not in rep:
 			print(rep)
 
+		# Reload database since this might run in a different thread as a generator
+		self.getDatabase()
+
 		if rep.get('data', None):
 			for anime in rep['data']:
 				anime = self._convertAnime(anime)
 				# anime['status'] = 'UPDATE'
 				yield anime
+
+
 		else:
 			if rep.get('status', None) == 429:
 				# Spammed too much

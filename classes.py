@@ -334,13 +334,14 @@ class ItemList():
 
 	def addSource(self, source):
 		if source == self:
-			return
+			return # TF?
 		# Add a tuple like (data_queue, data_threads)
 		if isinstance(source, tuple) and isinstance(source[0], queue.Queue):
 			t = threading.Thread(target=self.queueListener,
 								 args=source, daemon=True)
 			t.start()
 			self.sourceThreads.append(t)
+
 		else:
 			self.sources.append(source)
 			t = threading.Thread(target=self.sourceListener,
