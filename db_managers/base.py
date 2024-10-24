@@ -79,7 +79,6 @@ class BaseDB():
 				else:
 					return data
 
-
 	def execute(self, sql, *args):
 		""" Run the sql command directly
 		"""

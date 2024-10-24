@@ -15,6 +15,7 @@ from .APIUtils import APIUtils, Anime, Character
 
 class MyAnimeListNetWrapper(APIUtils):
 	def __init__(self, tokenPath='token.json'):
+		raise NotImplementedError
 		super().__init__()
 		self.CLIENT_ID = '12811732694cf9a5ce1eff0694af5dc8'
 		self.CLIENT_SECRET = 'fbf4c615abc334263ac2a3c92386586bafa067619be7a4f3fb7c2f6824f2bf03'

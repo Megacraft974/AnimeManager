@@ -527,6 +527,8 @@ class Getters:
 			im = im.resize((225, 310))
 			return im, can
 
+		no_internet = False
+
 		def get_processes_data():
 			if len(processes) == 0:
 				return
@@ -585,10 +587,8 @@ class Getters:
 							imQueue.put(usePlaceholder(can))
 
 		self.log("THREAD", "Started image thread")
-		no_internet = False
 		args = que.get()
 		processes = []
-		c = 0
 		while args != "STOP":
 			if args:
 				filename, url, can = args

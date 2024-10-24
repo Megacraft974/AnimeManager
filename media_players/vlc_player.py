@@ -8,7 +8,7 @@ try:
     # TODO - Find it another way
     sys.path.append('C:\\Program Files (x86)\\VideoLAN\\VLC')
     
-    os.environ['PATH'] += 'C:\\Program Files (x86)\\VideoLAN\\VLC' + os.sep + os.environ['PATH']
+    os.environ['PATH'] += 'C:\\Program Files (x86)\\VideoLAN\\VLC' + os.sep + os.environ['PATH'] # TF??
     # is64bit = sys.maxsize > 2**32
     import vlc
 except FileNotFoundError as e:

@@ -201,7 +201,8 @@ class APIUtils(Logger, Getters):
 
 	def save_pictures(self, id, pictures):
 		# pictures must be a list of dicts, each containing three fields: 'url', 'size'
-		return # TODO - Put all that stuff in a queue and process everything at once
+		
+		# TODO - Put all that stuff in a queue and process everything at once
 		valid_sizes = ('small', 'medium', 'large', 'original')
 		with self.database.get_lock():
 			saved_pics = self.getAnimePictures(id)

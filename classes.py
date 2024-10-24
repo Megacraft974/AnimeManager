@@ -397,8 +397,11 @@ class ItemList():
 		self.sourceThreads = new_sources
 
 	def empty(self):
+		if len(self.sources) != 0 or len(self.list) != 0:
+			return False
+
 		self._filter_sources()
-		return len(self.sources) == 0 and len(self.list) == 0 and len(self.sourceThreads) == 0
+		return len(self.sourceThreads) == 0
 
 	def is_ready(self):
 		return len(self.list) > 0 or len(self.sources) == 0
@@ -417,7 +420,10 @@ class ItemList():
 				return
 			if not self.empty():
 				index = -1  # In case self.__iter__() returns nothing
-				for index, elem in enumerate(self.__iter__()):
+				while self.is_ready():
+					elem = self.get(timeout=None)
+					index += 1
+
 					try:
 						out = func(idx + index, elem)
 					except Exception as e:

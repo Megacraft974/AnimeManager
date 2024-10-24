@@ -492,7 +492,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				commonFilter += " \nAND (rating NOT IN('R+','Rx') OR rating IS null)"
 
 			if criteria == 'LIKED':
-				filter = "like = 1" + commonFilter
+				filter = "liked = 1" + commonFilter
 
 			elif criteria == 'NONE':
 				filter = "tag IS null OR tag = 'NONE'" + commonFilter
