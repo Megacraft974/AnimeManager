@@ -291,7 +291,6 @@ class AnilistCoWrapper(APIUtils):
 				count += 1
 				if count >= limit:
 					return
-			
 
 	def _convertAnime(self, a):
 		if a is None:
@@ -472,12 +471,3 @@ class AnilistCoWrapper(APIUtils):
 
 			else:
 				pass
-			
-			
-
-if __name__ == '__main__':
-
-	from APIUtils import ApiTester
-	t = ApiTester(AnilistCoWrapper)
-
-	t.test_search(['dungeon'])

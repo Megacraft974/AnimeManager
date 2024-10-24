@@ -13,14 +13,6 @@ from .classes import Anime
 
 class UpdateUtils:
 	def updateAll(self, schedule=True):
-		# self.updateCache()
-		# self.updateDirs()
-		# self.updateTag()
-		# self.updateStatus()
-		# self.regroupFiles()
-		# if schedule:
-		#     self.getSchedule()
-
 		update_iter = self.updateAllProgression(schedule)
 		next(update_iter)
 		for t, txt in update_iter:
@@ -253,8 +245,16 @@ class UpdateUtils:
 
 		database = self.getDatabase()
 		with database.get_lock():
-			for anime in queue:
-				database.set(anime, table="anime", get_output=False, save=False)
+			ids = {a.id: a for a in queue}
+			found = database.sql(f"SELECT id FROM anime WHERE id IN ({','.join('?'*len(ids))})", list(ids.keys()))
+
+			for id, in found:
+				database.update(id, ids[id], table="anime")
+				del ids[id]
+
+			for id, a in ids.items():
+				database.insert(a, table="anime")
+
 			database.save()
 
 

@@ -166,7 +166,7 @@ class JikanMoeWrapper(APIUtils):
 			out['date_from'] = None
 			out['date_to'] = None
 
-		out['picture'] = a['images']['jpg']['image_url']
+		out['picture'] = a['images']['jpg'].get('large_image_url', None) or a['images']['jpg']['image_url']
 
 		pictures = []
 
@@ -301,9 +301,3 @@ class JikanMoeWrapper(APIUtils):
 		if time.time() - self.last < self.cooldown:
 			time.sleep(max(self.cooldown - (time.time() - self.last), 0))
 		self.last = time.time()
-
-
-if __name__ == "__main__":
-	api = JikanMoeWrapper()
-	out = api.anime(2)
-	pass

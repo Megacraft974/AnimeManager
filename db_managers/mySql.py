@@ -85,10 +85,11 @@ class MySQL(BaseDB):
 				return func(self, *args, **kwargs)
 			except mysql.connector.errors.DatabaseError as e:
 				if e.errno == 1205: # Lock wait timeout exceeded; try restarting transaction
-					if loops < 5:
+					max_loops = 1
+					if loops < max_loops:
 						return wrapper(self, *args, loops=loops+1, **kwargs)
 					else:
-						if loops == 5:
+						if loops == max_loops:
 							self.db.reconnect()
 							return wrapper(self, *args, loops=loops, **kwargs)
 						else:
@@ -132,10 +133,14 @@ class MySQL(BaseDB):
 						return wrapper(self, *args, loops=loops+1, **kwargs)
 					else:
 						raise
+
+				elif e.errno == 2006: # MySQL server has gone away WTF??
+					raise
+  
 				else:
 					raise
 			except AttributeError as e:
-				if e.args[0] == "'NoneType' object has no attribute 'get_warnings'":
+				if e.args[0] == "'NoneType' object has no attribute 'get_warnings'" or e.args[0] == "'NoneType' object has no attribute 'get_rows'":
 					# Stupid library
 					# Is most likely because the cursor disconnected
 					try:
@@ -153,6 +158,8 @@ class MySQL(BaseDB):
 						return wrapper(self, *args, loops=loops+1, **kwargs)
 					else:
 						raise
+				else:
+					raise
 
 			except Exception as e:
 				print('Error')
@@ -296,13 +303,13 @@ class MySQL(BaseDB):
 		for k, v in data.items():
 			if not isinstance(v, (list, tuple)):
 				args[k] = v
-    
+	
 		sets = ', '.join(map(lambda e: f'{e} = %({e})s', args.keys()))
 		sql = "UPDATE " + table + f" SET {sets} WHERE id=%(id)s"
 
 		args['id'] = id
 
-		self.cur.execute(sql, args)
+		self.execute(sql, args)
 
 	@BaseDB.id_wrapper # type: ignore
 	def remove(self, id, table):
@@ -313,6 +320,9 @@ class MySQL(BaseDB):
   
 		if not isinstance(table, (list, tuple)):
 			table = [table]
+   
+		if isinstance(id, int):
+			id = {'id': id}
 
 		arg = ' AND '.join(map(lambda e: f'{e}=:{e}', id.keys()))
 

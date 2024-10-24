@@ -2,6 +2,7 @@ import sys
 import threading
 import time
 import os
+from types import FunctionType
 
 from datetime import date, datetime
 
@@ -70,7 +71,8 @@ class Logger:
 				print(f'Error while clearing logs: Permission error for path {path}')
 				logsList.pop(0)
 			else:
-				print(f'Removed log file, path: {path}')
+				# print(f'Removed log file, path: {path}')
+				pass
 
 			logsList = os.listdir(self.logsPath)
 			size = sum(os.path.getsize(os.path.join(self.logsPath, f))
@@ -94,7 +96,7 @@ class Logger:
 			# Don't log
 			console_log = False
 
-		if (isinstance(text[0], str) and text[0].isupper()) or (hasattr(self, 'allLogs') and text[0] in self.allLogs): # type: ignore
+		if (isinstance(text[0], str) and text[0].isupper()) or (hasattr(self, 'allLogs') and (isinstance(self.allLogs, FunctionType) or text[0] in self.allLogs)): # type: ignore
 			category, text = text[0], text[1:]
 			toLog = "[{}]".format(category.center(13)) + " - "
 			toLog += " ".join([str(t) for t in text])

@@ -254,6 +254,7 @@ class db_instance():
 				raise
 
 	def set(self, data, table, save=True):
+		raise NotImplementedError # This function is too much of a mess, just use a different method
 		if len(data) == 0:
 			return
 		keys = []

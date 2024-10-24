@@ -22,7 +22,7 @@ class AnimeAPI(Getters, Logger):
 		self.init_thread.start()
 
 	def __getattr__(self, name):
-		if name in ('dbPath','settings',):
+		if name in ('dbPath','settings'):
 			return super().__getattr__(name)
 
 		def f(*args, **kwargs):
@@ -55,6 +55,7 @@ class AnimeAPI(Getters, Logger):
 						name, traceback.format_exc()))
 				else:
 					self.apis.append(f)
+
 		if len(self.apis) == 0:
 			self.log("ANIME_SEARCH", "No apis found!")
 		else:
@@ -185,17 +186,3 @@ class AnimeAPI(Getters, Logger):
 # TODO - Add more APIs:
 # nautiljon.com
 # anisearch.com
-
-
-if __name__ == "__main__":
-	api = AnimeAPI('all')
-	# s = api.searchAnime("boku")
-	s = api.schedule()
-	c = 0
-	while not s.empty():
-		for e in s:
-			log(c, e['title'])
-			c += 1
-	log(f'Returned {c} animes')
-	# for k, v in api.anime(10).items():
-	#     log(k, v)

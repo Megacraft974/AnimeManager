@@ -161,7 +161,7 @@ class BaseDB():
 			for i in id:
 				yield {'id': i}
 		elif isinstance(id, dict):
-			return id
+			yield id
 		else:
 			yield {'id': id}
 

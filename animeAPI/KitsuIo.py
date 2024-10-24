@@ -154,6 +154,7 @@ class KitsuIoWrapper(APIUtils):
 					  "mediaRelationships.destination")
 			# Modifier("sort=-endDate") doesn't work for some reasons
 		)
+
 		c = 1
 		for a in self.s.iterate('anime', modifier):
 			data = self._convertAnime(a)
@@ -190,8 +191,11 @@ class KitsuIoWrapper(APIUtils):
 		else:
 			data['title'] = a.canonicalTitle
 		try:
-			data['picture'] = a.posterImage.small
-		except Exception:
+			if hasattr(a.posterImage, 'large'):
+				data['picture'] = a.posterImage.large
+			else:
+				data['picture'] = a.posterImage.original
+		except Exception as e:
 			pass
 
 		pictures = []
@@ -320,9 +324,3 @@ class KitsuIoWrapper(APIUtils):
 			self.save_animeography(id, anime_data)
 
 		return out
-
-
-if __name__ == "__main__":
-	from APIUtils import ApiTester
-
-	ApiTester(KitsuIoWrapper)

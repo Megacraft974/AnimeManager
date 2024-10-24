@@ -184,6 +184,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 	def startup(self):
 		if self.remote is False and sys.platform == 'linux' and 'DISPLAY' not in os.environ:
 			# Running headless
+			# This is probably not the expected behavior, but we can't draw windows without a display
 			self.remote = True
 
 		self.getFileManager()
@@ -298,7 +299,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			match = SortedList(keys=[(lambda e: e[1], True)])
 			partial = []
 			for data in self.database.sql(sql):
-				ratio = fuzz.WRatio(terms, data[0])
+				ratio = fuzz.WRatio(terms, data[0]) # type: ignore
 				if ratio >= match_threshold:
 					match.append((data[1:], ratio))
 				elif ratio >= partial_threshold:
@@ -889,10 +890,10 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			threading.Thread(target=self.checkServer, daemon=True).start()
 			return
 		if self.enableServer:
-			self.server = mobile_server.startServer(
+			self.server = mobile_server.startServer( # type: ignore
 				self.hostName, self.serverPort, self)
 		elif self.server is not None:
-			mobile_server.stopServer(self.server, self)
+			mobile_server.stopServer(self.server, self) # type: ignore
 			self.server = None
 
 # if __name__ == '__main__':

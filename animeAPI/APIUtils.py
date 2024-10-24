@@ -36,8 +36,7 @@ class APIUtils(Logger, Getters):
 			'Not yet aired': 'UPCOMING',
 			'NONE': 'UNKNOWN'}
 
-		# self.real_database = self.getDatabase()
-		# self.database = DummyDB(self.real_database)
+		# self.database = DummyDB(self.getDatabase())
 		self.database = self.getDatabase()
 
 	@property
@@ -84,6 +83,7 @@ class APIUtils(Logger, Getters):
 		# 'id' is optional, and it can be None
 		if len(genres) == 0:
 			return []
+
 		try:
 			ids = {}
 			for g in genres:
@@ -94,8 +94,10 @@ class APIUtils(Logger, Getters):
 
 		sql = ("SELECT * FROM genresIndex WHERE name IN(" +
 			   ",".join("?" * len(ids)) + ")")
+
 		with self.database.get_lock():
 			data = self.database.sql(sql, list(ids.values()), to_dict=True)
+
 		new = set()
 		update = set()
 		for g_id, g_name in ids.items():
@@ -186,17 +188,15 @@ class APIUtils(Logger, Getters):
 				if associated[1] != org_id:
 					if associated[0] is not None and associated[1] is None:
 						# Remove old key if it exists
-						self.database.remove(None, id=associated[0],
-											 get_output=False)
+						self.database.remove(associated[0], ['indexList', 'anime'])
 
 					# Merge both keys
 					self.database.sql( # TODO - Check if other keys have already been matched
 						f"UPDATE indexList SET {api_key} = ? WHERE {self.apiKey}=?",
-						(api_ip, org_id),
-						get_output=False
+						(api_ip, org_id)
 					)
 
-			self.database.save(get_output=False)
+			self.database.save()
 		return
 
 	def save_pictures(self, id, pictures):
@@ -235,20 +235,21 @@ class APIUtils(Logger, Getters):
 			self.database.save()
 
 	def save_broadcast(self, id, w, h, m):
+		return # TODO - Just put everythin in a queue
 		with self.database.get_lock():
 			sql = "SELECT weekday, hour, minute FROM broadcasts WHERE id=?"
 			data = self.database.sql(sql, (id,))
 			if len(data) == 0:
 				# Entry does not exists, inserting
 				sql = "INSERT INTO broadcasts(id, weekday, hour, minute) VALUES (?, ?, ?, ?)"
-				self.database.sql(sql, (id, w, h, m))
+				self.database.execute(sql, (id, w, h, m))
 				return
 
 			data = data[0]
 			if any((a != b for a, b in zip((w, h, m), data))):
 				# Values are different - Updating
-				sql = "UPDATE broadcasts SET weekday=?, hour=?, minute=? WHERE id=?"
-				self.database.sql(sql, (w, h, m, id))
+				sql = "UPDATE broadcasts SET weekday=?, hour=?, minute=? WHERE id=?;"
+				# TODO - Lock issue: self.database.execute(sql, (w, int(h), int(m), id))
 
 	# Character metadata
 
@@ -263,11 +264,11 @@ class APIUtils(Logger, Getters):
 				if exists:
 					# The relation already existed
 					sql = "UPDATE characterRelations SET role = ? WHERE id = ? AND anime_id = ?;"
-					self.database.sql(sql, (role, character_id, anime_id), get_output=False)
+					self.database.sql(sql, (role, character_id, anime_id))
 				else:
 					# Create new relation
 					sql = "INSERT INTO characterRelations(id, anime_id, role) VALUES(?, ?, ?);"
-					self.database.sql(sql, (character_id, anime_id, role), get_output=False)
+					self.database.sql(sql, (character_id, anime_id, role))
 
 			self.database.save()
 
@@ -300,82 +301,3 @@ class DummyDB:
 		if name in ('getId','get_lock',):
 			return self.db.__getattribute__(name)
 		# return super().__getattr__(name)
-
-class ApiTester():
-	def __init__(self, api_instance):
-	
-		appdata = Constants.getAppdata()
-		self.DELAY = 5
-
-		self.api = api_instance()
-
-	def test_all(self):
-		self.test_anime()
-		self.test_search()
-
-	def check_anime(self, anime):
-		assert isinstance(anime, (NoneType, Anime)), 'Not an instance of Anime!'
-		if anime is None:
-			return
-		print(anime.id, anime.title)
-	
-	def check_endpoint(self, endpoint):
-		if not hasattr(self.api, endpoint):
-			print(f'API does not implement {endpoint}() endpoint!')
-			return False
-		return True
-
-	def test_anime(self):
-		if not self.check_endpoint('anime'):
-			return
-
-		print('-- Fetch anime by id --')
-
-		db = self.api.database
-		with db.get_lock():
-			sql = f'SELECT id FROM indexList WHERE {self.api.apiKey} IS NOT null'
-			ids = db.sql(sql)
-		
-		ids = [row[0] for row in ids]
-
-		animeIds = random.choices(ids, k=10)
-
-		while animeIds:
-			a_id = animeIds.pop(0)
-			try:
-				anime = self.api.anime(a_id)
-				self.check_anime(anime)
-			except NoIdFound:
-				animeIds.append(ids.pop(0))
-			except Exception as e:
-				print(f'Error on id {a_id}: {e}')
-				raise
-			else:
-				time.sleep(self.DELAY)
-
-	def test_search(self, terms=None):
-		if not self.check_endpoint('searchAnime'):
-			return
-
-		print('-- Fetch anime by title (search) --')
-
-		if terms is None:
-			searchTerms = [''.join(random.choices(string.printable, k=random.randint(3, 20))) for i in range(10)]
-		else:
-			searchTerms = terms
-
-		for terms in searchTerms:
-			print(f'Search terms: {terms}')
-			try:
-				counter = 0
-				for anime in self.api.searchAnime(terms):
-					self.check_anime(anime)
-					counter += 1
-					if counter > 50:
-						break
-			except Exception as e:
-				print(f'Error on terms {terms}: {e}')
-			else:
-				time.sleep(self.DELAY)
-				if counter == 0:
-					print(f'No anime returned by searchAnime() for terms: {terms}')
