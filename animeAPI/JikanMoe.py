@@ -160,6 +160,8 @@ class JikanMoeWrapper(APIUtils):
 					out['date_' + i] = int(
 						(datetime(**v)-epoch).total_seconds()
 					)
+					if out['date_' + i] < 0: # Before 1970??
+						out['date_' + i] = None
 				else:
 					out['date_' + i] = None
 		else:

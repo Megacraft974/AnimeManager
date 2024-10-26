@@ -4,6 +4,7 @@ import os
 import queue
 import re
 import subprocess
+import sys
 import threading
 
 
@@ -18,15 +19,16 @@ def search(terms):
  
 
 	def wrapper(term, que):
-		command = f'python3 -m nova3.nova2 all anime "{term}"' # Don't ask why it's named like that, idk either
-		process = subprocess.Popen(command.encode('utf-8'), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True, cwd=root)
+		# command = f'python3 -m nova3.nova2 all anime "{term}"' # For linux only?
+		exec_name = 'python3' if sys.platform == 'linux' else 'python'
+		command = f'{exec_name} -m nova3.nova2 all anime "{term}"' # Don't ask why it's named like that, idk either
+		process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True, cwd=root)
 		while True:
 			if process.stdout is None:
 				break
 
 			output = process.stdout.readline()
 			if output == b'' and process.poll() is not None:
-				que.put('STOP')
 				break
 			if output:
 				data = output.decode(encoding='utf-8', errors='ignore').strip()
@@ -37,6 +39,8 @@ def search(terms):
 						# yield out
 						if re.match(mag_reg, out['link']):
 							que.put(out)
+		
+		que.put('STOP')
 	
 	que = queue.Queue()
 	threads = []

@@ -6,7 +6,7 @@ import re
 import string
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from types import NoneType
 
 import requests
@@ -49,7 +49,7 @@ class APIUtils(Logger, Getters):
 		else:
 			if not isinstance(data['date_from'], int):
 				status = 'UPDATE'
-			elif datetime.utcfromtimestamp(data['date_from']) > datetime.now():
+			elif datetime.fromtimestamp(data['date_from'], timezone.utc) > datetime.now(timezone.utc):
 				status = 'UPCOMING'
 			else:
 				if data['date_to'] is None:
@@ -58,7 +58,7 @@ class APIUtils(Logger, Getters):
 					else:
 						status = 'AIRING'
 				else:
-					if datetime.utcfromtimestamp(data['date_to']) > datetime.now():
+					if datetime.fromtimestamp(data['date_from'], timezone.utc) > datetime.now(timezone.utc):
 						status = 'AIRING'
 					else:
 						status = 'FINISHED'
@@ -138,7 +138,7 @@ class APIUtils(Logger, Getters):
 			return
 		
 		# Disabled cuz it's very dirty and getId doesn't return meta anymore
-		return 
+		# return  -> or maybe not
 		with self.database.get_lock():
 			db_rels = self.get_relations(id)
 			for rel in rels:
@@ -159,11 +159,13 @@ class APIUtils(Logger, Getters):
 					if not exists:
 						sql = "INSERT INTO animeRelations (" + ", ".join(
 							rel.keys()) + ") VALUES (" + ", ".join("?" * len(rel)) + ");"
-						self.database.sql(sql, rel.values(), get_output=False)
+						self.database.sql(sql, *list(rel.values()), get_output=False)
+
 					if not meta['exists']:
 						anime["id"] = rel["rel_id"]
 						anime["status"] = "UPDATE"
-						self.database.set(anime, table="anime", get_output=False)
+						self.database.update(anime['id'], anime, table="anime")
+						# self.database.set(anime, table="anime", get_output=False)
 			self.database.save(get_output=False)
 
 	def save_mapped(self, org_id, mapped):
@@ -236,7 +238,7 @@ class APIUtils(Logger, Getters):
 			self.database.save()
 
 	def save_broadcast(self, id, w, h, m):
-		return # TODO - Just put everythin in a queue
+		# return # TODO - Just put everythin in a queue
 		with self.database.get_lock():
 			sql = "SELECT weekday, hour, minute FROM broadcasts WHERE id=?"
 			data = self.database.sql(sql, (id,))
@@ -250,7 +252,8 @@ class APIUtils(Logger, Getters):
 			if any((a != b for a, b in zip((w, h, m), data))):
 				# Values are different - Updating
 				sql = "UPDATE broadcasts SET weekday=?, hour=?, minute=? WHERE id=?;"
-				# TODO - Lock issue: self.database.execute(sql, (w, int(h), int(m), id))
+				# TODO - Lock issue: 
+				self.database.execute(sql, (w, int(h), int(m), id))
 
 	# Character metadata
 
