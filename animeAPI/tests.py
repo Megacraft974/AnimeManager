@@ -35,7 +35,6 @@ class ApiTester():
 		if anime is None:
 			return
 		assert anime.id is not None, 'Anime id is None!'
-		# print(anime.id, anime.title)
 
 	def check_endpoint(self, endpoint):
 		if not hasattr(self.api, endpoint):
@@ -48,8 +47,6 @@ class ApiTester():
 			return
 
 		search_size = 1
-
-		# print('\n-- Fetch anime by id --')
 
 		db = self.api.database
 		with db.get_lock():

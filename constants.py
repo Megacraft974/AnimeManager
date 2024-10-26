@@ -190,4 +190,3 @@ class Constants:
 			return super().log(*args, **kwargs)
 		else:
 			pass
-			# print('[No logger found]', *args, **kwargs)

@@ -8,7 +8,6 @@ class Logs():
         # Functions
         if True:
             def addLog(text):
-                print("------------------" + text, flush=True)
                 panel = self.logsWindow.panel
                 row = self.logsWindow.row
                 bg = 'Gray2' if row % 2 == 1 else "Gray3"

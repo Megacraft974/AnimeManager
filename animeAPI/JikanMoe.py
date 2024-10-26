@@ -61,9 +61,6 @@ class JikanMoeWrapper(APIUtils):
 			# Spammed too much
 			return
 
-		if 'data' not in rep:
-			print(rep)
-
 		# Reload database since this might run in a different thread as a generator
 		self.getDatabase()
 

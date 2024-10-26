@@ -1191,8 +1191,6 @@ class LoginDialog(Dialog):
         if self.headless:
             # Running headless
             self.results = {}
-            
-            print(title)
 
             for i, (field, value) in enumerate(self.fields.items()):
                 text = f'{field}'

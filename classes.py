@@ -428,7 +428,7 @@ class ItemList():
 					try:
 						out = func(idx + index, elem)
 					except Exception as e:
-						print(f'Error on Itemlist.map: {e}')
+						print(f'Error on Itemlist.map: {e}') # TODO - Use logger
 					else:
 						if out is False:
 							if cb is not None:

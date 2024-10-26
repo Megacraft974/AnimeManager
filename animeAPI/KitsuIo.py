@@ -154,7 +154,7 @@ class KitsuIoWrapper(APIUtils):
 			try:
 				data = self._convertAnime(a)
 			except Exception as e:
-				print(f'An error occured: {e}')
+				self.log(f'An error occured: {e}')
 				traceback.print_exc()
 				# continue
 				raise # Remove for production

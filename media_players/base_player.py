@@ -353,8 +353,6 @@ class BasePlayer:
 			if ret == 0:
 				# TODO - Will this break something or not?
 				sys.exit(1)
-			print(child_id.value)
-			print(root_x, root_y)
 			pass
 
 	def hideCursor(self):

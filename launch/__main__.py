@@ -2,7 +2,7 @@ import multiprocessing
 import sys, os
 sys.path.append(os.path.abspath('../'))
 
-test = False
+test = True
 if __name__ == "__main__":
 	if test is False:
 		import AnimeManager

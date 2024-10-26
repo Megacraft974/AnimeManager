@@ -30,7 +30,7 @@ class Transmission(BaseTorrentManager):
 			self.login_dialog()
 		else:
 			self.client.set_session(incomplete_dir_enabled=False)
-			print('Succesfully connected to Transmission torrent client!')
+			self.log('NETWORK', 'Succesfully connected to Transmission torrent client!')
  
 	def login_dialog(self):
 		fields = {}

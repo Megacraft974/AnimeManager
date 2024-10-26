@@ -166,11 +166,6 @@ class MySQL(BaseDB):
 				else:
 					raise
 
-			except Exception as e:
-				print('Error')
-				time.sleep(100)
-				raise
-
 		return wrapper
 
 	def get_cursor(self):

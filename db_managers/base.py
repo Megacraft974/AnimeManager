@@ -42,7 +42,7 @@ class BaseDB():
 	def close(self):
 		""" Close the connection to the database
 		"""
-		if self.cur._rows is not None:
+		if self.cur is not None and self.cur._rows is not None:
 			left = self.cur.fetchall()
 		self.cur.close()
 
