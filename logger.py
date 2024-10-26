@@ -17,7 +17,7 @@ class Logger:
 			self.log = globals()["logger_instance"].log
 			return
 		else:
-			print("Creating new logger", flush=True)
+			# print("Creating new logger", flush=True)
 
 			globals()["logger_instance"] = self
 
@@ -41,7 +41,7 @@ class Logger:
 		self.initLogs()
 
 	def initLogs(self):
-		print('Init logs')
+		# print('Init logs')
 		if not hasattr(self, "log_mode"):
 			self.log_mode = "DEFAULT"
 
@@ -52,6 +52,16 @@ class Logger:
 		if not os.path.exists(self.logsPath):
 			os.makedirs(self.logsPath)
 
+		# Create new log file
+		self.logFile = os.path.normpath(
+			os.path.join(
+				self.logsPath, "log_{}.txt".format(
+					datetime.today().strftime("%Y-%m-%dT%H.%M.%S"))))
+		globals()['log_file'] = self.logFile
+		with open(self.logFile, "w") as f:
+			f.write("_" * 10 + date.today().strftime("%d/%m/%y") + "_" * 10 + "\n")
+
+		# Clear logs if size is too big
 		logsList = os.listdir(self.logsPath)
 		if len(logsList) == 0:
 			size = 0
@@ -60,33 +70,17 @@ class Logger:
 					for f in logsList)
 
 		while size >= self.maxLogsSize and len(logsList) > 1:
-			# print('LOOP', size, self.maxLogsSize, logsList)
 			path = os.path.join(self.logsPath, logsList[0])
 			try:
 				os.remove(path)
 			except FileNotFoundError:
-				print(f'Error while clearing logs: File not found for path {path}')
-				logsList.pop(0)
+				self.log(f'Error while clearing logs: File not found for path {path}')
 			except PermissionError:
-				print(f'Error while clearing logs: Permission error for path {path}')
-				logsList.pop(0)
-			else:
-				# print(f'Removed log file, path: {path}')
-				pass
+				self.log(f'Error while clearing logs: Permission error for path {path}')
 
 			logsList = os.listdir(self.logsPath)
 			size = sum(os.path.getsize(os.path.join(self.logsPath, f))
 						for f in logsList)
-
-		print('Loop done')
-
-		self.logFile = os.path.normpath(
-			os.path.join(
-				self.logsPath, "log_{}.txt".format(
-					datetime.today().strftime("%Y-%m-%dT%H.%M.%S"))))
-		globals()['log_file'] = self.logFile
-		with open(self.logFile, "w") as f:
-			f.write("_" * 10 + date.today().strftime("%d/%m/%y") + "_" * 10 + "\n")
 
 	def log(self, *text, log_mode=None, end="\n"):
 		log_mode = log_mode or self.log_mode

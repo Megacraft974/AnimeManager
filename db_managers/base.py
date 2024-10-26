@@ -42,6 +42,8 @@ class BaseDB():
 	def close(self):
 		""" Close the connection to the database
 		"""
+		if self.cur is not None and self.cur._rows is not None:
+			left = self.cur.fetchall()
 		self.cur.close()
 
 	def sql(self, sql, params=[], save=False, to_dict=False):
@@ -112,6 +114,7 @@ class BaseDB():
 	def set(self, id, data, table, save=True):
 		""" Either insert or update, depending on if id exists. Id can be either a single value, a list of values or a dict of key, value pairs.
 		"""
+		# Kinda messy, I would rather not reimplement this method
 		raise NotImplementedError()
 
 	def insert(self, data, table, save=True):

@@ -80,10 +80,6 @@ except ImportError as e:
 	print(e)
 	print('This script should be run as a module!')
 	raise
-# except ModuleNotFoundError as e:
-# 	print(f"Please verify your app installation!\n{traceback.format_exc()}")
-# 	import sys
-# 	sys.exit()
 
 # TodoList - Yeah I know there are better tools for that but I'm lazy
 # TODO - Torrent path dependent of file manager / multiple file managers?
@@ -118,7 +114,7 @@ except ImportError as e:
 # TODO - Add python-based torrent client -> uh oh complicated
 # TODO - Add RSS option
 # TODO - Automatic torrent downloading from RSS?
-# TODO - Qt windows / themes
+# TODO - Qt windows / themes -> nah
 # TODO - Phone version -> Yup maybe not (Apple dev licence is too expensive)
 # TODO - Web version
 
@@ -811,10 +807,10 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 				# Start downloading
 				try:
-					self.tm.add([torrent.to_magnet()], path=path)
+					torrents = self.tm.add([torrent.to_magnet()], path=path)
 
 					# Try to move torrents to anime folder
-					self.tm.move(path=path, hashes=[torrent.hash])
+					self.tm.move(path=path, hashes=[t.hash for t in torrents])
 				except torrent_managers.TorrentException as e:
 					out.put(False)
 					self.log('NETWORK', f"[ERROR] - {str(e)}")

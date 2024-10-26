@@ -17,6 +17,7 @@ class AnimeAPI(Getters, Logger):
 	def __init__(self, apis='all', *args, **kwargs):
 		super().__init__()#logs="ALL")
 		self.apis = []
+		self.sql_queue = queue.Queue()
 		self.init_thread = threading.Thread(
 			target=self.load_apis, args=(apis, *args), kwargs=kwargs, daemon=True)
 		self.init_thread.start()
@@ -44,16 +45,16 @@ class AnimeAPI(Getters, Logger):
 
 		for name in api_names:
 			try:
-				exec(f'from .{name} import {name}Wrapper')
+				exec(f'from .{name} import {name}Wrapper') # TODO - Just ewwww
 			except ImportError as e:
 				self.log("ANIME_SEARCH", name, e)
 			else:
 				try:
 					f = locals()[name + "Wrapper"](*args, **kwargs)
 				except Exception as e:
-					self.log("ANIME_SEARCH", "Error while loading {} API wrapper: \n{}".format(
-						name, traceback.format_exc()))
+					self.log("ANIME_SEARCH", f"Error while loading {name} API wrapper: \n{traceback.format_exc()}")
 				else:
+					f.reroute_sql_queue(self.sql_queue)
 					self.apis.append(f)
 
 		if len(self.apis) == 0:
@@ -73,17 +74,13 @@ class AnimeAPI(Getters, Logger):
 			r = None
 			try:
 				r = f(*args, **kwargs)
-			except requests.exceptions.ConnectionError as e:
-				self.log("ANIME_SEARCH", "Error on API - handler: No internet connection! -", e)
-			except requests.exceptions.ReadTimeout as e:
-				self.log("ANIME_SEARCH", "Error on API - handler: Timed out! -", e)
 			except NoIdFound:
 				pass
 			except Exception as e:
 				self.log(
 					"ANIME_SEARCH", 
 					"Error on API - handler:",
-					api.__name__, "-\n",
+					api.__name__, "\n",
 					traceback.format_exc())
 			else:
 				if r is not None:
@@ -100,15 +97,18 @@ class AnimeAPI(Getters, Logger):
 
 		threads = []
 		que = queue.Queue()
-		# for api in self.apis:
-		#     t = threading.Thread(target=handler, args=(
-		#         api, name, que, *args), kwargs=kwargs, daemon=True)
-		#     t.start()
-		#     threads.append(t)
-
-		# TODO - Until i fix the threads
 		for api in self.apis:
-			handler(api, name, que, *args, **kwargs)
+			t = threading.Thread(
+				target=handler, 
+				args=(api, name, que, *args), 
+				kwargs=kwargs, 
+				daemon=True
+			)
+			t.start()
+			threads.append(t)
+
+		# for api in self.apis:
+		# 	handler(api, name, que, *args, **kwargs)
 
 		# if 'timeout' in kwargs: # Disabled
 		#     delay = max(0, kwargs['timeout']) # Min 0 to loop at least once
@@ -154,7 +154,9 @@ class AnimeAPI(Getters, Logger):
 		if not data:
 			return
 
-		elif isinstance(data, Anime):
+		self.handle_sql_queue()
+
+		if isinstance(data, Anime):
 			exists = bool(database.sql("SELECT EXISTS(SELECT 1 FROM anime WHERE id=?);", (data.id,))[0][0])
 			if exists:
 				if data.status == "UPDATE":
@@ -182,6 +184,11 @@ class AnimeAPI(Getters, Logger):
 		# with database.get_lock():
 		# 	database.set(data['id'], data, table=table)
 		# 	database.save()
+
+	def handle_sql_queue(self):
+		while not self.sql_queue.empty():
+			func, args, kwargs = self.sql_queue.get()
+			func(*args, **kwargs)
 
 # TODO - Add more APIs:
 # nautiljon.com

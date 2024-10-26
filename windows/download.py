@@ -111,7 +111,6 @@ class Download:
                     # Avoid raising an error when the window is closing
                     if self.closing or not self.ddlWindow.winfo_exists():
                         torrents.interrupt()
-                        print("Interrupted")
                         return
 
                     filename = torrent["name"]

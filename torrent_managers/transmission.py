@@ -30,7 +30,7 @@ class Transmission(BaseTorrentManager):
 			self.login_dialog()
 		else:
 			self.client.set_session(incomplete_dir_enabled=False)
-			print('Succesfully connected to Transmission torrent client!')
+			self.log('NETWORK', 'Succesfully connected to Transmission torrent client!')
  
 	def login_dialog(self):
 		fields = {}
@@ -58,8 +58,11 @@ class Transmission(BaseTorrentManager):
 		self.initialize()
 
 	def add(self, magnets, path=None):
+		out = []
 		for magnet in magnets:
-			self.client.add_torrent(torrent=magnet, download_dir=path)
+			t = self.client.add_torrent(torrent=magnet, download_dir=path)
+			out.append(self.convert(t))
+		return out
 
 	def list(self, filter=None, hashes=None):
 		if filter is not None:
@@ -93,12 +96,12 @@ class Transmission(BaseTorrentManager):
 
 	def convert(self, data):
 		t = Torrent(
-			hash=data.hashString,
-			name=data.name,
-			trackers=data.trackers,
-			size=data.total_size,
-			downloaded=int(data.percent_done * data.total_size),
-			path = data.download_dir
+			hash=data.hashString, # this one better be there
+			name=data.get('name', None),
+			trackers=data.get('trackers', []),
+			size=data.get('total_size', 0),
+			downloaded=int(data.get('percent_done', 0) * data.get('total_size', 0)),
+			path = data.get('download_dir', '')
 		)
 		return t
 

@@ -1,6 +1,7 @@
 from datetime import datetime
 import traceback
 from jsonapi_client import Filter, Inclusion, Modifier, Session, relationships, exceptions
+import requests
 
 try:
 	from .APIUtils import Anime, APIUtils, Character
@@ -11,6 +12,16 @@ except ImportError:
 	sys.path.append(os.path.abspath('./'))
 	from APIUtils import Anime, APIUtils, Character
 
+def error_wrapper(func):
+	def wrapper(self, *args, **kwargs):
+		try:
+			return func(self, *args, **kwargs)
+		except requests.exceptions.ConnectionError as e: # Shouldn't be handled here??
+			self.log("ANIME_SEARCH", f"Error on {self.__name__}.{func.__name__}: No internet connection! -", e)
+		except requests.exceptions.ReadTimeout as e:
+			self.log("ANIME_SEARCH", f"Error on {self.__name__}.{func.__name__}: Timed out! -", e)
+		return None
+	return wrapper
 
 class KitsuIoWrapper(APIUtils):
 	def __init__(self):
@@ -22,6 +33,7 @@ class KitsuIoWrapper(APIUtils):
 							"anidb": "anidb_id", "anilist/anime": "anilist_id"}
 		self.subtypes = ('TV', 'movie')
 
+	@error_wrapper
 	def anime(self, id):
 		kitsu_id = self.getId(id)
 		if kitsu_id is None:
@@ -32,6 +44,7 @@ class KitsuIoWrapper(APIUtils):
 		data = self._convertAnime(rep, force=True)
 		return data
 
+	@error_wrapper
 	def animeCharacters(self, id):
 		kitsu_id = self.getId(id)
 		if kitsu_id is None:
@@ -41,7 +54,8 @@ class KitsuIoWrapper(APIUtils):
 			'anime/{}/characters'.format(str(kitsu_id)), modifier)
 		for c in characters:
 			yield self._convertCharacter(c, id)
-			
+
+	@error_wrapper
 	def animePictures(self, id):
 		modifier = Filter(id=id)
 		rep = self.s.get('anime', modifier).resources
@@ -51,6 +65,7 @@ class KitsuIoWrapper(APIUtils):
 			a = []
 		return a
 
+	@error_wrapper
 	def season(self, year, season):
 		modifier = Filter(seasonYear=year,
 						  season=season) + Inclusion("genres",
@@ -62,6 +77,7 @@ class KitsuIoWrapper(APIUtils):
 				continue
 			yield data
 
+	@error_wrapper
 	def schedule(self, limit=50):
 		def getSchedule():
 			modifier = Inclusion(
@@ -138,9 +154,10 @@ class KitsuIoWrapper(APIUtils):
 			try:
 				data = self._convertAnime(a)
 			except Exception as e:
-				print(f'An error occured: {e}')
+				self.log(f'An error occured: {e}')
 				traceback.print_exc()
-				continue
+				# continue
+				raise # Remove for production
 
 			if data is None:
 				continue
@@ -149,6 +166,7 @@ class KitsuIoWrapper(APIUtils):
 			if c >= limit:
 				break
 
+	@error_wrapper
 	def searchAnime(self, search, limit=50):
 		modifier = (
 			Filter(text=search) +
@@ -167,6 +185,7 @@ class KitsuIoWrapper(APIUtils):
 			if c >= limit:
 				break
 
+	@error_wrapper
 	def character(self, id):
 		kitsu_id = self.getId(id, "characters")
 		if kitsu_id is None:
@@ -238,18 +257,7 @@ class KitsuIoWrapper(APIUtils):
 			data['trailer'] = "https://www.youtube.com/watch?v=" + a.youtubeVideoId
 
 		if isinstance(a.relationships.genres, relationships.MultiRelationship):
-			genres = self.getGenres(
-				[
-					dict([
-						('id', e['id']),
-						('name', e['attributes']['name'])
-					])
-					for e in (g.json for g in a.genres)
-				]
-			)
-		else:
-			genres = []
-		data['genres'] = genres
+			self.save_genres(id, [g['name'] for g in a.genres])
 
 		if isinstance(a._relationships['mediaRelationships'], relationships.MultiRelationship):
 			rels = []
@@ -274,12 +282,9 @@ class KitsuIoWrapper(APIUtils):
 
 				if site in self.mappedSites.keys():  # Only save known websites
 					api_key = self.mappedSites[site]
-					mapped.append({
-						'api_key': api_key,
-						'api_id': api_id
-					})
+					mapped.append((api_key, api_id))
 				else:
-					pass
+					pass # TODO - handle unknown sites?
 
 			self.save_mapped(int(a.id), mapped)
 

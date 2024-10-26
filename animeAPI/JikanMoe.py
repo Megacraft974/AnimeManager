@@ -1,6 +1,6 @@
 import re
 import time
-from datetime import date, datetime
+from datetime import datetime
 
 from .APIUtils import Anime, APIUtils, Character, EnhancedSession
 
@@ -60,9 +60,6 @@ class JikanMoeWrapper(APIUtils):
 		if rep.get('status', None) == 429:
 			# Spammed too much
 			return
-
-		if 'data' not in rep:
-			print(rep)
 
 		# Reload database since this might run in a different thread as a generator
 		self.getDatabase()
@@ -224,15 +221,6 @@ class JikanMoeWrapper(APIUtils):
 			out['status'] = self.getStatus(
 				out) if 'status' in a.keys() else None
 
-		if 'genres' in a.keys():
-			genres = self.getGenres([
-					{'id': g['mal_id'], 'name': g['name']}
-					for g in a['genres']
-			])
-		else:
-			genres = []
-		out['genres'] = genres
-
 		if 'relations' in a.keys():
 			rels = []
 			for relation in a['relations']:
@@ -256,10 +244,9 @@ class JikanMoeWrapper(APIUtils):
 					ext_data = self.mapped_external[external['name']]
 					match = re.match(ext_data['regex'], external['url'])
 					if match:
-						mapped.append({
-							'api_key': ext_data['api_key'],
-							'api_id': match.group(1)
-						})
+						api_key = ext_data['api_key']
+						api_id = match.group(1)
+						mapped.append((api_key, api_id))
 
 			self.save_mapped(int(a["mal_id"]), mapped)
 

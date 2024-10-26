@@ -297,19 +297,20 @@ class ItemList():
 					self.new_elem_event["event"].set()
 					self.new_elem_event["enabled"] = False
 				break
-			except requests.exceptions.ConnectionError as e:
-				log("Error on ItemList iterator: No internet connection! -")
-				self.sources.remove(s)
-				break
-			except requests.exceptions.ReadTimeout as e:
-				log("Error on ItemList iterator: Timed out! - ", e)
-				self.sources.remove(s)
-				break
+			# except requests.exceptions.ConnectionError as e: -> This shouldn't be handled here wtf
+			# 	log("Error on ItemList iterator: No internet connection! -")
+			# 	self.sources.remove(s)
+			# 	break
+			# except requests.exceptions.ReadTimeout as e:
+			# 	log("Error on ItemList iterator: Timed out! - ", e)
+			# 	self.sources.remove(s)
+			# 	break
 			except Exception as e:
 				log("Error on ItemList iterator", s,
 					iterator, "\n", traceback.format_exc())
 				self.sources.remove(s)
-				break
+				# break
+				raise # For testing, remove for prod
 			else:
 				id = self.identifier(e)
 				if id not in self.ids:
@@ -427,7 +428,7 @@ class ItemList():
 					try:
 						out = func(idx + index, elem)
 					except Exception as e:
-						print(f'Error on Itemlist.map: {e}')
+						print(f'Error on Itemlist.map: {e}') # TODO - Use logger
 					else:
 						if out is False:
 							if cb is not None:

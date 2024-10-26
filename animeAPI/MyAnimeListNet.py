@@ -146,10 +146,7 @@ class MyAnimeListNetWrapper(APIUtils):
 				out) if 'status' in a.keys() else None
 
 		if 'genres' in a.keys():
-			genres = self.getGenres(a['genres'])
-		else:
-			genres = []
-		out['genres'] = genres
+			self.save_genres(id, [g['name'] for g in a['genres']])
 
 		if 'related_anime' in a.keys():
 			rels = []

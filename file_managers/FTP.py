@@ -31,7 +31,7 @@ class FTPFileManager(BaseFileManager):
         try:
             self.ftp = ftplib.FTP(self.url, timeout=5)
         except TimeoutError:
-            print('Timed out while trying to connect to FTP server') # TODO - Log
+            print('Timed out while trying to connect to FTP server') # TODO - use logger
             self.ftp = None
             return
         except Exception as e:

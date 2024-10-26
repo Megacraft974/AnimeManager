@@ -47,7 +47,7 @@ class qBittorrent(BaseTorrentManager):
                 self.qb = None
                 self.login_event = None
                 # Can't find client, so just ignore
-                print("Couldn't connect to qBittorrent client!")
+                print("Couldn't connect to qBittorrent client!") # TODO - use logger
                 return None
             return self.login_dialog(failed=True)
         else:

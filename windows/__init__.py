@@ -10,7 +10,6 @@ def windows():
             try:
                 exec("from . import " + name)
             except Exception as e:
-                print(f'Error while importing window: {name} - {e}')
                 raise
             module = globals()[name]
             funcname = name[0].upper() + name[1:]
