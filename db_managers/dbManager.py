@@ -8,6 +8,7 @@ import queue
 import time
 from ..classes import Anime, Character, NoneDict, AnimeList, Item, LockWrapper
 from ..logger import log, Logger
+from .base import BaseDB
 
 
 def db(*args, **kwargs):
@@ -18,7 +19,7 @@ def db(*args, **kwargs):
 	
 	return thread_safe_db(*args, **kwargs)
 
-class db_instance():
+class db_instance(BaseDB):
 	'''Database manager using sqlite3'''
 
 	def __init__(self, settings):
@@ -176,12 +177,29 @@ class db_instance():
 					else:
 						return None
 
-	def update(self, key, data, id, table, save=True):
-		sql = "UPDATE " + table + " SET {} = ? WHERE id = ?".format(key)
-		with self.get_lock():
-			self.cur.execute(sql, (data, id))
-			if save:
-				self.save()
+	@BaseDB.id_wrapper # type: ignore
+	def update(self, id, data, table):
+		""" Update data for the given id. Id can be either a single value, a list of values or a dict of key, value pairs.
+		"""
+
+		args = {}
+		for k, v in data.items():
+			if not isinstance(v, (list, tuple)):
+				args[k] = v
+	
+		sets = ', '.join(map(lambda e: f'{e} = %({e})s', args.keys()))
+		sql = "UPDATE " + table + f" SET {sets} WHERE id=%(id)s"
+
+		args['id'] = id
+
+		self.execute(sql, args)
+
+	# def update(self, key, data, id, table, save=True):
+	# 	sql = "UPDATE " + table + " SET {} = ? WHERE id = ?".format(key)
+	# 	with self.get_lock():
+	# 		self.cur.execute(sql, (data, id))
+	# 		if save:
+	# 			self.save()
 
 	def get_lock(self):
 		return self.con
@@ -197,6 +215,7 @@ class db_instance():
 			with self.get_lock():
 				if self.log_commands:
 					log(sql, *args)
+				sql = re.sub(r"%\((\w+)\)s", r":\1", sql)
 				self.cur.execute(sql, *args)
 				if any(map(lambda e: e in sql, ("INSERT", "UPDATE", "DELETE"))):
 					values = iter(*args)
@@ -230,10 +249,14 @@ class db_instance():
 			log(e, sql, *args)
 			raise
 		except sqlite3.ProgrammingError as e:
-			log(e, sql, *args)
 			if e.args[0].startswith('SQLite objects created in a thread can only be used in that same thread.'):
 				raise Exception("Wrong thread")
-			raise
+			elif e.args[0] == 'Cannot operate on a closed cursor.':
+				self.cur = self.con.cursor()
+				return self.execute(sql, *args)
+			else:
+				log(e, sql, *args)
+				raise
 
 	def executemany(self, sql, *args):
 		with self.get_lock():
@@ -250,8 +273,12 @@ class db_instance():
 				log(e, sql, *args)
 				raise
 			except sqlite3.ProgrammingError as e:
-				log(e, sql, *args)
-				raise
+				if e.args[0] == 'Cannot operate on a closed cursor.':
+					self.cur = self.con.cursor()
+					return self.executemany(sql, *args)
+				else:
+					log(e, sql, *args)
+					raise
 
 	def set(self, data, table, save=True):
 		raise NotImplementedError # This function is too much of a mess, just use a different method
@@ -409,27 +436,27 @@ class db_instance():
 		return AnimeList([self.get_all_metadata(Anime(keys=keys, values=data)) for data in data_list])
 		# return (Anime(keys=keys, values=data) for data in data_list)
 
-	def sql(self, sql, values=[], save=False, to_dict=False):
-		if not isinstance(values, dict):
-			values = list(values)  # dict_keys type raise a ValueError
+	# def sql(self, sql, values=[], save=False, to_dict=False):
+	# 	if not isinstance(values, dict):
+	# 		values = list(values)  # dict_keys type raise a ValueError
 
-		with self.get_lock():
-			try:
-				self.execute(sql, values)
-			except sqlite3.ProgrammingError:
-				log(sql, list(values), list(map(type, values)))
-				raise
-			else:
-				if save:
-					self.save()
-				elif to_dict:
-					keys = tuple(k[0] for k in self.cur.description)
-					out = []
-					for data in self.cur:
-						out.append(NoneDict(keys=keys, values=data, default=None))
-					return out
-				else:
-					return self.cur.fetchall()
+	# 	with self.get_lock():
+	# 		try:
+	# 			self.execute(sql, values)
+	# 		except sqlite3.ProgrammingError:
+	# 			log(sql, list(values), list(map(type, values)))
+	# 			raise
+	# 		else:
+	# 			if save:
+	# 				self.save()
+	# 			elif to_dict:
+	# 				keys = tuple(k[0] for k in self.cur.description)
+	# 				out = []
+	# 				for data in self.cur:
+	# 					out.append(NoneDict(keys=keys, values=data, default=None))
+	# 				return out
+	# 			else:
+	# 				return self.cur.fetchall()
 
 	def save(self):
 		with self.get_lock():

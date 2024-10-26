@@ -1,4 +1,5 @@
 from datetime import datetime
+import traceback
 from jsonapi_client import Filter, Inclusion, Modifier, Session, relationships, exceptions
 import requests
 
@@ -154,6 +155,7 @@ class KitsuIoWrapper(APIUtils):
 				data = self._convertAnime(a)
 			except Exception as e:
 				print(f'An error occured: {e}')
+				traceback.print_exc()
 				# continue
 				raise # Remove for production
 
