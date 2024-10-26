@@ -641,7 +641,7 @@ class Getters:
 			globals()['animePicturesCache'] = animePicturesCache = {}
 
 		data = animePicturesCache.get(id,None)
-		
+
 		if not data:
 			# Cache wasn't initialized
 			data = self.database.sql("SELECT url, size FROM pictures WHERE id=?", (id,), to_dict=True)
@@ -660,7 +660,9 @@ class Getters:
 
 	def get_relations(self, id, **filters):
 		data = self.database.sql("SELECT * FROM animeRelations WHERE id=?", (id,), to_dict=True)
-		data = [a for a in data if all(a[k] == v for k, v in filters.items())]
+		if filters:
+			data = filter(lambda a: all(a[k] == v for k, v in filters.items()), data)
+
 		return RegroupList("id", ["rel_id"], *data) #*list(filter(lambda e: all(e[k] == v for k, v in filters.items()), data)))
 
 	def getBroadcast(self, thread=False):

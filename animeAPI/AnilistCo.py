@@ -382,15 +382,8 @@ class AnilistCoWrapper(APIUtils):
 
 		out.status = self.getStatus(out)
 
-		out.genres = self.getGenres(
-			[
-				{
-					'id': None,
-					'name': g
-				}
-				for g in a.get('genres', [])
-			]
-		)
+		if 'genres' in a.keys():
+			self.save_genres(id, a['genres'])
 
 		# Relations
 		rels = []
@@ -413,12 +406,7 @@ class AnilistCoWrapper(APIUtils):
 		# Mapped animes
 		mal_id = a.get('mal_id')
 		if mal_id:
-			mapped = [{
-				'api_key': 'mal_id',
-				'api_id': mal_id
-			}]
-
-			self.save_mapped(a.get('id'), mapped)
+			self.save_mapped(out.id, [('mal_id', mal_id)])
 
 		# Characters
 		for edge in a.get('characters').get('edges'):
@@ -463,7 +451,7 @@ class AnilistCoWrapper(APIUtils):
 			if page is not None:
 				for m in page.get('media', []):
 					yield m
-     
+	 
 				pageInfo = page.get('pageInfo', {})
 				if not pageInfo.get('hasNextPage'):
 					return

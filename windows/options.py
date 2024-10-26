@@ -566,7 +566,7 @@ class Options:
 					)
 					# TODO - Only do a single call to db
 					titles = dict(self.database.sql(sql, rel_ids))
-					text = relation["name"].capitalize().replace("_", " ")
+					text = relation["name"].title().replace("_", " ")
 					rel_tag = self.database.sql('SELECT tag FROM user_tags WHERE user_id=:user_id AND anime_id=:anime_id', {'user_id': user_id, 'anime_id': rel_ids[0]})
 					if len(rel_tag) == 0:
 						rel_tag = 'NONE'

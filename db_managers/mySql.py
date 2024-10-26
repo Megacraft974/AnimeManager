@@ -20,6 +20,8 @@ class MySQL(BaseDB):
 			# Missing some keys
 			raise ValueError('Some keys are missing from configuration!')
   
+		self.cur = None
+  
 		try:
 			self.db = mysql.connector.connect(
 				host=settings['host'],
@@ -147,8 +149,11 @@ class MySQL(BaseDB):
 						if self.cur is not None:
 							try:
 								self.cur.nextset()
-							except Exception as e:
-								pass
+							except AttributeError as e:
+								if e.name == 'next_result':
+									pass # Not sure what this was
+								else:
+									raise
 							self.cur.close()
 						self.get_cursor()
 					except OperationalError:
@@ -169,6 +174,8 @@ class MySQL(BaseDB):
 		return wrapper
 
 	def get_cursor(self):
+		if self.cur and self.cur._rows is not None:
+			left = self.cur.fetchall()  # Fetch all remaining results to clear the cursor
 		self.cur = self.db.cursor(buffered=True)
 		return self.cur
 
@@ -208,7 +215,7 @@ class MySQL(BaseDB):
 		arg = ' AND '.join(map(lambda e: f'{e}=:{e}', id.keys()))
 		sql = "SELECT EXISTS(SELECT 1 FROM " + table + f" WHERE {arg});"
 		self.execute(sql, id)
-		return bool(self.cur.fetchone()[0]) # type: ignore
+		return bool(self.cur.fetchall()[0][0])
 
 	@BaseDB.id_wrapper(single_id=True) # type: ignore
 	def get(self, id, table):
@@ -221,7 +228,7 @@ class MySQL(BaseDB):
 		sql = "SELECT * FROM " + table + f" WHERE {arg};"
 		self.execute(sql, id)
 		# TODO - Format output?
-		data = self.cur.fetchone()
+		data = self.cur.fetchall()[0]
 		
 		if data is None or len(data) == 0:
 			data = {}  # Not found
@@ -270,14 +277,6 @@ class MySQL(BaseDB):
 						return ids[0][0]
 					else:
 						raise Exception('Id wasn\'t inserted, wtf??')
-
-	@BaseDB.id_wrapper # type: ignore
-	def set(self, id, data, table):
-		""" Either insert or update, depending on if id exists. Id can be either a single value, a list of values or a dict of key, value pairs.
-		"""
-
-		# Kinda messy, I would rather not reimplement this method
-		raise NotImplementedError()
 
 	def insert(self, data, table):
 		""" Insert data in a table
