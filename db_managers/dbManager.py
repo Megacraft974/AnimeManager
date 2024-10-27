@@ -216,6 +216,10 @@ class db_instance(BaseDB):
 				if self.log_commands:
 					log(sql, *args)
 				sql = re.sub(r"%\((\w+)\)s", r":\1", sql)
+
+				with open("sql_requests.log", "a") as f:
+					f.write(sql + " // " + str(args) + "\n\n\n")
+
 				self.cur.execute(sql, *args)
 				if any(map(lambda e: e in sql, ("INSERT", "UPDATE", "DELETE"))):
 					values = iter(*args)
@@ -377,7 +381,7 @@ class db_instance(BaseDB):
 					DELETE FROM torrentsIndex WHERE id={id};
 					DELETE FROM genres WHERE id={id};
 					DELETE FROM indexList WHERE id={id};
-					DELETE FROM characters WHERE anime_id={id};
+					DELETE FROM characterRelations WHERE anime_id={id};
 				"""
 				# TODO
 				self.cur.executescript(sql.format(id=id))

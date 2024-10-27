@@ -393,10 +393,7 @@ class AnilistCoWrapper(APIUtils):
 			rel = {
 				'type': node.get('type').lower(),
 				'name': edge.get('relationType'),
-				'rel_id': int(node.get('id')),
-				'anime': {
-					'title': node.get('title', {}).get('english')
-				}
+				'rel_id': int(node.get('id'))
 			}
 			rels.append(rel)
 

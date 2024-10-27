@@ -157,11 +157,7 @@ class MyAnimeListNetWrapper(APIUtils):
 				rel = {
 					'type': 'anime', 
 					'name': relation['relation_type_formatted'], 
-					'rel_id': node['id'], 
-					'anime': {
-						'title': node['title'],
-						'picture': node['main_picture']['medium']
-					}
+					'rel_id': node['id']
 				}
 				rels.append(rel)
 			self.save_relations(id, rels)

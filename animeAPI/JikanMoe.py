@@ -230,8 +230,7 @@ class JikanMoeWrapper(APIUtils):
 					rel = {
 						'type': entry['type'],
 						'name': relation['relation'],
-						'rel_id': int(entry["mal_id"]),
-						'anime': {'title': entry['name']}
+						'rel_id': int(entry["mal_id"])
 					}
 					rels.append(rel)
 			if len(rels) > 0:

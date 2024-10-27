@@ -68,7 +68,7 @@ class APIUtils(Logger, Getters):
 						status = 'FINISHED'
 		return status
 
-	def getId(self, id, table="anime"):
+	def getId(self, id, table="anime"): # TODO - Same name as in database.py -> need renaming
 		""" Get the internal id for an external id. Uses self.apiKey to determine the column to search! """
 
 		table = {'anime': 'indexList', 'characters': 'charactersIndex'}.get(table, table)
@@ -109,7 +109,7 @@ class APIUtils(Logger, Getters):
 					rel["id"] = int(id)
 
 					# Get internal id for relation
-					rel["rel_id"] = self.getId(rel["rel_id"], table="anime")
+					rel["rel_id"] = self.database.getId(self.apiKey, rel["rel_id"], table="anime")
 
 					rel['type'] = str(rel['type']).lower().strip()
 					rel['name'] = str(rel['name']).lower().strip()
@@ -126,8 +126,9 @@ class APIUtils(Logger, Getters):
 							break
 
 					if not found:
-						sql = "INSERT INTO animeRelations (id, type, name, rel_id) VALUES (" + ", ".join("?" * len(rel)) + ");"
-						self.database.sql(sql, rel.values())
+						k, v = list(zip(*rel.items()))
+						sql = "INSERT INTO animeRelations (" + ",".join(k) + ") VALUES (" + ", ".join("?" * len(rel)) + ");"
+						self.database.sql(sql, v)
 
 	@cached_request
 	def save_mapped(self, id, mapped):
@@ -135,6 +136,7 @@ class APIUtils(Logger, Getters):
 		if len(mapped) == 0:
 			return
 
+		return # TODO - Implement this
 		with self.database.get_lock():
 			for m in mapped:  # Iterate over each external anime
 				api_key, api_ip = m
@@ -148,13 +150,13 @@ class APIUtils(Logger, Getters):
 				ass_id = associated[0][0]
 				if ass_id != id: # Merge both ids
 
-					# Remove old id if it exists
-					self.database.remove(ass_id, ['indexList', 'anime']) # TODO - Remove refs in other tables as well
+					# Remove new id and merge with old one
+					self.database.remove(id=id)
 
 					# Merge
 					self.database.sql(
 						f"UPDATE indexList SET {api_key} = ? WHERE id=?",
-						(api_ip, id)
+						(api_ip, ass_id)
 					)
 
 					# TODO - Also update animeRelations!

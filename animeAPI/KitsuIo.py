@@ -265,10 +265,7 @@ class KitsuIoWrapper(APIUtils):
 				rel = {
 					'type': f.destination.type,
 					'name': f.role,
-					'rel_id': f.destination.id,
-					'anime': {
-						'title': f.role + " - " + data['title']
-					}
+					'rel_id': f.destination.id
 				}
 				rels.append(rel)
 			self.save_relations(id, rels)

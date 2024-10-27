@@ -117,7 +117,7 @@ except ImportError as e:
 # TODO - Qt windows / themes -> nah
 # TODO - Phone version -> Yup maybe not (Apple dev licence is too expensive)
 # TODO - Web version
-
+# TODO - Name idea: Nymera ?
 
 class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPresence, *windows.windows()):
 	def __init__(self, remote=False):
