@@ -50,7 +50,7 @@ class MySQL(BaseDB):
 				raise
 
 		self.get_cursor()
-  
+
 		out = self.sql("SELECT table_name FROM information_schema.tables WHERE table_type='BASE TABLE' AND table_schema = 'anime_manager'")
 		if len(out) == 0:
 			self.createNewDb()
@@ -80,6 +80,8 @@ class MySQL(BaseDB):
 				# Should save from within the script
 			except Exception as e:
 				raise
+
+		# TODO - Also add procedures automatically
 
 	def handle_sql_error(func):
 		def wrapper(self, *args, loops=0, **kwargs):
@@ -199,6 +201,13 @@ class MySQL(BaseDB):
 		"""
 		self.db.commit()
 
+	def procedure(self, name, *args):
+		""" Run a stored procedure
+		"""
+		args = self.cur.callproc(name, args,)
+		out = next(self.cur.stored_results(), None)
+		return args, out # TODO - Keep it as an iterator?
+
 	def keys(self, *args, **kwargs):
 		pass
 
@@ -239,39 +248,17 @@ class MySQL(BaseDB):
 
 	def getId(self, apiKey, apiId, table="anime"):
 		if table == "anime":
-			index = "indexList"
+			procedure = "get_anime_id_from_api_id"
 		elif table == "characters":
-			index = "charactersIndex"
+			raise NotImplementedError() # TODO
+		else:
+			raise ValueError("Unknown table for this method", table)
 
 		apiId = int(apiId)
 
-		sql = "SELECT id FROM {} WHERE {}=?;".format(index, apiKey)
-		ids = self.sql(sql, (apiId,))
-		if ids is not None and len(ids) > 0:
-			# Already exists
-			return ids[0][0]
-
-		else:
-			# Doesn't exists, create a new entry
-			with self: # Get lock
-				isql = "INSERT INTO {}({}) VALUES(?)".format(index, apiKey)
-				try:
-					self.execute(isql, (apiId,))
-					
-				except Exception as e:
-					self.log("[ERROR] - On getId:", e)
-					raise
-				
-				else:
-					self.save()
-					
-				finally:
-					ids = self.sql(sql, (apiId,))
-					# if len(ids) == 0 or len(ids[0]) == 0:  #TODO
-					if ids:
-						return ids[0][0]
-					else:
-						raise Exception('Id wasn\'t inserted, wtf??')
+		args, out = self.procedure(procedure, apiKey, apiId)
+		if out is not None:
+			return out.fetchall()[0][0]
 
 	def insert(self, data, table):
 		""" Insert data in a table

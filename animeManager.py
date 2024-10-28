@@ -769,8 +769,17 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				# Should already be in database
 				# TODO - hash is sometimes the anime title??
 				database = self.getDatabase()
-				data = database.sql(
-					'SELECT name, trackers FROM torrents WHERE hash=?', (hash,))[0]
+
+				args, data = database.procedure('get_torrent_data', hash)
+				data = next(data, None)
+				# data = database.sql(
+				# 	'SELECT name, trackers FROM torrents WHERE hash=?', (hash,))[0]
+
+				if data is None: # This should never happen
+					self.log('MAIN_STATE', '[ERROR] - Torrent hash disappeared from database!')
+					out.put(False)  # Download failed
+					return
+
 				torrent = Torrent(hash=hash, name=data[0], trackers=data[1])
 
 			else:

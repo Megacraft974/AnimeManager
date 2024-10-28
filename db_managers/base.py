@@ -96,6 +96,11 @@ class BaseDB():
 		"""
 		raise NotImplementedError()
 
+	def procedure(self, name, *args):
+		""" Run a stored procedure
+		"""
+		raise NotImplementedError()
+
 	def exists(self, id, table):
 		""" Check if an entity exists. Id can be either a single value, a list of values or a dict of key, value pairs.
 		"""

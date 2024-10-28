@@ -141,7 +141,7 @@ class db_instance(BaseDB):
 		else:
 			return NoneDict(out)
 
-	def getId(self, apiKey, apiId, table="anime", add_meta=False):
+	def getId(self, apiKey, apiId, table="anime"):
 		if table == "anime":
 			index = "indexList"
 		elif table == "characters":
@@ -149,17 +149,13 @@ class db_instance(BaseDB):
 
 		apiId = int(apiId)
 
-		sql = "SELECT id FROM {} WHERE {}=?;".format(index, apiKey)
+		sql = "SELECT id FROM indexList WHERE {}=?;".format(apiKey)
 		ids = self.sql(sql, (apiId,))
 		if ids is not None and len(ids) > 0:
-			if add_meta:
-				out = ids[0][0], {"exists": True}
-			else:
-				out = ids[0][0]
-			return out
+			return ids[0][0]
 		else:
 			with self.get_lock():
-				isql = "INSERT INTO {}({}) VALUES(?)".format(index, apiKey)
+				isql = "INSERT INTO indexList({}) VALUES(?)".format(apiKey)
 				try:
 					self.execute(isql, (apiId,))
 				except sqlite3.IntegrityError as e:
@@ -169,11 +165,7 @@ class db_instance(BaseDB):
 					ids = self.sql(sql, (apiId,))
 					# if len(ids) == 0 or len(ids[0]) == 0:  #TODO
 					if ids:
-						if add_meta:
-							out = ids[0][0], {"exists": False}
-						else:
-							out = ids[0][0]
-						return out
+						return ids[0][0]
 					else:
 						return None
 

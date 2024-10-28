@@ -9,7 +9,7 @@ END //
 DROP PROCEDURE IF EXISTS get_anime_data//
 CREATE PROCEDURE get_anime_data(IN a_id INT)
 BEGIN
-	SELECT * FROM animes WHERE id = a_id LIMIT 1;
+	SELECT * FROM anime WHERE id = a_id LIMIT 1;
 END //
 
 DROP PROCEDURE IF EXISTS get_pictures//
@@ -25,24 +25,25 @@ DROP PROCEDURE IF EXISTS anime_exists//
 CREATE PROCEDURE anime_exists(IN a_id INT, OUT result INT)
 BEGIN
 	-- Return the count of records with the given name
-	SELECT COUNT(*) INTO result FROM animes WHERE id = a_id;
+	SELECT COUNT(*) INTO result FROM anime WHERE id = a_id LIMIT 1;
 END //
 
 
 DROP PROCEDURE IF EXISTS save_anime//
 CREATE PROCEDURE save_anime(IN a_id INT, IN a_data JSON)
 BEGIN
-	IF (SELECT COUNT(*) FROM animes WHERE id = a_id) > 0 THEN
+	SET SESSION group_concat_max_len = 50000;
+	IF (SELECT COUNT(*) FROM anime WHERE id = a_id LIMIT 1) > 0 THEN
 		-- If an entry exists, update the existing record
 		SET @update_values = (SELECT GROUP_CONCAT(
 			CONCAT_WS(
-				'=', 
-				JSON_UNQUOTE(JSON_EXTRACT(a_data, CONCAT('$.', column_name))), 
-				column_name
+				'=',
+				column_name,
+				QUOTE(JSON_UNQUOTE(JSON_EXTRACT(a_data, CONCAT('$.', column_name))))
 			)
 			SEPARATOR ', ')
 			FROM information_schema.columns 
-			WHERE table_name = 'anime' AND column_name != 'id');
+			WHERE table_name = 'anime' AND table_schema = 'anime_manager' AND column_name != 'id');
 
 		SET @update_query = CONCAT('UPDATE anime SET ', @update_values, ' WHERE id = ', a_id);
 
@@ -53,13 +54,13 @@ BEGIN
 		-- If no entry exists, insert a new record
 		SET @insert_columns = (SELECT GROUP_CONCAT(column_name) 
 			FROM information_schema.columns 
-			WHERE table_name = 'animes' AND column_name != 'id');
+			WHERE table_name = 'anime' AND column_name != 'id');
 		
-		SET @insert_values = (SELECT GROUP_CONCAT(JSON_UNQUOTE(JSON_EXTRACT(a_data, CONCAT('$.', column_name))) SEPARATOR ', ')
+		SET @insert_values = (SELECT GROUP_CONCAT(QUOTE(JSON_UNQUOTE(JSON_EXTRACT(a_data, CONCAT('$.', column_name)))) SEPARATOR ', ')
 			FROM information_schema.columns 
-			WHERE table_name = 'animes' AND column_name != 'id');
+			WHERE table_name = 'anime' AND column_name != 'id');
 		
-		SET @insert_query = CONCAT('INSERT INTO animes (id, ', @insert_columns, ') VALUES (', a_id, ', ', @insert_values, ')');
+		SET @insert_query = CONCAT('INSERT INTO anime (id, ', @insert_columns, ') VALUES (', a_id, ', ', @insert_values, ')');
 		
 		PREPARE stmt FROM @insert_query;
 		EXECUTE stmt;
@@ -70,11 +71,43 @@ END //
 DROP PROCEDURE IF EXISTS get_anime_id_from_api_id//
 CREATE PROCEDURE get_anime_id_from_api_id(IN a_api_key VARCHAR(255), IN a_api_id INT)
 BEGIN
-	SET @query = CONCAT('SELECT id FROM indexList WHERE ', a_api_key, ' = ', a_api_id, ' LIMIT 1');
+	DECLARE anime_id INT;
+
+	-- Check if the entry exists and fetch the result
+	SET @query = CONCAT('SELECT id INTO @anime_id FROM indexList WHERE ', a_api_key, ' = ', a_api_id, ' LIMIT 1');
 	PREPARE stmt FROM @query;
 	EXECUTE stmt;
 	DEALLOCATE PREPARE stmt;
+
+	-- Assign the result to the variable
+	SET anime_id = @anime_id;
+
+	IF anime_id IS NOT NULL THEN
+		-- If the entry exists, return the id
+		SELECT anime_id;
+	ELSE
+		-- If the entry does not exist, insert a new record
+		SET @insert_query = CONCAT('INSERT INTO indexList(', a_api_key, ') VALUES (', a_api_id, ')');
+		PREPARE stmt FROM @insert_query;
+		EXECUTE stmt;
+		DEALLOCATE PREPARE stmt;
+
+		-- Fetch the id again after insertion
+		SET @query = CONCAT('SELECT id FROM indexList WHERE ', a_api_key, ' = ', a_api_id, ' LIMIT 1');
+		PREPARE stmt FROM @query;
+		EXECUTE stmt;
+		DEALLOCATE PREPARE stmt;
+
+		SELECT id INTO anime_id FROM indexList WHERE a_api_key = a_api_id LIMIT 1;
+
+		IF anime_id IS NOT NULL THEN
+			SELECT anime_id;
+		ELSE
+			SELECT NULL;
+		END IF;
+	END IF;
 END //
+
 
 DROP PROCEDURE IF EXISTS get_broadcast//
 CREATE PROCEDURE get_broadcast(IN a_id INT)

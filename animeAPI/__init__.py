@@ -1,4 +1,5 @@
 
+import json
 import os
 import queue
 import sys
@@ -157,7 +158,16 @@ class AnimeAPI(Getters, Logger):
 		self.handle_sql_queue()
 
 		if isinstance(data, Anime):
-			exists = bool(database.sql("SELECT EXISTS(SELECT 1 FROM anime WHERE id=?);", (data.id,))[0][0])
+
+			data, meta = data.save_format()
+			data = {k: v for k, v in data.items() if v is not None}
+			args, out = database.procedure('save_anime', data['id'], json.dumps(data))
+			return
+			args, out = database.procedure('anime_exists', data.id, 0)
+
+			id, exists = args
+			exists = bool(exists)
+
 			if exists:
 				if data.status == "UPDATE":
 					# Anime already have data, avoid overwriting
