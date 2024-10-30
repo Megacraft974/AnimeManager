@@ -162,24 +162,6 @@ class AnimeAPI(Getters, Logger):
 			data, meta = data.save_format()
 			data = {k: v for k, v in data.items() if v is not None}
 			args, out = database.procedure('save_anime', data['id'], json.dumps(data))
-			return
-			args, out = database.procedure('anime_exists', data.id, 0)
-
-			id, exists = args
-			exists = bool(exists)
-
-			if exists:
-				if data.status == "UPDATE":
-					# Anime already have data, avoid overwriting
-					return
-				else:
-					# Update
-					database.update(data['id'], data, table="anime")
-			else:
-				# Insert
-				database.insert(data, table="anime")
-
-			# database.save()
 
 		elif isinstance(data, Character):
 			table = "characters"

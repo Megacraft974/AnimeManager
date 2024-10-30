@@ -10,7 +10,7 @@ class TestSearch(unittest.TestCase):
 	def setUp(self):
 		self.manager = Manager(remote=True)
 
-	@unittest.skip("Too many problems lol")
+	# @unittest.skip("Too many problems lol")
 	def test_search_online_sync(self):
 		start = time.time()
 		times = []

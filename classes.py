@@ -28,6 +28,7 @@ class Item(dict):
 	def __getattr__(self, key):
 		if key in ("data_keys", "metadata_keys", "default_values"):
 			return self.__dict__[key]
+
 		if key in self.data_keys:
 			if key not in self.keys():
 				if key in self.default_values:
@@ -38,6 +39,7 @@ class Item(dict):
 				if key in self.metadata_keys and callable(self[key]):
 					data = self[key]()
 					self[key] = data
+
 				if self[key] is None and key in self.default_values:
 					return self.default_values[key]
 				else:

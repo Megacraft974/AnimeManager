@@ -410,7 +410,7 @@ class AnilistCoWrapper(APIUtils):
 			c = edge.get('node')
 			c['role'] = edge.get('role')
 
-			self._convertCharacter(c)
+			# self._convertCharacter(c) #TODO
 
 		return out
 

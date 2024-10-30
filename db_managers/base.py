@@ -25,12 +25,14 @@ class BaseDB():
 		
 		return self
 
-	def __exit__(self, *_):
+	def __exit__(self, *_, close_cursor=True):
 		""" Exits the context manager
 		"""
 		if not self.THREAD_SAFE:
 			self.lock.release()
-		self.close()
+
+		if close_cursor:
+			self.close()
 		
 		# return True
 
@@ -42,9 +44,8 @@ class BaseDB():
 	def close(self):
 		""" Close the connection to the database
 		"""
-		if self.cur is not None and self.cur._rows is not None:
-			left = self.cur.fetchall()
-		self.cur.close()
+		if self.cur is not None:
+			self.cur.close()
 
 	def sql(self, sql, params=[], save=False, to_dict=False):
 		""" Run the sql request and can also save or format the output

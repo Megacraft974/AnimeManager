@@ -198,7 +198,7 @@ class Options:
 				user_id = 4
 
 			with self.database:
-				anime = self.database(id=id, table="anime")
+				anime = self.database.get(id=id, table="anime")
 				data = self.database.sql('SELECT tag, liked from user_tags WHERE anime_id=:anime_id AND user_id=:user_id', {'anime_id': id, 'user_id': user_id})
 				if data:
 					anime.tag, anime.like = data[0]

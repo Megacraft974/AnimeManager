@@ -16,8 +16,6 @@ jsonschema==4.7.2
 multidict==6.0.2
 pefile==2022.5.30
 Pillow==9.2.0
-# pyinstaller==5.2
-# pyinstaller-hooks-contrib==2022.8
 pypresence==4.2.1
 pyrsistent==0.18.1
 python-mpv==1.0.1

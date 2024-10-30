@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS `anime` (
   `trailer` text,
   PRIMARY KEY (`id`),
   UNIQUE KEY `id` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS `animeRelations` (
   `type` text NOT NULL,
   `name` text NOT NULL,
   `rel_id` int NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS `broadcasts` (
   `hour` int DEFAULT NULL,
   `minute` int DEFAULT NULL,
   UNIQUE KEY `id` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS `characterRelations` (
   `id` int DEFAULT NULL,
   `anime_id` int DEFAULT NULL,
   `role` text
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS `characters` (
   `picture` text,
   `description` text,
   UNIQUE KEY `id` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS `charactersIndex` (
   UNIQUE KEY `id` (`id`),
   UNIQUE KEY `mal_id` (`mal_id`),
   UNIQUE KEY `kitsu_id` (`kitsu_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -127,7 +127,7 @@ CREATE TABLE IF NOT EXISTS `episodes_seen` (
   `filename` text NOT NULL,
   `seen_date` date NOT NULL,
   PRIMARY KEY (`anime_id`,`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS `episodes_seen` (
 CREATE TABLE IF NOT EXISTS `genres` (
   `id` int NOT NULL,
   `value` int NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS `genresIndex` (
   `name` text,
   PRIMARY KEY (`id`),
   UNIQUE KEY `id` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -169,7 +169,7 @@ CREATE TABLE IF NOT EXISTS `indexList` (
   `anilist_id` int DEFAULT NULL,
   `anidb_id` int DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -181,7 +181,7 @@ CREATE TABLE IF NOT EXISTS `pictures` (
   `id` int NOT NULL,
   `url` text,
   `size` text
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -192,7 +192,7 @@ CREATE TABLE IF NOT EXISTS `pictures` (
 CREATE TABLE IF NOT EXISTS `title_synonyms` (
   `id` int NOT NULL,
   `value` text NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -206,7 +206,7 @@ CREATE TABLE IF NOT EXISTS `torrents` (
   `trackers` text,
   PRIMARY KEY (`hash`),
   UNIQUE KEY `hash` (`hash`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -217,7 +217,7 @@ CREATE TABLE IF NOT EXISTS `torrents` (
 CREATE TABLE IF NOT EXISTS `torrentsIndex` (
   `id` int NOT NULL,
   `value` text NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -230,7 +230,7 @@ CREATE TABLE IF NOT EXISTS `user_tags` (
   `anime_id` int NOT NULL,
   `tag` text,
   `liked` int DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

@@ -1,4 +1,5 @@
 from collections import deque
+import json
 import os
 import queue
 import sys
@@ -166,30 +167,13 @@ class APIUtils(Logger, Getters):
 		# pictures must be a list of dicts, each containing two fields: 'url', 'size'
 		# return # TODO - Put all that stuff in a queue and process everything at once
 		valid_sizes = ('small', 'medium', 'large', 'original')
-		with self.database.get_lock():
-			saved_pics = {p['size']: p for p in self.getAnimePictures(id)}
+		data = []
+		for pic in pictures:
+			if pic['size'] not in valid_sizes or pic['url'] is None:
+				continue
+			data.append(pic)
 
-			pic_update = []
-			pic_insert = []
-
-			for pic in pictures:
-				if pic['size'] not in valid_sizes or pic['url'] is None: continue
-
-				pic['id'] = id
-				if pic['size'] in saved_pics:
-					if pic['url'] != saved_pics[pic['size']]['url']:
-						pic_update.append(pic)
-				else:
-					pic_insert.append(pic)
-
-			if pic_update:
-				sql = "UPDATE pictures SET url=:url WHERE id=:id AND size=:size" # TODO - Not cross compatible MySQL - SQLite!
-				self.database.executemany(sql, pic_update)
-
-			if pic_insert:
-				sql = "INSERT INTO pictures(id, url, size) VALUES (:id, :url, :size)" # TODO - Not cross compatible MySQL - SQLite!
-
-				self.database.executemany(sql, pic_insert)
+		args, out = self.database.procedure('save_picture', id, json.dumps(pictures))
 
 	@cached_request
 	def save_broadcast(self, id, w, h, m):

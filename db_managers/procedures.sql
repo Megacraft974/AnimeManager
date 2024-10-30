@@ -68,6 +68,32 @@ BEGIN
 	END IF;
 END //
 
+DROP PROCEDURE IF EXISTS save_picture//
+CREATE PROCEDURE save_picture(IN p_id INT, IN p_data JSON)
+BEGIN
+	DECLARE p_url TEXT;
+	DECLARE p_size TEXT;
+	DECLARE i INT DEFAULT 0;
+	DECLARE n INT;
+
+	SET n = JSON_LENGTH(p_data);
+
+	WHILE i < n DO
+		SET p_url = JSON_UNQUOTE(JSON_EXTRACT(p_data, CONCAT('$[', i, '].url')));
+		SET p_size = JSON_UNQUOTE(JSON_EXTRACT(p_data, CONCAT('$[', i, '].size')));
+
+		IF (SELECT COUNT(*) FROM pictures WHERE id = p_id AND size = p_size LIMIT 1) > 0 THEN
+			-- If an entry exists with the same id and size, update the existing record
+			UPDATE pictures SET url = p_url WHERE id = p_id AND size = p_size;
+		ELSE
+			-- If no entry exists, insert a new record
+			INSERT INTO pictures (id, url, size) VALUES (p_id, p_url, p_size);
+		END IF;
+
+		SET i = i + 1;
+	END WHILE;
+END //
+
 DROP PROCEDURE IF EXISTS get_anime_id_from_api_id//
 CREATE PROCEDURE get_anime_id_from_api_id(IN a_api_key VARCHAR(255), IN a_api_id INT)
 BEGIN

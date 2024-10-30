@@ -237,7 +237,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		# self.last_broadcasts = self.getBroadcast()
 		# self.checkServer() # For the mobile server
 
-		self.getSchedule(thread=True)
+		# self.getSchedule(thread=True)
 
 		self.log('TIME', "Ready:".ljust(25), round(
 			time.time() - self.start, 2), "sec")

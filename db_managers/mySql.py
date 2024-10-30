@@ -2,7 +2,7 @@ import os
 import re
 import time
 import mysql.connector
-from mysql.connector.errors import ProgrammingError, OperationalError
+from mysql.connector.errors import ProgrammingError, OperationalError, InterfaceError
 
 from ..classes import Anime, AnimeList, Character, NoneDict
 
@@ -10,7 +10,7 @@ from .base import BaseDB
 
 class MySQL(BaseDB):
 
-	THREAD_SAFE = True
+	THREAD_SAFE = False
 
 	def __init__(self, settings) -> None:
 		super().__init__()
@@ -55,6 +55,10 @@ class MySQL(BaseDB):
 		if len(out) == 0:
 			self.createNewDb()
 
+	def __exit__(self, *_):
+		# Overwrite the default __exit__ method since there is no need to close the cursor
+		super().__exit__(close_cursor=False)
+
 	def createNewDb(self, database=None):
 		""" Create a new database
 		"""
@@ -85,6 +89,9 @@ class MySQL(BaseDB):
 
 	def handle_sql_error(func):
 		def wrapper(self, *args, loops=0, **kwargs):
+			if self.cur is None:
+				self.get_cursor()
+
 			try:
 				return func(self, *args, **kwargs)
 			except mysql.connector.errors.DatabaseError as e:
@@ -109,12 +116,7 @@ class MySQL(BaseDB):
 
 				elif e.errno == 2055 or e.msg == 'Cursor is not connected': # Cursor is not connected
 					try:
-						if self.cur is not None:
-							try:
-								self.cur.nextset()
-							except Exception as e:
-								pass
-							self.cur.close()
+						self.close()
 						self.get_cursor()
 					except OperationalError:
 						self.__init__(self.settings)
@@ -125,7 +127,7 @@ class MySQL(BaseDB):
 						raise
 
 				elif e.errno == 2014 or e.errno == 2013 or e.msg == 'Unread result found': # Commands out of sync / Lost connection to MySQL server during query
-					self.cur.close()
+					self.close()
 					try:
 						self.get_cursor()
 					except OperationalError:
@@ -141,6 +143,23 @@ class MySQL(BaseDB):
 				elif e.errno == 2006: # MySQL server has gone away WTF??
 					raise
   
+				elif e.errno == 1213: # Deadlock found when trying to get lock; try restarting transaction
+					if loops < 5:
+						return wrapper(self, *args, loops=loops+1, **kwargs)
+					else:
+						raise
+
+				elif e.errno == 2027: # Malformed communication packet
+					if loops < 5:
+						return wrapper(self, *args, loops=loops+1, **kwargs)
+					else:
+						raise
+				else:
+					raise
+			except InterfaceError as e:
+				# Usually is 'Failed calling stored routine;'
+				if loops < 5:
+					return wrapper(self, *args, loops=loops+1, **kwargs)
 				else:
 					raise
 			except AttributeError as e:
@@ -167,14 +186,29 @@ class MySQL(BaseDB):
 						raise
 				else:
 					raise
+			
+			except Exception as e:
+				raise
 
 		return wrapper
 
+	def clear_cursor(self):
+		if self.cur:
+			if self.cur._rows is not None:
+				left = self.cur.fetchall()  # Fetch all remaining results to clear the cursor
+			if self.cur._stored_results is not None:
+				for data in self.cur.stored_results():
+					left = list(data)
+
 	def get_cursor(self):
-		if self.cur and self.cur._rows is not None:
-			left = self.cur.fetchall()  # Fetch all remaining results to clear the cursor
+		self.clear_cursor()
 		self.cur = self.db.cursor(buffered=True)
 		return self.cur
+
+	def close(self):
+		if self.cur is not None:
+			self.clear_cursor()
+			self.cur.close()
 
 	@handle_sql_error
 	def execute(self, sql, *args):
@@ -201,11 +235,17 @@ class MySQL(BaseDB):
 		"""
 		self.db.commit()
 
+	@handle_sql_error
 	def procedure(self, name, *args):
 		""" Run a stored procedure
 		"""
-		args = self.cur.callproc(name, args,)
-		out = next(self.cur.stored_results(), None)
+		with self:
+			args = self.cur.callproc(name, args,)
+			out = []
+			for result in self.cur.stored_results():
+				if result.with_rows:
+					out.extend(result.fetchall())
+			self.save()
 		return args, out # TODO - Keep it as an iterator?
 
 	def keys(self, *args, **kwargs):
@@ -257,8 +297,8 @@ class MySQL(BaseDB):
 		apiId = int(apiId)
 
 		args, out = self.procedure(procedure, apiKey, apiId)
-		if out is not None:
-			return out.fetchall()[0][0]
+		if out:
+			return out[0][0]
 
 	def insert(self, data, table):
 		""" Insert data in a table
