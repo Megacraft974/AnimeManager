@@ -178,18 +178,7 @@ class APIUtils(Logger, Getters):
 	@cached_request
 	def save_broadcast(self, id, w, h, m):
 		with self.database.get_lock():
-			sql = "SELECT weekday, hour, minute FROM broadcasts WHERE id=?"
-			data = self.database.sql(sql, (id,))
-			if len(data) == 0:
-				# Entry does not exists, inserting
-				sql = "INSERT INTO broadcasts(id, weekday, hour, minute) VALUES (?, ?, ?, ?)"
-				self.database.execute(sql, (id, w, h, m))
-			else:
-				data = data[0]
-				if any((a != b for a, b in zip((w, h, m), data))):
-					# Values are different - Updating
-					sql = "UPDATE broadcasts SET weekday=?, hour=?, minute=? WHERE id=?;"
-					self.database.execute(sql, (w, int(h), int(m), id))
+			args, out = self.database.procedure('save_broadcast', id, w, h, m)
 
 	@cached_request
 	def save_genres(self, id, genres):
@@ -203,43 +192,7 @@ class APIUtils(Logger, Getters):
 		genres = list(sorted(map(format, genres)))
 
 		with self.database.get_lock():
-			sql = ("SELECT name, id FROM genresIndex WHERE name IN(" +
-				",".join("?" * len(genres)) + ")")
-			data = self.database.sql(sql, genres)
-			
-			sql = "SELECT i.name FROM genres AS g, genresIndex AS i WHERE g.value=i.id AND g.id=?;"
-			current = self.database.sql(sql, (id,))
-
-			data = dict(data) # All known genres
-			current = set(current) # Genres currently associated with the anime
-			genres = set(genres) # Genres that should be associated with the anime
-			to_add = [] # Genres to be added to the anime
-
-			new = []
-			for g in genres:
-				if g not in data:
-					# Unknown genre
-					new.append(g)
-
-			if new:
-				sql = "INSERT INTO genresIndex(name) VALUES (?);"
-				self.database.executemany(sql, [(g,) for g in new])
-
-				sql = "SELECT name, id FROM genresIndex WHERE name IN(" + ",".join("?" * len(new)) + ");"
-				new_ids = dict(self.database.sql(sql, new))
-				data = dict_merge(data, new_ids)
-
-			for g in genres:
-				if g in current:
-					current.remove(g) # All good
-				else:
-					to_add.append(g)
-
-			# Current contains extra genres that are unknown to the API
-			# Maybe remove them? or maybe not
-	
-			sql = "INSERT INTO genres(id, value) VALUES (?, ?);"
-			self.database.executemany(sql, [(id, data[g]) for g in to_add])
+			args, out = self.database.procedure('save_genres', id, json.dumps(genres))
 
 	# Character metadata
 

@@ -521,7 +521,7 @@ class Options:
 			genresFrame = Frame(self.optionsWindow, bg=self.colors["Gray2"])
 			genres = anime.genres
 
-			all_genres = dict(self.database.sql("SELECT id, name FROM genresIndex"))
+			all_genres = dict(self.database.sql("SELECT id, name FROM genresIndex")) # This is like, VERY bad
 
 			for genre_id in genres:
 				txt = all_genres.get(genre_id)
