@@ -136,7 +136,7 @@ class SearchTerms:
             )
             if not bool(exists[0][0]):
                 self.database.sql(
-                    "INSERT INTO title_synonyms(id, value) VALUES (?, ?)", (id, term), get_output=False)
+                    "INSERT INTO title_synonyms(id, value) VALUES (?, ?)", (id, term))
 
         if cb:
             cb()
@@ -144,6 +144,6 @@ class SearchTerms:
     def removeSearchTerm(self, id, term, cb=None):
         with self.database.get_lock():
             self.database.sql(
-                "DELETE FROM title_synonyms WHERE id=? AND value=?", (id, term), get_output=False)
+                "DELETE FROM title_synonyms WHERE id=? AND value=?", (id, term))
         if cb:
             cb()

@@ -20,7 +20,7 @@ def search(terms):
 
 	def wrapper(term, que):
 		# command = f'python3 -m nova3.nova2 all anime "{term}"' # For linux only?
-		exec_name = 'python3' if sys.platform == 'linux' else 'python'
+		exec_name = 'python3' if sys.platform == 'linux' else f'"{sys.executable}"' # TODO - Full path for linux?
 		command = f'{exec_name} -m nova3.nova2 all anime "{term}"' # Don't ask why it's named like that, idk either
 		process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True, cwd=root)
 		while True:

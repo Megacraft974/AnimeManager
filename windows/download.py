@@ -44,8 +44,8 @@ class Download:
 
                     # Get titles from database
                     database = self.getDatabase()
-                    data = database(id=id, table="anime")
-                    titles = data.title_synonyms
+                    data = database.get(id=id, table="anime")
+                    titles = data.title_synonyms + [data.title]
                     # titles = [data.title] # only search torrents with main title
 
                     fetcher = search_engines.search(titles)
@@ -81,7 +81,7 @@ class Download:
                         return -1  # Should be inferior to 0
 
                     else:
-                        max_seeds = max(map(itemgetter("seeds"), values))
+                        max_seeds = max(map(lambda e: int(e['seeds']), values))
                         return max_seeds
 
                 keys = (

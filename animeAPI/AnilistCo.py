@@ -132,61 +132,61 @@ class AnilistCoWrapper(APIUtils):
 					'isAdult',
 				]
 			),
-			QueryObject(
-				'relations',
-				fields=[
-					QueryObject(
-						'edges',
-						fields=[
-							'relationType',
-							QueryObject(
-								'node',
-								fields=[
-									'id',
-									QueryObject(
-										'title',
-										fields=[
-											'english',
-										]
-									),
-									'type',
-								]
-							),
-						]
-					),
-				]
-			),
-			QueryObject(
-				'characters',
-				fields=[
-					QueryObject(
-						'edges',
-						fields=[
-							'role',
-							QueryObject(
-								'node',
-								fields=[
-									'id',
-									QueryObject(
-										'name',
-										fields=[
-											'full',
-										]
-									),
-									QueryObject(
-										'image',
-										fields=[
-											'large',
-											'medium',
-										]
-									),
-									'description',
-								]
-							),
-						]
-					),
-				]
-			),
+			# QueryObject(
+			# 	'relations',
+			# 	fields=[
+			# 		QueryObject(
+			# 			'edges',
+			# 			fields=[
+			# 				'relationType',
+			# 				QueryObject(
+			# 					'node',
+			# 					fields=[
+			# 						'id',
+			# 						QueryObject(
+			# 							'title',
+			# 							fields=[
+			# 								'english',
+			# 							]
+			# 						),
+			# 						'type',
+			# 					]
+			# 				),
+			# 			]
+			# 		),
+			# 	]
+			# ),
+			# QueryObject(
+			# 	'characters',
+			# 	fields=[
+			# 		QueryObject(
+			# 			'edges',
+			# 			fields=[
+			# 				'role',
+			# 				QueryObject(
+			# 					'node',
+			# 					fields=[
+			# 						'id',
+			# 						QueryObject(
+			# 							'name',
+			# 							fields=[
+			# 								'full',
+			# 							]
+			# 						),
+			# 						QueryObject(
+			# 							'image',
+			# 							fields=[
+			# 								'large',
+			# 								'medium',
+			# 							]
+			# 						),
+			# 						'description',
+			# 					]
+			# 				),
+			# 			]
+			# 		),
+			# 	]
+			# ),
 			'isAdult',
 			QueryObject(
 				'nextAiringEpisode',
@@ -330,17 +330,16 @@ class AnilistCoWrapper(APIUtils):
 		else:
 			out.synopsis = None
 
-		epoch = datetime(1970, 1, 1)
 		datefrom = a.get('startDate')
 		if None not in datefrom.values():
-			out.date_from = int((datetime(**datefrom)-epoch).total_seconds())
+			out.date_from = datetime(**datefrom).toordinal()
 		else:
 			out.date_from = None
 
 		dateto = a.get('endDate')
 
 		if None not in dateto.values():
-			out.date_to = int((datetime(**dateto)-epoch).total_seconds())
+			out.date_to = datetime(**dateto).toordinal()
 		else:
 			out.date_to = None
 
@@ -386,19 +385,20 @@ class AnilistCoWrapper(APIUtils):
 			self.save_genres(id, a['genres'])
 
 		# Relations
-		rels = []
-		for edge in a.get('relations', {}).get('edges', []):
-			node = edge.get('node', {})
+		if a.get('relations'):
+			rels = []
+			for edge in a.get('relations', {}).get('edges', []):
+				node = edge.get('node', {})
 
-			rel = {
-				'type': node.get('type').lower(),
-				'name': edge.get('relationType'),
-				'rel_id': int(node.get('id'))
-			}
-			rels.append(rel)
+				rel = {
+					'type': node.get('type').lower(),
+					'name': edge.get('relationType'),
+					'rel_id': int(node.get('id'))
+				}
+				rels.append(rel)
 
-		if len(rels) > 0:
-			self.save_relations(id, rels)
+			if len(rels) > 0:
+				self.save_relations(id, rels)
 
 		# Mapped animes
 		mal_id = a.get('mal_id')
@@ -406,11 +406,12 @@ class AnilistCoWrapper(APIUtils):
 			self.save_mapped(out.id, [('mal_id', mal_id)])
 
 		# Characters
-		for edge in a.get('characters').get('edges'):
-			c = edge.get('node')
-			c['role'] = edge.get('role')
+		if a.get('characters'):
+			for edge in a.get('characters').get('edges'):
+				c = edge.get('node')
+				c['role'] = edge.get('role')
 
-			# self._convertCharacter(c) #TODO
+				# self._convertCharacter(c) #TODO
 
 		return out
 

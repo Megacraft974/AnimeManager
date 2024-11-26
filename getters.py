@@ -116,7 +116,7 @@ class Getters:
 		if anime.date_from is None:
 			status = 'UNKNOWN'
 		else:
-			if datetime.utcfromtimestamp(anime.date_from) > datetime.now():
+			if datetime.fromtimestamp(anime.date_from, timezone.utc) > datetime.now(timezone.utc):
 				status = 'UPCOMING'
 			else:
 				if anime.date_to is None:
@@ -125,7 +125,7 @@ class Getters:
 					else:
 						status = 'AIRING'
 				else:
-					if datetime.utcfromtimestamp(anime.date_to) > datetime.now():
+					if datetime.fromtimestamp(anime.date_to, timezone.utc) > datetime.now(timezone.utc):
 						status = 'AIRING'
 					else:
 						status = 'FINISHED'
@@ -286,17 +286,17 @@ class Getters:
 		if status == "UNKNOWN" or datefrom is None:
 			return []
 		
-		datefrom = datetime.utcfromtimestamp(datefrom)
+		datefrom = datetime.fromtimestamp(datefrom, timezone.utc)
 
 		if dateto is not None:
 			if isinstance(dateto, str):
 				dateto = int(dateto)
 
-			dateto = datetime.utcfromtimestamp(dateto)
+			dateto = datetime.fromtimestamp(dateto, timezone.utc)
 		
 		datetext = []
 
-		today = datetime.now()
+		today = datetime.now(timezone.utc)
 		delta = today - datefrom  # - timedelta(days=1)
 		if status == "FINISHED":
 			if dateto is None:
@@ -316,6 +316,7 @@ class Getters:
 				datetext.append("Since {} ({} days)".format(
 					datefrom.strftime("%d %b %Y"), delta.days
 				))
+
 			if anime.broadcast is not None:
 				weekday, hour, minute = map(int, anime.broadcast.split("-"))
 
@@ -645,6 +646,10 @@ class Getters:
 		if not data:
 			# Cache wasn't initialized
 			data = self.database.sql("SELECT url, size FROM pictures WHERE id=?", (id,), to_dict=True)
+			if len(data) == 0:
+				self.database.save() # Anime data might not be saved yet
+				data = self.database.sql("SELECT url, size FROM pictures WHERE id=?", (id,), to_dict=True)
+
 			animePicturesCache[id] = data
 
 		return data

@@ -189,7 +189,7 @@ class APIUtils(Logger, Getters):
 
 		def format(g):
 			return g.title().strip()
-		genres = list(sorted(map(format, genres)))
+		genres = list(sorted(map(format, set(genres))))
 
 		with self.database.get_lock():
 			args, out = self.database.procedure('save_genres', id, json.dumps(genres))
@@ -198,6 +198,7 @@ class APIUtils(Logger, Getters):
 
 	def save_animeography(self, character_id, animes):
 		# animes must be a dict with keys being anime ids and values the role of the character
+		return # TODO - Implement this
 
 		with self.database.get_lock():
 			for anime_id, role in animes.items():

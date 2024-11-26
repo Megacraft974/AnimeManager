@@ -818,8 +818,9 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				try:
 					torrents = self.tm.add([torrent.to_magnet()], path=path)
 
-					# Try to move torrents to anime folder
-					self.tm.move(path=path, hashes=[t.hash for t in torrents])
+					if torrents:
+						# Try to move torrents to anime folder
+						self.tm.move(path=path, hashes=[t.hash for t in torrents])
 				except torrent_managers.TorrentException as e:
 					out.put(False)
 					self.log('NETWORK', f"[ERROR] - {str(e)}")

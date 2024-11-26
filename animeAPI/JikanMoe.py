@@ -150,15 +150,10 @@ class JikanMoeWrapper(APIUtils):
 		out['title_synonyms'] = titles
 
 		if 'aired' in a.keys():
-			epoch = datetime(1970, 1, 1)
 			for i in ('from', 'to'):
 				v = a['aired']['prop'].get(i, None)
 				if v and not None in v.values():
-					out['date_' + i] = int(
-						(datetime(**v)-epoch).total_seconds()
-					)
-					if out['date_' + i] < 0: # Before 1970??
-						out['date_' + i] = None
+					out['date_' + i] = datetime(**v).toordinal()
 				else:
 					out['date_' + i] = None
 		else:
