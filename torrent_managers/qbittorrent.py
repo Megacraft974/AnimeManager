@@ -35,8 +35,8 @@ class qBittorrent(BaseTorrentManager):
             if self.qb is not None:
                 self.qb.auth_log_out()
 
-            self.qb = qbittorrentapi.Client(self.url, REQUESTS_ARGS={'timeout': (2, 2)})
-            self.qb.auth_log_in(self.login, self.password)
+            self.qb = qbittorrentapi.Client(self.url, REQUESTS_ARGS={'timeout': 0.5})
+            self.qb.auth_log_in(self.login, self.password, timeout=0.5)
 
         except qbittorrentapi.exceptions.NotFound404Error as e:
             # 404 Not Found
@@ -50,6 +50,8 @@ class qBittorrent(BaseTorrentManager):
                 print("Couldn't connect to qBittorrent client!") # TODO - use logger
                 return None
             return self.login_dialog(failed=True)
+        except Exception as e:
+            raise 
         else:
             if not self.qb.is_logged_in:
                 # Probably invalid credentials

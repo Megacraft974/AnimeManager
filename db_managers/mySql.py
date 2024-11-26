@@ -1,3 +1,4 @@
+from functools import cache
 import os
 import re
 import time
@@ -85,7 +86,18 @@ class MySQL(BaseDB):
 			except Exception as e:
 				raise
 
-		# TODO - Also add procedures automatically
+		with open(os.path.join(cwd, 'procedures.sql')) as f:
+			script = f.read()
+   
+		script = script.split('//')
+		script = script[1: -1] # Remove first and last lines (DELIMITER)
+
+		for line in script:
+			line = line.strip()
+			if line:
+				self.execute(line)
+		self.save()
+
 
 	def handle_sql_error(func):
 		def wrapper(self, *args, loops=0, **kwargs):
@@ -248,8 +260,12 @@ class MySQL(BaseDB):
 			self.save()
 		return args, out # TODO - Keep it as an iterator?
 
-	def keys(self, *args, **kwargs):
-		pass
+	@cache
+	def keys(self, table):
+		sql = f"SHOW FIELDS FROM {table}"
+		out = self.sql(sql)
+  
+		return [e[0] for e in out]
 
 	@BaseDB.id_wrapper # type: ignore
 	def exists(self, id, table):
@@ -272,7 +288,7 @@ class MySQL(BaseDB):
 		sql = "SELECT * FROM " + table + f" WHERE {arg};"
 		self.execute(sql, id)
 		# TODO - Format output?
-		data = self.cur.fetchall()[0]
+		data = self.cur.fetchone()
 		
 		if data is None or len(data) == 0:
 			data = {}  # Not found

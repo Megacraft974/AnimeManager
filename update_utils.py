@@ -135,7 +135,8 @@ class UpdateUtils:
 			self.log("DB_UPDATE", "No empty directory to remove.")
 
 	def updateStatus(self):
-		self.log("DB_UPDATE", "Updating status")
+		self.log("DB_UPDATE", "Updating status") # TODO - Use procedures
+		return
 		statusUpdate = []
 		database = self.getDatabase()
 		with database.get_lock():

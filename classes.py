@@ -716,7 +716,7 @@ class SortedDict():
 		else:
 			self._keys = keys
 		# Sort alphabetically the keys as a last key -> Avoid most unwanted matchs
-		self._keys = (*self._keys, (lambda e: e[0] or 'None', False))
+		# self._keys = (*self._keys, (lambda e: e[0] or 'None', False)) # But it raises errors sometimes (problem with int < str)
 		self.data_list = SortedList(keys=self._keys)
 		self.reverse = reverse
 		# self.data_list.compare = self.compare

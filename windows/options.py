@@ -99,7 +99,7 @@ class Options:
 				)
 
 			def colorFileEntries(id, eps, epsList):
-				last_seen = self.database(id=id, table="anime")["last_seen"]
+				last_seen = self.database.get(id=id, table="anime")["last_seen"]
 				if len(eps) >= 1 and list(eps)[0] is not None:
 					pathList = [i["path"] for i in eps]
 				else:
@@ -109,7 +109,7 @@ class Options:
 						epsList.menu.entryconfig(i, foreground=self.colors["Green"])
 
 			def like(id, b):
-				liked = bool(self.database(id=id, table="anime").like)
+				liked = bool(self.database.get(id=id, table="anime").like)
 				self.database.set(
 					{"id": id, "like": not liked}, table="anime", get_output=False
 				)
@@ -199,15 +199,21 @@ class Options:
 
 			with self.database:
 				anime = self.database.get(id=id, table="anime")
+
+				if anime.title is None:
+					# No data found??
+					self.database.save()
+
+					anime = self.database.get(id=id, table="anime")
+					if anime.title is None:
+						# Anime doesn't exists anymore
+						return
+
 				data = self.database.sql('SELECT tag, liked from user_tags WHERE anime_id=:anime_id AND user_id=:user_id', {'anime_id': id, 'user_id': user_id})
 				if data:
 					anime.tag, anime.like = data[0]
 
-			if anime.title is None:
-				# Anime doesn't exists anymore
-				return
-
-			if anime.status == "UPDATE" or len(anime.keys()) == 0:
+			if anime.status == "UPDATE" or len(anime.keys()) == 0 or not anime.synopsis:
 				threading.Thread(target=dataUpdate, args=(id,), daemon=True).start()
 
 			if len(anime.keys()) == 0:
@@ -292,7 +298,7 @@ class Options:
 			showFolderButtons = folder is not None and self.fm.exists(folder)
 			if showFolderButtons:
 				command = (  # TODO - How to deal with this with FTP?
-					"explorer " '"{}"'.format(self.animePath + "/" + folder)
+					"explorer " '"{}"'.format(os.path.abspath(folder))
 				)
 				Button(
 					titleFrame,
@@ -521,7 +527,7 @@ class Options:
 			genresFrame = Frame(self.optionsWindow, bg=self.colors["Gray2"])
 			genres = anime.genres
 
-			all_genres = dict(self.database.sql("SELECT id, name FROM genresIndex"))
+			all_genres = dict(self.database.sql("SELECT id, name FROM genresIndex")) # This is like, VERY bad
 
 			for genre_id in genres:
 				txt = all_genres.get(genre_id)
@@ -869,7 +875,7 @@ class Options:
 
 	def delete(self, id):
 		self.log(
-			"DB_UPDATE", f"Deleted {self.database(id=id, table='anime').get('title')}"
+			"DB_UPDATE", f"Deleted {self.database.get(id=id, table='anime').get('title')}"
 		)
 		self.animeList.remove(id=id)
 		self.database.remove(None, id=id, table="anime")
@@ -881,7 +887,7 @@ class Options:
 
 		if self.fm.exists(path):
 			toDelete = []
-			anime = self.database(id=id, table="anime")
+			anime = self.database.get(id=id, table="anime")
 			last_seen = anime.last_seen
 
 			eps = self.getEpisodes(folder)

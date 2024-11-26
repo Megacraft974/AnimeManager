@@ -28,7 +28,6 @@ BEGIN
 	SELECT COUNT(*) INTO result FROM anime WHERE id = a_id LIMIT 1;
 END //
 
-
 DROP PROCEDURE IF EXISTS save_anime//
 CREATE PROCEDURE save_anime(IN a_id INT, IN a_data JSON)
 BEGIN
@@ -134,7 +133,6 @@ BEGIN
 	END IF;
 END //
 
-
 DROP PROCEDURE IF EXISTS get_broadcast//
 CREATE PROCEDURE get_broadcast(IN a_id INT)
 BEGIN
@@ -158,6 +156,40 @@ BEGIN
 		SET weekday = b_weekday, hour = b_hour, minute = b_minute 
 		WHERE id = a_id AND (weekday != b_weekday OR hour != b_hour OR minute != b_minute);
 	END IF;
+END //
+
+DROP PROCEDURE IF EXISTS get_genres//
+CREATE PROCEDURE get_genres(IN a_id INT, IN g_data JSON)
+BEGIN
+	-- TODO: Implement get_genres procedure
+END //
+
+DROP PROCEDURE IF EXISTS save_genres//
+CREATE PROCEDURE save_genres(IN a_id INT, IN g_data JSON)
+BEGIN
+
+	DECLARE genre_name VARCHAR(255);
+	DECLARE genre_id INT;
+	DECLARE i INT DEFAULT 0;
+	DECLARE n INT;
+
+	-- Insert new genres
+	SET n = JSON_LENGTH(g_data);
+	WHILE i < n DO
+		SET genre_name = JSON_UNQUOTE(JSON_EXTRACT(g_data, CONCAT('$[', i, ']')));
+		-- Insert in index
+		IF (SELECT COUNT(*) FROM genresIndex WHERE name = genre_name) = 0 THEN
+			INSERT INTO genresIndex(name) VALUES (genre_name);
+		END IF;
+
+		-- Insert in relation
+		SELECT id INTO genre_id FROM genresIndex WHERE name = genre_name;
+		IF (SELECT COUNT(*) FROM genres WHERE id = a_id AND value = genre_id) = 0 THEN
+			INSERT INTO genres(id, value) VALUES (a_id, genre_id);
+		END IF;
+
+		SET i = i + 1;
+	END WHILE;
 END //
 
 DELIMITER ;

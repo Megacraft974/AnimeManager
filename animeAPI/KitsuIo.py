@@ -231,18 +231,15 @@ class KitsuIoWrapper(APIUtils):
 		self.save_pictures(id, pictures)
 
 		data['title_synonyms'] = list(a.titles.values()) + [data['title']]
-		epoch = datetime(1970, 1, 1)
 		if a.startDate is None:
 			data['date_from'] = None
 		else:
-			d = datetime.fromisoformat(a.startDate)
-			data['date_from'] = int((d - epoch).total_seconds())
+			data['date_from'] = datetime.fromisoformat(a.startDate).toordinal()
 			
 		if a.endDate is None:
 			data['date_to'] = None
 		else:
-			d = datetime.fromisoformat(a.endDate)
-			data['date_to'] = int((d - epoch).total_seconds())
+			data['date_to'] = datetime.fromisoformat(a.endDate).toordinal()
 		
 		data['synopsis'] = a.synopsis
 		data['episodes'] = int(
