@@ -414,6 +414,7 @@ class Getters:
 		return folder
 
 	def getEpisodes(self, folder):
+		"""Lists availabe episodes in a given folder"""
 		def folderLister(folder):
 			if folder in {"", None} or not self.fm.exists(folder):
 				return []

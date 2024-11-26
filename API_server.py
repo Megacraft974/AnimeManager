@@ -76,8 +76,11 @@ app = FastAPI()
 	tags=["Anime"],
 	responses={404: {"description": "Anime not found"}},
 )
-def get_anime(anime_id: int):
+def get_anime(anime_id: int, reload: bool = False):
 	"""Get anime by id"""
+
+	# TODO - Force reload?
+
 	try:
 		data = manager.api.anime(anime_id)
 	except Exception as e:
@@ -202,8 +205,39 @@ def start_download(anime_id: int, link: str, user_id: int):
 
 
 @app.get(
+	'/torrents/progress/{anime_id}',
+	tags=["Torrents"],
+	responses={
+		400: {"description": "Bad request"},
+		401: {"description": "Not authenticated!"},
+	},
+)
+@require_auth
+def torrent_progress(anime_id: int, user_id: int):
+	"""Get torrent download progress."""
+	pass
+
+	# progress = self.get_torrents_progress(id)
+	# torrents = [{'hash': k} | v for k, v in progress.items()]
+
+
+
+@app.get(
+	"/episodes/{anime_id}",
+	tags=["Episodes"],
+	responses={
+		400: {"description": "Bad request"},
+	},
+)
+def get_episodes(anime_id: int):
+	"""Get currently available episodes for an anime."""
+	pass
+	# source = self.main.getFolder(anime=anime)
+	# episodes = self.main.getEpisodes(source)
+
+@app.get(
 	"/watch/{anime_id}/{file}",
-	tags=["Anime"],
+	tags=["Episodes"],
 	responses={
 		400: {"description": "Bad request"},
 		401: {"description": "Not authenticated!"},
