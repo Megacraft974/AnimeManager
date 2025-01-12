@@ -15,3 +15,4 @@ lib/upx-3.96-win64/
 *.log
 test.py
 icons/Thumbs.db
+allout.txt
