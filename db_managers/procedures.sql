@@ -53,11 +53,11 @@ BEGIN
 		-- If no entry exists, insert a new record
 		SET @insert_columns = (SELECT GROUP_CONCAT(column_name) 
 			FROM information_schema.columns 
-			WHERE table_name = 'anime' AND column_name != 'id');
+			WHERE table_name = 'anime' AND table_schema = 'anime_manager' AND column_name != 'id');
 		
 		SET @insert_values = (SELECT GROUP_CONCAT(QUOTE(JSON_UNQUOTE(JSON_EXTRACT(a_data, CONCAT('$.', column_name)))) SEPARATOR ', ')
 			FROM information_schema.columns 
-			WHERE table_name = 'anime' AND column_name != 'id');
+			WHERE table_name = 'anime' AND table_schema = 'anime_manager' AND column_name != 'id');
 		
 		SET @insert_query = CONCAT('INSERT INTO anime (id, ', @insert_columns, ') VALUES (', a_id, ', ', @insert_values, ')');
 		

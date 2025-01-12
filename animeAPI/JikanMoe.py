@@ -99,8 +99,11 @@ class JikanMoeWrapper(APIUtils):
 				if count >= limit:
 					return
 
-		for a in self.searchAnimeLetter(search[0], limit=limit-count):
-			yield a
+		try:
+			for a in self.searchAnimeLetter(search[0], limit=limit-count):
+				yield a
+		except GeneratorExit:
+			pass
 
 	def searchAnimeLetter(self, letter, limit=50):
 		req = f'/anime?letter={letter}&order_by=end_date&sort=desc&page=''{page}'

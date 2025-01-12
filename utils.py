@@ -773,6 +773,22 @@ class AnimeListFrame(ScrollableFrame):
 		last_ind = queue.Queue()
 		last_ind.put(anime_count)
 
+		def draw_row(list_id):
+			buf = []
+			while row:
+				args = row.pop(0)
+				buf.append(args)
+			self.parent.getAnimePicturesCache([a[1].id for a in buf]) # Generate image cache / batch sql requests
+
+			for args in buf:
+				tmp = self.create_elem(*args)
+				if tmp:
+					ids.add(tmp)
+				# if args[1]['status'] == 'UPDATE': # TODO - Use a thread?
+				#     self.parent.api.anime(args[1]['id'])
+			if self.list_id != list_id:
+				return False  # == break
+
 		def func(start, stop, list_id):
 			def wrapped(i, data):
 				if i < 0 or i + start >= stop:
@@ -793,22 +809,10 @@ class AnimeListFrame(ScrollableFrame):
 						).grid(columnspan=self.animePerRow, row=0, pady=50)
 					return False  # == break
 				row.append((i+start, data, que))
+				print(i+start)
 
 				if (i+start) % self.animePerRow == 2:
-					buf = []
-					while row:
-						args = row.pop(0)
-						buf.append(args)
-					self.parent.getAnimePicturesCache([a[1].id for a in buf]) # Generate image cache / batch sql requests
-
-					for args in buf:
-						tmp = self.create_elem(*args)
-						if tmp:
-							ids.add(tmp)
-						# if args[1]['status'] == 'UPDATE': # TODO - Use a thread?
-						#     self.parent.api.anime(args[1]['id'])
-					if self.list_id != list_id:
-						return False  # == break
+					return draw_row(list_id)
 
 			return wrapped
 
@@ -843,9 +847,10 @@ class AnimeListFrame(ScrollableFrame):
 							self.load_more_button(start + i - len(row) + 1)
 
 						else:
-							while row:
-								args = row.pop(0)
-								self.create_elem(*args)
+							# while row:
+							# 	args = row.pop(0)
+							# 	self.create_elem(*args)
+							draw_row(list_id)
 
 						self.list_timer.stats()
 						self.parent.stopSearch = True

@@ -339,7 +339,11 @@ class AnilistCoWrapper(APIUtils):
 		dateto = a.get('endDate')
 
 		if None not in dateto.values():
-			out.date_to = datetime(**dateto).toordinal()
+			try:
+				out.date_to = datetime(**dateto).toordinal()
+			except:
+				# Probably ValueError for an invalid date (like https://anilist.co/manga/81583/34sai-Mushokusan)
+				out.date_to = None
 		else:
 			out.date_to = None
 

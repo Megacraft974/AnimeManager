@@ -23,35 +23,40 @@ try:
 	import requests
 	from PIL import Image, ImageTk
 	from pypresence import Presence
+
 	# from thefuzz import fuzz
-	if getattr(sys, 'frozen', None):
-		basedir = sys._MEIPASS # type: ignore
-		os.environ['REQUESTS_CA_BUNDLE'] = os.path.join(
-			basedir, 'certifi', 'cacert.pem')  # Required for requests and certifi
+	if getattr(sys, "frozen", None):
+		basedir = sys._MEIPASS  # type: ignore
+		os.environ["REQUESTS_CA_BUNDLE"] = os.path.join(
+			basedir, "certifi", "cacert.pem"
+		)  # Required for requests and certifi
 except ModuleNotFoundError as e:
 	import sys
-	if getattr(sys, 'frozen', None):
+
+	if getattr(sys, "frozen", None):
 		print(f"Module missing: {e}")
 	else:
 		print(f"Installing modules! {e}")
-		subprocess.run([
-			sys.executable,
-			"-m",
-			"pip",
-			"install",
-			"qbittorrent-api",
-			"jikanpy",
-			"jsonapi_client",
-			"requests",
-			"Pillow",
-			"bencoding",
-			"thefuzz",
-			"python-mpv",
-			"python-vlc",
-			"pypresence",
-			# "ffpyplayer",
-			# "python-Levenshtein"
-		])
+		subprocess.run(
+			[
+				sys.executable,
+				"-m",
+				"pip",
+				"install",
+				"qbittorrent-api",
+				"jikanpy",
+				"jsonapi_client",
+				"requests",
+				"Pillow",
+				"bencoding",
+				"thefuzz",
+				"python-mpv",
+				"python-vlc",
+				"pypresence",
+				# "ffpyplayer",
+				# "python-Levenshtein"
+			]
+		)
 		# os.execv(sys.executable, ['python'] + sys.argv) # Restart the app
 	time.sleep(20)
 
@@ -64,10 +69,20 @@ try:
 	from . import search_engines
 	from . import utils
 	from . import windows
+
 	# from . import mobile_server
 	from . import torrent_managers
-	from .classes import (Anime, AnimeList, Character, Magnet,
-						  SortedDict, SortedList, Torrent, TorrentList, DefaultDict)
+	from .classes import (
+		Anime,
+		AnimeList,
+		Character,
+		Magnet,
+		SortedDict,
+		SortedList,
+		Torrent,
+		TorrentList,
+		DefaultDict,
+	)
 	from .constants import Constants
 	from .discord_presence import DiscordPresence
 	from .getters import Getters
@@ -78,7 +93,7 @@ try:
 	from .db_managers import databases
 except ImportError as e:
 	print(e)
-	print('This script should be run as a module!')
+	print("This script should be run as a module!")
 	raise
 
 # TodoList - Yeah I know there are better tools for that but I'm lazy
@@ -119,7 +134,16 @@ except ImportError as e:
 # TODO - Web version
 # TODO - Name idea: Nymera ?
 
-class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPresence, *windows.windows()):
+
+class Manager(
+	Constants,
+	Logger,
+	UpdateUtils,
+	Getters,
+	MediaPlayers,
+	DiscordPresence,
+	*windows.windows(),
+):
 	def __init__(self, remote=False):
 		self.start = time.time()
 		Logger.__init__(self)
@@ -136,6 +160,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		self.closing = False
 		self.maxLogsSize = 50000  # In bytes
 		self.blank_image = None
+		self.last_search = 0, ""
 
 		self.root = None
 		self.initWindow = None
@@ -153,32 +178,45 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		self.searchTermsWindow = None
 
 		self.menuOptions = {
-			'Liked characters': {'color': 'Green', 'command': lambda: self.drawCharactersWindow("LIKED")},
-			'Disk manager': {'color': 'Orange', 'command': self.drawDiskWindow},
-			'Log panel': {'color': 'Blue', 'command': self.drawLogsWindow},
-			'Clear logs': {'color': 'Green', 'command': self.clearLogs},
-			'Clear cache': {'color': 'Blue', 'command': self.clearCache},
+			"Liked characters": {
+				"color": "Green",
+				"command": lambda: self.drawCharactersWindow("LIKED"),
+			},
+			"Disk manager": {"color": "Orange", "command": self.drawDiskWindow},
+			"Log panel": {"color": "Blue", "command": self.drawLogsWindow},
+			"Clear logs": {"color": "Green", "command": self.clearLogs},
+			"Clear cache": {"color": "Blue", "command": self.clearCache},
 			# 'Clear db': {'color': 'Red', 'command': self.clearDb},
-			'Settings': {'color': 'Gray', 'command': self.drawSettingsWindow},
-			'Reload': {'color': 'Orange', 'command': self.reloadAll},
-			'Exit': {'color': 'Red', 'command': self.quit}}
+			"Settings": {"color": "Gray", "command": self.drawSettingsWindow},
+			"Reload": {"color": "Orange", "command": self.reloadAll},
+			"Exit": {"color": "Red", "command": self.quit},
+		}
 		self.actionButtons = (
-			{'text': 'Copy title', 'color': 'Green', 'command': self.copy_title},
-			{'text': 'Reload', 'color': 'Blue', 'command': self.reload},
-			{'text': 'Redownload files', 'color': 'Green',
-			 'command': self.redownload},
-			{'text': 'Characters', 'color': 'Green',
-			 'command': self.drawCharactersWindow},
-			{'text': 'Delete seen episodes', 'color': 'Blue',
-			 'command': self.deleteSeenEpisodes},
-			{'text': 'Delete all files', 'color': 'Red',
-			 'command': self.deleteFiles},
-			{'text': 'Remove from db', 'color': 'Red', 'command': self.delete},)
+			{"text": "Copy title", "color": "Green", "command": self.copy_title},
+			{"text": "Reload", "color": "Blue", "command": self.reload},
+			{"text": "Redownload files", "color": "Green", "command": self.redownload},
+			{
+				"text": "Characters",
+				"color": "Green",
+				"command": self.drawCharactersWindow,
+			},
+			{
+				"text": "Delete seen episodes",
+				"color": "Blue",
+				"command": self.deleteSeenEpisodes,
+			},
+			{"text": "Delete all files", "color": "Red", "command": self.deleteFiles},
+			{"text": "Remove from db", "color": "Red", "command": self.delete},
+		)
 
 		self.startup()
 
 	def startup(self):
-		if self.remote is False and sys.platform == 'linux' and 'DISPLAY' not in os.environ:
+		if (
+			self.remote is False
+			and sys.platform == "linux"
+			and "DISPLAY" not in os.environ
+		):
 			# Running headless
 			# This is probably not the expected behavior, but we can't draw windows without a display
 			self.remote = True
@@ -187,8 +225,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		# TODO - Put that in settings
 
 		with self.getDatabase() as self.database:
-			if not os.path.exists(self.dbPath): # TODO
-				print(f'No database found for path: {self.dbPath}')
+			if not os.path.exists(self.dbPath):  # TODO
+				print(f"No database found for path: {self.dbPath}")
 				self.checkSettings()
 				self.reloadAll()
 				return
@@ -209,7 +247,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				self.late_startup()
 
 	def late_startup(self):
-		self.api = animeAPI.AnimeAPI('all')
+		self.api = animeAPI.AnimeAPI("all")
 
 		self.getTorrentManager()
 		# TODO - Put that in settings
@@ -225,7 +263,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			else:
 				# No player found
 				self.player = None
-				self.log('MAIN_STATE', '[ERROR] - No media player found!')
+				self.log("MAIN_STATE", "[ERROR] - No media player found!")
 
 			# No need for Discord RPC if we're in remote mode
 			DiscordPresence.__init__(self)
@@ -239,8 +277,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 		# self.getSchedule(thread=True)
 
-		self.log('TIME', "Ready:".ljust(25), round(
-			time.time() - self.start, 2), "sec")
+		self.log("TIME", "Ready:".ljust(25), round(time.time() - self.start, 2), "sec")
 
 	# ___Search___
 	def search(self, event=None, force_search=False):
@@ -265,11 +302,23 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				self.animeList.set(animeList)
 
 			else:
+				l_time, l_terms = self.last_search
+
+				if l_terms == terms and not force_search:
+					return
+
+				now = time.time()
+				if not force_search and now - l_time < 1:
+					delay = int((1 - now + l_time) * 1000 + 1)
+					self.root.after(delay, self.search)
+					return
+
+				self.last_search = now, terms
+
 				self.stopSearch = False
 				self.loading()
 				self.log("Searching {} with APIs".format(terms))
-				self.animeList.set(self.api.searchAnime(
-					terms, limit=self.animePerPage))
+				self.animeList.set(self.api.searchAnime(terms, limit=self.animePerPage))
 		else:
 			self.animeList.from_filter("DEFAULT")
 
@@ -295,7 +344,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			match = SortedList(keys=[(lambda e: e[1], True)])
 			partial = []
 			for data in self.database.sql(sql):
-				ratio = fuzz.WRatio(terms, data[0]) # type: ignore
+				ratio = fuzz.WRatio(terms, data[0])  # type: ignore
 				if ratio >= match_threshold:
 					match.append((data[1:], ratio))
 				elif ratio >= partial_threshold:
@@ -332,11 +381,10 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			def ngrams(string, n=3):
 				string = [l for l in string.lower() if l.isalnum() or l == " "]
 				ngrams = zip(*[string[i:] for i in range(n)])
-				return (''.join(ngram) for ngram in ngrams)
+				return ("".join(ngram) for ngram in ngrams)
 
 			with self.database.get_lock():
-				data = self.database.sql(
-					"SELECT id, value FROM title_synonyms")
+				data = self.database.sql("SELECT id, value FROM title_synonyms")
 
 				t_ngrams = set(ngrams(terms))
 				matches = DefaultDict(default=0)
@@ -345,18 +393,15 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 						if ngram in t_ngrams:
 							matches[id] += 1
 
-				sql = 'SELECT * FROM anime WHERE id IN(' + \
-					','.join("?" * len(matches)) + ');'
+				sql = (
+					"SELECT * FROM anime WHERE id IN("
+					+ ",".join("?" * len(matches))
+					+ ");"
+				)
 				return AnimeList(
 					Anime(data)
-					for data in SortedList(
-						[(lambda e: matches[e['id']], True)]
-					).extend(
-						self.database.sql(
-							sql,
-							matches.keys(),
-							to_dict=True
-						)
+					for data in SortedList([(lambda e: matches[e["id"]], True)]).extend(
+						self.database.sql(sql, matches.keys(), to_dict=True)
 					)
 				)
 
@@ -367,7 +412,11 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				JOIN anime using(id) 
 				ORDER BY anime.date_from DESC 
 				LIMIT 0, 1000;
-			""".replace('\n', '').replace('\t', '')
+			""".replace(
+				"\n", ""
+			).replace(
+				"\t", ""
+			)
 
 			start = time.time()
 
@@ -380,7 +429,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			threshold = 0.5  # Min fraction of the terms must match
 			max_matchs = 50  # Maximum amount of animes to return
 
-			terms = set(term for term in terms.lower().split(' '))
+			terms = set(term for term in terms.lower().split(" "))
 			terms_count = len(terms)
 
 			marked = False
@@ -391,7 +440,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			# Make sure that there are no other calls to db while iterating
 			# print(f'Anime search: {time.time()-start}s')
 			for data in entries:
-				title = data.pop('value').lower()
+				title = data.pop("value").lower()
 
 				matchs = 0
 				for term in terms:
@@ -415,7 +464,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 					# match.append((data[1:], matchs))
 
-			if not marked: # and len(match) == 0:
+			if not marked:  # and len(match) == 0:
 				# No data found
 				yield False
 				return
@@ -436,7 +485,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		def ngrams(string, n=3):
 			string = [l for l in string.lower() if l.isalnum() or l == " "]
 			ngrams = zip(*[string[i:] for i in range(n)])
-			return (''.join(ngram) for ngram in ngrams)
+			return ("".join(ngram) for ngram in ngrams)
 
 		with self.database.get_lock():
 			data = self.database.sql("SELECT id, value FROM title_synonyms")
@@ -448,18 +497,13 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 					if ngram in t_ngrams:
 						matches[id] += 1
 
-			sql = 'SELECT * FROM anime WHERE id IN(' + \
-				','.join("?" * len(matches)) + ');'
+			sql = (
+				"SELECT * FROM anime WHERE id IN(" + ",".join("?" * len(matches)) + ");"
+			)
 			return AnimeList(
 				Anime(data)
-				for data in SortedList(
-					[(lambda e: matches[e['id']], True)]
-				).extend(
-					self.database.sql(
-						sql,
-						matches.keys(),
-						to_dict=True
-					)
+				for data in SortedList([(lambda e: matches[e["id"]], True)]).extend(
+					self.database.sql(sql, matches.keys(), to_dict=True)
 				)
 			)
 
@@ -471,7 +515,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			hideRated = self.hideRated
 
 		if criteria == "DEFAULT":
-			table = f'anime LEFT JOIN user_tags ON user_tags.anime_id = anime.id AND user_id={int(user_id)}'
+			table = f"anime LEFT JOIN user_tags ON user_tags.anime_id = anime.id AND user_id={int(user_id)}"
 			filter = "anime.status != 'UPCOMING' AND anime.status != 'UNKNOWN'"
 			if hideRated:
 				filter += " AND (rating NOT IN('R+','Rx') OR rating IS null)"
@@ -480,26 +524,30 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 		else:
 			# \nAND rating NOT IN('R+','Rx')"
-			table = f'anime LEFT JOIN user_tags ON user_tags.anime_id = anime.id AND user_id={int(user_id)}'
+			table = f"anime LEFT JOIN user_tags ON user_tags.anime_id = anime.id AND user_id={int(user_id)}"
 			commonFilter = "\nAND status != 'UPCOMING'"
 			order = "date_from"
 			sort = "DESC"
 			if hideRated:
 				commonFilter += " \nAND (rating NOT IN('R+','Rx') OR rating IS null)"
 
-			if criteria == 'LIKED':
+			if criteria == "LIKED":
 				filter = "liked = 1" + commonFilter
 
-			elif criteria == 'NONE':
+			elif criteria == "NONE":
 				filter = "tag IS null OR tag = 'NONE'" + commonFilter
 
-			elif criteria in ['UPCOMING', 'FINISHED', 'AIRING']:
-				if criteria == 'UPCOMING':
-					commonFilter = "\nAND (rating NOT IN('R+','Rx') OR rating IS null)" if hideRated else ""
+			elif criteria in ["UPCOMING", "FINISHED", "AIRING"]:
+				if criteria == "UPCOMING":
+					commonFilter = (
+						"\nAND (rating NOT IN('R+','Rx') OR rating IS null)"
+						if hideRated
+						else ""
+					)
 					sort = "ASC"
 				filter = "status = '{}'".format(criteria) + commonFilter
 
-			elif criteria == 'RATED':
+			elif criteria == "RATED":
 				filter = "rating IN('R+','Rx')\nAND status != 'UPCOMING'"
 
 			elif criteria == "RANDOM":
@@ -507,9 +555,9 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				filter = "anime.picture is not null"
 
 			else:
-				if criteria == 'WATCHING':
+				if criteria == "WATCHING":
 					commonFilter = "\nAND status != 'UPCOMING'"
-					table = f'anime LEFT JOIN broadcasts ON anime.id = broadcasts.id LEFT JOIN user_tags ON user_tags.anime_id = anime.id AND user_id={int(user_id)}'
+					table = f"anime LEFT JOIN broadcasts ON anime.id = broadcasts.id LEFT JOIN user_tags ON user_tags.anime_id = anime.id AND user_id={int(user_id)}"
 					order = """
 						CASE WHEN anime.status = "AIRING" AND broadcasts.weekday IS NOT NULL
 							THEN (
@@ -525,22 +573,30 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 					tz = timezone(timedelta(hours=9))
 					sort_date = datetime.now(tz)
 					order = order.format(
-						sort_date.weekday(), sort_date.hour, sort_date.minute)
+						sort_date.weekday(), sort_date.hour, sort_date.minute
+					)
 					# Depend on timezone - TODO
 				filter = "tag = '{}'".format(criteria) + commonFilter
 
-		args = {'table': table, 'sort': sort,
-				'range': listrange, 'order': order, 'filter': filter}
+		args = {
+			"table": table,
+			"sort": sort,
+			"range": listrange,
+			"order": order,
+			"filter": filter,
+		}
 
 		def get_next(args):
-			listrange = args['range']
+			listrange = args["range"]
 			new_list = self.database.filter(**args)
 			if not new_list.empty():
-				next_range = (listrange[1], listrange[1] +
-							  listrange[1] - listrange[0])
+				next_range = (listrange[1], listrange[1] + listrange[1] - listrange[0])
 				next_args = args.copy()
-				next_args['range'] = next_range
-				def next_list(args=next_args): return get_next(args)
+				next_args["range"] = next_range
+
+				def next_list(args=next_args):
+					return get_next(args)
+
 			else:
 				next_list = None
 			return new_list, next_list
@@ -563,8 +619,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			subprocess.run(cmd)
 			shutil.rmtree(self.cache)
 		except Exception as e:
-			self.log("MAIN_STATE",
-					 "[ERROR] - Cannot delete cache:", e, "-", cmd)
+			self.log("MAIN_STATE", "[ERROR] - Cannot delete cache:", e, "-", cmd)
 
 	def clearDb(self):
 		# ONLY FOR TESTING!!! DO NOT USE WITH PROD DB!
@@ -585,7 +640,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		if self.closing is True:
 			return
 
-		self.log('MAIN_STATE', "Stopping")
+		self.log("MAIN_STATE", "Stopping")
 		if self.root is not None:
 			self.root.withdraw()
 
@@ -601,31 +656,49 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			self.RPC_stop()
 			self.updateAll()
 		except Exception as e:
-			self.log('MAIN_STATE', f"Error while stopping: {e}")
+			self.log("MAIN_STATE", f"Error while stopping: {e}")
 
 		self.database.close()
 
 		self.root.destroy()
 		self.root = None
 
-		self.log('TIME', "Stopping time:".ljust(25),
-				 round(time.time() - self.start, 2), 'sec')
+		self.log(
+			"TIME",
+			"Stopping time:".ljust(25),
+			round(time.time() - self.start, 2),
+			"sec",
+		)
 
 	# ___Utils___
 	def mainloop_error_handler(self, exc, val, tb):
 		if isinstance(exc, TclError) and "application has been destroyed" in val:
 			self.log(
-				"MAIN_STATE", "[ERROR] - In tkinter mainloop: Application has been destroyed")
+				"MAIN_STATE",
+				"[ERROR] - In tkinter mainloop: Application has been destroyed",
+			)
 		else:
-			self.log("MAIN_STATE", "[ERROR] - In tkinter mainloop:\n", ''.join(
-				map(lambda t: t.replace('  ', '    '), traceback.format_exception(exc, val, tb))))
+			self.log(
+				"MAIN_STATE",
+				"[ERROR] - In tkinter mainloop:\n",
+				"".join(
+					map(
+						lambda t: t.replace("  ", "    "),
+						traceback.format_exception(exc, val, tb),
+					)
+				),
+			)
 
-		if isinstance(exc, sqlite3.ProgrammingError) and "SQLite objects created in a thread can only be used in that same thread" in val:
+		if (
+			isinstance(exc, sqlite3.ProgrammingError)
+			and "SQLite objects created in a thread can only be used in that same thread"
+			in val
+		):
 			self.quit()
 			self.startup()
 
 	def reloadAll(self):
-		self.log('MAIN_STATE', "Reloading")
+		self.log("MAIN_STATE", "Reloading")
 		self.stopSearch = True
 		self.closing = True
 		try:
@@ -644,7 +717,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		for i, item in enumerate(processes):
 			thread, text = item
 			try:
-				self.loadLabel['text'] = text
+				self.loadLabel["text"] = text
 			except Exception:
 				if not self.loadingWindow.winfo_exists():
 					break
@@ -653,7 +726,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				time.sleep(1 / 60)
 				loadStart += (loadStop - loadStart) / max(100 - loadStop, 2)
 				try:
-					self.loadProgress['value'] = loadStart
+					self.loadProgress["value"] = loadStart
 				except Exception:
 					if self.closing or not self.loadingWindow.winfo_exists():
 						break
@@ -664,14 +737,18 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		except Exception:
 			pass
 		try:
-			self.log('TIME', "Reload time:".ljust(25),
-							 round(time.time() - self.start, 2), 'sec')
+			self.log(
+				"TIME",
+				"Reload time:".ljust(25),
+				round(time.time() - self.start, 2),
+				"sec",
+			)
 		except AttributeError:
 			pass
 		# self.startup()
 		self.closing = False
 
-		if not os.path.exists(self.dbPath): # TODO
+		if not os.path.exists(self.dbPath):  # TODO
 			self.checkSettings()
 			self.reloadAll()
 			return
@@ -687,7 +764,7 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		else:
 			# No player found
 			self.player = None
-			self.log('MAIN_STATE', '[ERROR] - No media player found!')
+			self.log("MAIN_STATE", "[ERROR] - No media player found!")
 
 		# self.last_broadcasts = self.getBroadcast()
 
@@ -702,14 +779,16 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		index = "indexList"
 		# keys = self.database.keys(table="indexList")
 		ids = self.database.sql(
-			"SELECT * FROM indexList WHERE id=?", (id,), to_dict=True)[0]
+			"SELECT * FROM indexList WHERE id=?", (id,), to_dict=True
+		)[0]
 		# ids = dict(zip(keys, ids))
 		ids.pop("id")
 		for api_key, id in ids.items():
 			if id is not None and api_key in self.websitesViewUrls.keys():
 				url = self.websitesViewUrls[api_key].format(id)
-				threading.Thread(target=webbrowser.open,
-								 args=(url,), daemon=True).start()
+				threading.Thread(
+					target=webbrowser.open, args=(url,), daemon=True
+				).start()
 
 	def loading(self, n=0, after=False):
 		if self.stopSearch:
@@ -720,12 +799,12 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			n = n % len(self.giflist)
 			gif = self.giflist[n % len(self.giflist)]
 			self.loadCanvas.delete(ALL)
-			self.loadCanvas.create_image(
-				gif.width() // 2, gif.height() // 2, image=gif)
+			self.loadCanvas.create_image(gif.width() // 2, gif.height() // 2, image=gif)
 		if self.timer_id is not None:
 			self.initWindow.after_cancel(self.timer_id)
 		self.timer_id = self.initWindow.after(
-			30, self.loading, n + 1, True)  # TODO - Use a timer instead of n
+			30, self.loading, n + 1, True
+		)  # TODO - Use a timer instead of n
 
 	# ___Networking___
 	def downloadFile(self, id, url=None, hash=None, download=True, user_id=None):
@@ -751,11 +830,12 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 						req = requests.get(url, allow_redirects=True)
 					except Exception:
 						self.log(
-							'NETWORK',
+							"NETWORK",
 							"[ERROR] - Error downloading file at url",
 							url,
 							"status_code",
-							req.status_code if req is not None else "unknown")
+							req.status_code if req is not None else "unknown",
+						)
 						out.put(False)  # Download failed
 						return
 
@@ -770,20 +850,23 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				# TODO - hash is sometimes the anime title??
 				database = self.getDatabase()
 
-				args, data = database.procedure('get_torrent_data', hash)
+				args, data = database.procedure("get_torrent_data", hash)
 				data = next(data, None)
 				# data = database.sql(
 				# 	'SELECT name, trackers FROM torrents WHERE hash=?', (hash,))[0]
 
-				if data is None: # This should never happen
-					self.log('MAIN_STATE', '[ERROR] - Torrent hash disappeared from database!')
+				if data is None:  # This should never happen
+					self.log(
+						"MAIN_STATE",
+						"[ERROR] - Torrent hash disappeared from database!",
+					)
 					out.put(False)  # Download failed
 					return
 
 				torrent = Torrent(hash=hash, name=data[0], trackers=data[1])
 
 			else:
-				self.log('MAIN_STATE', '[ERROR] - No torrent provided!')
+				self.log("MAIN_STATE", "[ERROR] - No torrent provided!")
 				out.put(False)  # Download failed
 				return
 
@@ -797,9 +880,12 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 
 				if user_id:
 					tag = database.sql(
-						'SELECT tag FROM user_tags WHERE anime_id=:anime_id AND user_id=:user_id', anime_id=id, user_id=user_id)
-					if tag != 'WATCHING':
-						self.set_tag(id, 'WATCHING', user_id)
+						"SELECT tag FROM user_tags WHERE anime_id=:anime_id AND user_id=:user_id",
+						anime_id=id,
+						user_id=user_id,
+					)
+					if tag != "WATCHING":
+						self.set_tag(id, "WATCHING", user_id)
 					database.save()
 
 			# Add torrent to client
@@ -823,20 +909,25 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 						self.tm.move(path=path, hashes=[t.hash for t in torrents])
 				except torrent_managers.TorrentException as e:
 					out.put(False)
-					self.log('NETWORK', f"[ERROR] - {str(e)}")
+					self.log("NETWORK", f"[ERROR] - {str(e)}")
 				else:
 					self.log(
-						'NETWORK', 'Successfully downloaded torrent, hash:', torrent.hash)
+						"NETWORK",
+						"Successfully downloaded torrent, hash:",
+						torrent.hash,
+					)
 
 			except Exception as e:
 				out.put(False)  # Download failed
-				self.log(
-					'NETWORK', f"[ERROR] - {str(e)}")
+				self.log("NETWORK", f"[ERROR] - {str(e)}")
 
-		assert url is not None or hash is not None, "You need to specify either an url or a file path"
+		assert (
+			url is not None or hash is not None
+		), "You need to specify either an url or a file path"
 		out = queue.Queue()
-		threading.Thread(target=handler, args=(
-			id, out, url, hash, user_id), daemon=True).start()
+		threading.Thread(
+			target=handler, args=(id, out, url, hash, user_id), daemon=True
+		).start()
 		return out
 
 	def redownload(self, id):
@@ -847,18 +938,12 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 				self.downloadFile(id, url=torrent.to_magnet())
 
 			if len(torrents) > 0:
-				self.log(
-					'NETWORK',
-					'Redownloaded {} torrents'.format(
-						len(torrents)))
+				self.log("NETWORK", "Redownloaded {} torrents".format(len(torrents)))
 			else:
-				self.log(
-					'NETWORK',
-					'No torrents to download!'.format(
-						len(torrents)))
+				self.log("NETWORK", "No torrents to download!".format(len(torrents)))
 
 		except torrent_managers.TorrentException as e:
-			self.log('NETWORK', f"[ERROR] - {str(e)}")
+			self.log("NETWORK", f"[ERROR] - {str(e)}")
 
 	def search_torrent(self, id, parent=None):
 		def callback(var, id):
@@ -866,7 +951,8 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			self.textPopupWindow.exit()
 
 			web_reg = re.compile(
-				r"^(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)$")
+				r"^(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)$"
+			)
 			mag_reg = re.compile(r"^magnet:\?xt=urn:\S+$")
 			if re.match(web_reg, text):
 				# Web url
@@ -883,9 +969,9 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 		self.drawTextPopupWindow(
 			parent or self.root,
 			"Search torrents with name:",
-			lambda var,
-			id=id: callback(var, id),
-			fentype="TEXT")
+			lambda var, id=id: callback(var, id),
+			fentype="TEXT",
+		)
 
 	def bluetoothConnect(self):
 		pass
@@ -896,11 +982,13 @@ class Manager(Constants, Logger, UpdateUtils, Getters, MediaPlayers, DiscordPres
 			threading.Thread(target=self.checkServer, daemon=True).start()
 			return
 		if self.enableServer:
-			self.server = mobile_server.startServer( # type: ignore
-				self.hostName, self.serverPort, self)
+			self.server = mobile_server.startServer(  # type: ignore
+				self.hostName, self.serverPort, self
+			)
 		elif self.server is not None:
-			mobile_server.stopServer(self.server, self) # type: ignore
+			mobile_server.stopServer(self.server, self)  # type: ignore
 			self.server = None
+
 
 # if __name__ == '__main__':
 # 	multiprocessing.freeze_support()

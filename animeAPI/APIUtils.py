@@ -129,7 +129,7 @@ class APIUtils(Logger, Getters):
 					if not found:
 						k, v = list(zip(*rel.items()))
 						sql = "INSERT INTO animeRelations (" + ",".join(k) + ") VALUES (" + ", ".join("?" * len(rel)) + ");"
-						self.database.sql(sql, v)
+						self.database.execute(sql, v)
 
 	@cached_request
 	def save_mapped(self, id, mapped):

@@ -209,6 +209,7 @@ class Options:
 						# Anime doesn't exists anymore
 						return
 
+				# TODO - Get rid of that
 				data = self.database.sql('SELECT tag, liked from user_tags WHERE anime_id=:anime_id AND user_id=:user_id', {'anime_id': id, 'user_id': user_id})
 				if data:
 					anime.tag, anime.like = data[0]

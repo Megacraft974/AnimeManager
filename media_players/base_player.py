@@ -12,8 +12,8 @@ if sys.platform == 'win32':
 
 from multiprocessing import Process, freeze_support
 
-from pytube import YouTube
-import pytube.exceptions
+# from pytube import YouTube
+# import pytube.exceptions
 
 from ..constants import Constants
 from ..db_managers import thread_safe_db as db
